@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js
+.next/
+out/
+
+# Java / Maven
+apps/api/target/
+apps/worker/target/
+*.class
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Docker volumes / local data
+.data/
+minio-data/
+postgres-data/
+redis-data/
+meilisearch-data/
+
+# Generated files
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Misc
+docs/adr/
+docs/prompts/
