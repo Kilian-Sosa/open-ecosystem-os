@@ -1,12 +1,21 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { ThemeProvider } from "@/components/theme";
 import { DashboardScreen } from "./dashboard-screen";
 import { dashboardMockData } from "@/lib/dashboard-mock-data";
 
 describe("DashboardScreen", () => {
+  function renderDashboard(state: "normal" | "loading" | "empty" | "error") {
+    render(
+      <ThemeProvider>
+        <DashboardScreen data={dashboardMockData} state={state} />
+      </ThemeProvider>,
+    );
+  }
+
   it("renders the normal dashboard with metrics and operational sections", () => {
-    render(<DashboardScreen data={dashboardMockData} state="normal" />);
+    renderDashboard("normal");
 
     expect(screen.getAllByText("Workspace Dashboard").length).toBeGreaterThan(
       0,
@@ -18,7 +27,7 @@ describe("DashboardScreen", () => {
   });
 
   it("renders the loading dashboard state", () => {
-    render(<DashboardScreen data={dashboardMockData} state="loading" />);
+    renderDashboard("loading");
 
     expect(
       screen.getAllByLabelText("Loading workspace dashboard").length,
@@ -26,7 +35,7 @@ describe("DashboardScreen", () => {
   });
 
   it("renders the empty dashboard state", () => {
-    render(<DashboardScreen data={dashboardMockData} state="empty" />);
+    renderDashboard("empty");
 
     expect(
       screen.getAllByText("No workspace activity yet").length,
@@ -37,7 +46,7 @@ describe("DashboardScreen", () => {
   });
 
   it("renders the error dashboard state", () => {
-    render(<DashboardScreen data={dashboardMockData} state="error" />);
+    renderDashboard("error");
 
     expect(
       screen.getAllByText("Dashboard data could not load").length,
