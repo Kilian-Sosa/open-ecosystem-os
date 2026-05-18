@@ -26,6 +26,29 @@ colors:
   info: "#2563EB"
   infoSoft: "#DBEAFE"
 
+darkColors:
+  background: "#03070E"
+  surface: "#0F1720"
+  surfaceMuted: "#151E2A"
+  surfaceElevated: "#121B26"
+  border: "#273242"
+  borderStrong: "#3D4B5E"
+  textPrimary: "#F8FAFC"
+  textSecondary: "#CBD5E1"
+  textMuted: "#94A3B8"
+  primary: "#A78BFA"
+  primarySoft: "#2F2352"
+  primaryHover: "#C4B5FD"
+  primaryForeground: "#0A0F18"
+  success: "#4ADE80"
+  successSoft: "#14532D"
+  warning: "#FBBF24"
+  warningSoft: "#45300D"
+  danger: "#F87171"
+  dangerSoft: "#451A1F"
+  info: "#60A5FA"
+  infoSoft: "#1E3A8A"
+
 typography:
   sans: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
   mono: "JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
@@ -193,6 +216,8 @@ Themes must be token-based.
 
 Do not allow arbitrary CSS from users.
 
+Theme preference supports `light`, `dark`, and `system`. The browser-local key is `open-ecosystem-os:theme-preference`; future user/workspace settings should map to the same preference names.
+
 Use semantic tokens:
 
 - background
@@ -204,6 +229,8 @@ Use semantic tokens:
 - success
 - warning
 - danger
+
+New components should use token-backed Tailwind classes such as `bg-surface`, `bg-surface-muted`, `text-text-primary`, `text-text-secondary`, `border-border`, `bg-primary`, and status token pairs. Do not use raw palette utilities for product UI unless the token is missing and the design contract is updated in the same change.
 
 Future custom theme builder must validate contrast and export/import JSON.
 
