@@ -19,6 +19,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { SearchInput } from "@/components/ui/search-input";
+import { ThemeSwitcher } from "@/components/theme";
 import { cn } from "@/lib/cn";
 
 type NavigationItem = {
@@ -188,6 +189,7 @@ function TopCommandBar() {
         shortcutLabel="Ctrl K"
       />
       <div className="flex items-center gap-2">
+        <ThemeSwitcher />
         <IconButton label="Open notifications" icon={Bell} />
         <IconButton label="Open help" icon={HelpCircle} />
         <div className="ml-2 flex items-center gap-3 border-l border-border pl-4">
@@ -219,11 +221,13 @@ function MobileTopBar() {
         </div>
         <IconButton label="Open notifications" icon={Bell} />
       </div>
-      <div className="px-4 pb-4">
+      <div className="flex items-center gap-2 px-4 pb-4">
         <SearchInput
           aria-label="Search workspace"
+          className="min-w-0 flex-1"
           placeholder="Search workspace..."
         />
+        <ThemeSwitcher />
       </div>
     </header>
   );
