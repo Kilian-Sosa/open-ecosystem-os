@@ -9,7 +9,7 @@ const eslintConfig = [
       "coverage/**",
       "test-results/**",
       "next-env.d.ts",
-      "vitest.config.ts",
+      "vitest.config.mts",
     ],
   },
   ...nextVitals,
