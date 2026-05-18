@@ -49,6 +49,12 @@ This file defines the reusable UI building blocks Codex should use before creati
 - `ConfirmationDialog`
 - `PermissionDeniedState`
 
+## Theme components
+
+- `ThemeProvider`: resolves `light`, `dark`, and `system` preferences, currently persisted browser-local under `open-ecosystem-os:theme-preference`.
+- `ThemeSwitcher`: accessible segmented theme control using Sun, Moon, and Monitor icons.
+- `ThemeScript`: pre-hydration root theme script to avoid light/dark first-paint flash.
+
 ## File/media components
 
 - `UploadDropzone`
