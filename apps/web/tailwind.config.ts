@@ -4,6 +4,7 @@ const withAlpha = (variable: string) => `rgb(var(${variable}) / <alpha-value>)`;
 
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
+  darkMode: ["selector", '[data-theme="dark"]'],
   theme: {
     extend: {
       colors: {
@@ -41,6 +42,7 @@ const config: Config = {
         "card-hover": "var(--shadow-card-hover)",
       },
       maxWidth: {
+        app: "var(--layout-max-width)",
         shell: "var(--layout-max-width)",
       },
     },
