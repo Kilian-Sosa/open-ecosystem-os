@@ -22,7 +22,7 @@ export function SearchInput({
       <input
         type="search"
         className={cn(
-          "h-11 w-full rounded-card border border-border bg-surface px-9 text-sm text-text-primary shadow-card transition placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20",
+          "h-11 w-full rounded-card border border-border bg-surface px-9 text-sm text-text-primary shadow-card transition placeholder:text-text-muted focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/20",
           shortcutLabel ? "pr-16" : "pr-3",
         )}
         {...props}
