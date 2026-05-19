@@ -129,3 +129,37 @@ The repository includes mockups and screen specs for the full long-term product 
 
 Must not implement P2/P3 screens unless the prompt explicitly asks for them.
 
+## Open Ledger scope status
+
+Open Ledger is not part of the first ecosystem MVP. It is a post-MVP workspace app because it depends on stable foundations already planned for the first vertical slice:
+
+- Drive/file storage
+- Media/OCR processing
+- AI-assisted extraction/classification
+- Notifications
+- Activity/Audit Logs
+- Global Search
+- Open Ecosystem Flows
+
+If reprioritized, Open Ledger should start with its own constrained MVP:
+
+1. manual expenses and income
+2. people/household members
+3. categories/tags
+4. payment methods
+5. monthly dashboard
+6. basic budgets and rules
+7. receipt upload/scan
+8. OCR/AI extraction draft
+9. review-before-save flow
+10. reports and export
+
+Explicitly not included in Open Ledger MVP:
+
+- bank connections
+- investment tracking
+- tax filing
+- regulated financial advice
+- advanced forecasting
+- full product-price intelligence without manual review
+- automated external processing without user consent

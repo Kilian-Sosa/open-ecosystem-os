@@ -130,3 +130,24 @@ Candidates:
 - advanced analytics
 - community forum
 - billing/subscriptions for hosted/support plans
+
+## Phase 11 — Open Ledger finance tracker
+
+Open Ledger should be implemented after the core OCR, events, search, notifications, and workflow foundations are stable.
+
+Deliverables:
+
+- Open Ledger app shell and navigation
+- dashboard with monthly income, expenses, net balance, savings rate, recent transactions, rules, receipt queue, and insights
+- manual expense/income creation
+- transactions table/list with filters and details panel
+- receipt upload/scan review queue
+- OCR/AI extraction draft for receipts
+- budgets and rules page
+- products and prices page with initial product alias support
+- reports page with charts and AI summary placeholder
+- settings page for household, categories, payment methods, OCR/AI, privacy, and localization
+- finance events emitted for audit/search/notifications/workflows
+- finance data export/delete flows
+
+This phase should explicitly avoid bank integrations.

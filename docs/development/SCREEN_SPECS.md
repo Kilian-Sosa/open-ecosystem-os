@@ -308,3 +308,148 @@ Do not implement P2/P3 screens unless the prompt explicitly requests them.
 - Self-hosting Installation
 - Architecture and Design System pages
 
+## Open Ledger screens
+
+Open Ledger is a post-MVP workspace app. Every screen must support desktop and mobile layouts.
+
+### Open Ledger Dashboard
+
+Purpose: summarize monthly finance health and direct users to transactions, receipts, budgets, reports, and product-price insights.
+
+Desktop:
+
+- app sidebar
+- summary metric cards: income, expenses, net balance, savings rate
+- spending by category chart
+- recent transactions table
+- budget rules/habits panel
+- receipt review queue
+- products and prices panel
+- insights and alerts
+
+Mobile:
+
+- top header
+- metric cards in two-column grid
+- quick actions: add expense, add income, scan receipt
+- spending chart
+- recent transactions list
+- active rule alert card
+- bottom navigation with central scan action
+
+### Transactions
+
+Purpose: manage expenses, income, and receipt-based entries.
+
+Desktop:
+
+- add expense, add income, scan receipt actions
+- filters by period, category, person, shop/source, status
+- summary metric cards
+- transaction table
+- right transaction detail panel
+- bulk actions and export
+
+Mobile:
+
+- filter chips and search
+- summary cards
+- transaction cards
+- floating add/scan action
+
+### Receipts
+
+Purpose: scan/upload, process, review, and confirm receipts.
+
+Desktop:
+
+- scan/upload/review queue actions
+- receipt filters
+- receipt table
+- right review panel with receipt preview, parsed fields, line items, AI suggestions, confidence, confirm/edit/re-run actions
+
+Mobile:
+
+- receipt cards
+- selected receipt bottom sheet with line items and confirm action
+
+### Budgets & Rules
+
+Purpose: define category budgets, habit rules, and savings goals.
+
+Desktop:
+
+- create budget/rule actions
+- filters by period/person/category/status
+- budget summary cards
+- budgets by category table
+- rules and habits list
+- alerts/recommendations
+- spending trend vs budget chart
+
+Mobile:
+
+- tabs for all/budgets/rules/alerts
+- budget cards
+- rules cards
+- alerts cards
+
+### Products & Prices
+
+Purpose: compare recurring product prices across stores and detect savings opportunities.
+
+Desktop:
+
+- compare products/add alias/review alerts actions
+- filters by period/store/category/product
+- tracked products and price opportunity metrics
+- product comparison table
+- selected product price history and store ranking panel
+- category savings overview
+- store basket comparison chart
+
+Mobile:
+
+- top product cards
+- store ranking cards
+- alerts/recommendations
+
+### Reports
+
+Purpose: explain income, expenses, savings, categories, stores, people, and product-price trends.
+
+Desktop:
+
+- report filters
+- KPI cards
+- income vs expenses trend
+- spending by category
+- spending by merchant
+- monthly comparison
+- spending by person
+- recurring vs variable expenses
+- AI summary
+- report presets/export
+
+Mobile:
+
+- report tabs
+- KPI cards
+- charts as stacked cards
+- AI insights card
+
+### Settings
+
+Purpose: configure household, categories, payment methods, recurring items, OCR/AI parsing, rules, notifications, privacy, and localization.
+
+Desktop:
+
+- settings navigation
+- cards for household, categories, payment methods, recurring income/expenses, OCR/AI parsing, budget defaults, notifications, privacy/data, localization
+- save/reset actions
+- privacy-first explainer panel
+
+Mobile:
+
+- accordion settings groups
+- sticky save action

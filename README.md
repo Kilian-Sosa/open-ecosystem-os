@@ -102,3 +102,8 @@ This repository now includes implementation-facing design references:
 
 Must treat the mockups as visual references, not as pixel-perfect implementation contracts. The source of truth remains `DESIGN.md`, `AGENTS.md`, and the written screen specs.
 
+## Planned app: Open Ledger
+
+Open Ledger is a planned post-MVP finance tracker for manual expenses/income, receipt OCR, AI-assisted categorization, budgets/rules, product-price intelligence, reports, and privacy-first household finance tracking.
+
+It intentionally avoids bank connections in the initial roadmap. See `docs/product/OPEN_LEDGER.md` for the detailed logic and `docs/design/mockups/apps/open-ledger/` for the mockups.

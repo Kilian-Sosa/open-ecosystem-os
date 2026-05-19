@@ -27,7 +27,8 @@ Upload invoice PDF to Drive
   -> Open Ecosystem Flows matches workflow trigger
   -> Extract invoice fields using AI/mock extractor
   -> Create Open Pages/Knowledge entry
-  -> Send review notification
+  -> Create Kanban task or approval request
+  -> Send notification
   -> Audit log records full chain
 ```
 
