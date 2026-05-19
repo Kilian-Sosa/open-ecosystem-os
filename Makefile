@@ -71,7 +71,7 @@ ps:
 	$(COMPOSE_BASE) ps
 
 obs-up: ensure-env
-	$(COMPOSE_OBS) --env-file .env up -d
+	$(COMPOSE_OBS) --env-file .env up -d --build
 
 obs-down:
 	$(COMPOSE_OBS) down

@@ -75,6 +75,54 @@ Initial local stack:
 
 See `infra/docker/docker-compose.yml` and `infra/docker/docker-compose.observability.yml`.
 
+### Docker Compose startup
+
+Create a local environment file and start the base stack:
+
+```bash
+cp .env.example .env
+make docker-up
+make ps
+```
+
+Useful follow-up commands:
+
+```bash
+make logs
+make down
+```
+
+Equivalent direct Docker Compose commands from the repository root:
+
+```bash
+docker compose --env-file .env -f infra/docker/docker-compose.yml up -d --build
+docker compose --env-file .env -f infra/docker/docker-compose.yml ps
+docker compose --env-file .env -f infra/docker/docker-compose.yml down
+```
+
+Start the optional observability stack only with the override file:
+
+```bash
+make obs-up
+```
+
+or:
+
+```bash
+docker compose --env-file .env -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.observability.yml up -d --build
+```
+
+Default local endpoints:
+
+- Web: `http://localhost:3000`
+- API health: `http://localhost:8080/health`
+- RabbitMQ management: `http://localhost:15672`
+- MinIO API: `http://localhost:9000`
+- MinIO console: `http://localhost:9001`
+- Grafana with observability override: `http://localhost:3001`
+
+PostgreSQL, Redis, RabbitMQ AMQP, and Meilisearch are kept on the internal Compose network by default. Expose additional data-service ports only when a local debugging workflow needs them.
+
 ## Development, CI/CD, and AI workflow
 
 The development process is documented in:
