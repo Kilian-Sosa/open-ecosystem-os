@@ -1,8 +1,5 @@
-import type { Config } from "tailwindcss";
-
-const withAlpha = (variable: string) => `rgb(var(${variable}) / <alpha-value>)`;
-
-const config: Config = {
+/** @type {import("tailwindcss").Config} */
+const config = {
   content: ["./src/**/*.{ts,tsx}"],
   darkMode: ["selector", '[data-theme="dark"]'],
   theme: {
@@ -49,5 +46,9 @@ const config: Config = {
   },
   plugins: [],
 };
+
+function withAlpha(variable) {
+  return `rgb(var(${variable}) / <alpha-value>)`;
+}
 
 export default config;
