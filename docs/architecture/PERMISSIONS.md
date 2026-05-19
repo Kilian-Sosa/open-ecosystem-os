@@ -105,3 +105,45 @@ Later plugin system should require explicit scopes:
 - access secrets/credentials
 
 Plugins must never receive broad access by default.
+
+## Open Ledger permissions
+
+Open Ledger data is sensitive and must be protected by workspace, household, and role permissions.
+
+Resources:
+
+- `finance.transaction`
+- `finance.receipt`
+- `finance.budget`
+- `finance.rule`
+- `finance.product`
+- `finance.report`
+- `finance.settings`
+- `finance.export`
+- `finance.delete`
+
+Actions:
+
+- view
+- create
+- edit
+- delete
+- confirm
+- export
+- manage
+- share
+
+Suggested permissions:
+
+| Role | Permissions |
+|---|---|
+| Owner | Full finance access, export/delete data, manage household/settings |
+| Member | Create/edit own transactions, view shared household finance data when enabled |
+| Viewer | Read-only access to selected reports/transactions |
+| Auditor | View audit-safe finance events, not necessarily receipt contents |
+
+AI/OCR rules:
+
+- AI categorization can suggest fields but must respect user/workspace access.
+- Receipt text and parsed content must not be sent to external providers unless AI settings allow it.
+- Finance exports and deletes require explicit confirmation and should create audit records.

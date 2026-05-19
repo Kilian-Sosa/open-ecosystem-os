@@ -1,88 +1,81 @@
 # Route Map
 
-This is the Next.js route structure. Route priorities follow the design catalog:
-
-- `P0`: first vertical slice / foundation
-- `P1`: MVP
-- `P2`: post-MVP
-- `P3`: long-term/showcase
-
-Do not scaffold or implement `P2`/`P3` routes unless a task explicitly requests them.
+This is the proposed Next.js route structure. It is a planning artifact until the frontend app is generated.
 
 ## Public product / portfolio routes
 
 ```txt
-/                              P1  Public landing page
-/about                         P2  About page
-/apps                          P2  Apps overview
-/architecture                   P1  Architecture overview
-/architecture/infrastructure    P1  Architecture and infrastructure blueprint
-/design-system                  P1  Design system
-/self-hosting                   P1  Self-hosting installation
-/roadmap                        P2  Roadmap
-/changelog                      P2  Changelog
-/case-studies/flows             P2  Case Study: Open Ecosystem Flows
-/case-studies/open-pages        P2  Case Study: Open Pages
-/case-studies/media-ocr         P2  Case Study: Media/OCR Pipeline
-/docs                           P2  Documentation index
+/                              Public landing page
+/about                         About page
+/apps                          Apps overview
+/architecture                  Architecture overview
+/architecture/infrastructure   Architecture and infrastructure blueprint
+/design-system                  Design system
+/self-hosting                   Self-hosting installation
+/roadmap                        Roadmap
+/changelog                      Changelog
+/case-studies/flows             Case Study: Open Ecosystem Flows
+/case-studies/open-pages        Case Study: Open Pages
+/case-studies/media-ocr         Case Study: Media/OCR Pipeline
+/docs                           Documentation index
 ```
 
 ## Authentication / onboarding routes
 
 ```txt
-/login                          P1  Login
-/register                       P2  Optional registration
-/onboarding                     P0  First-time setup / onboarding
+/login                          Login
+/register                       Optional registration
+/onboarding                     First-time setup / onboarding
 ```
 
 ## Workspace routes
 
 ```txt
-/app/dashboard                  P0  Workspace dashboard
-/app/drive                      P0  Drive / file manager
-/app/media                      P0  Media / OCR
-/app/flows                      P0  Open Ecosystem Flows
-/app/notifications              P0  Notification center
-/app/settings                   P1  User/workspace settings
-/app/search                     P1  Global search results
-/app/pdf                        P1  PDF editor
-/app/pages                      P1  Open Pages
-/app/forms                      P2  Forms and approvals
-/app/kanban                     P2  Kanban board
+/app/dashboard                  Workspace dashboard
+/app/drive                      Drive / file manager
+/app/pdf                        PDF editor
+/app/pages                      Open Pages
+/app/flows                      Open Ecosystem Flows
+/app/media                      Media / OCR
+/app/forms                      Forms and approvals
+/app/kanban                     Kanban board
+/app/search                     Global search results
+/app/notifications              Notification center
+/app/settings                   User/workspace settings
 ```
 
 ## Admin/platform routes
 
 ```txt
-/admin                          P2  Admin dashboard
-/admin/system-status            P1  System status
-/admin/security                 P1  Security settings
-/admin/audit                    P0  Activity / audit logs
-/admin/backups                  P1  Backup and restore
-/admin/integrations             P2  Integrations
-/admin/apps                     P2  App management
-/admin/analytics                P2  Advanced admin analytics
-/admin/import-export            P2  Import / export and migration
+/admin                          Admin dashboard
+/admin/system-status            System status
+/admin/security                 Security settings
+/admin/audit                    Activity / audit logs
+/admin/backups                  Backup and restore
+/admin/integrations             Integrations
+/admin/apps                     App management
+/admin/analytics                Advanced admin analytics
+/admin/import-export            Import / export and migration
 ```
 
 ## Developer/open-source routes
 
 ```txt
-/developer/api                  P2  API explorer
-/developer/events               P2  Event catalog
-/developer/adrs                 P2  ADR / technical decisions
-/developer/marketplace          P3  Marketplace
-/developer/plugins              P3  Plugin developer portal
-/developer/plugin-review        P3  Plugin review/admin flow
-/community                      P3  Community forum
+/developer/api                  API explorer
+/developer/events               Event catalog
+/developer/adrs                 ADR / technical decisions
+/developer/marketplace          Marketplace
+/developer/plugins              Plugin developer portal
+/developer/plugin-review        Plugin review/admin flow
+/community                      Community forum
 ```
 
 ## Later/showcase routes
 
 ```txt
-/app/music                      P3  Music player
-/app/video                      P3  Video player
-/billing                        P3  Billing / subscriptions
+/app/music                      Music player
+/app/video                      Video player
+/billing                        Billing / subscriptions
 ```
 
 ## Next.js grouping recommendation
@@ -95,3 +88,17 @@ apps/web/src/app/
   (admin)/admin/
   (developer)/developer/
 ```
+
+## Open Ledger routes
+
+```txt
+/app/ledger                         Open Ledger dashboard
+/app/ledger/transactions            Transactions
+/app/ledger/receipts                Receipts and receipt review
+/app/ledger/budgets-rules           Budgets and rules
+/app/ledger/products-prices         Products and prices
+/app/ledger/reports                 Finance reports
+/app/ledger/settings                Finance settings
+```
+
+Open Ledger routes belong under the authenticated workspace route group. They should use the app shell, the Open Ledger sub-navigation, and the mobile bottom navigation pattern.

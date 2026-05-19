@@ -122,3 +122,25 @@ NestJS is a valid option for faster full-stack TypeScript delivery, but Spring B
 - Raw Kubernetes manifests vs Helm chart
 - TipTap vs Lexical
 - Spring Boot workers vs separate worker runtime
+
+## Open Ledger technology choices
+
+| Area | Suggested technology | Notes |
+|---|---|---|
+| Dashboard and reports | Recharts or token-based chart components | Use shared design tokens; avoid hardcoded chart colors. |
+| Transaction forms | React Hook Form + Zod | Strong validation for amount, dates, category, person, and payment method. |
+| Tables/lists | Shared DataTable + MobileCardList | Desktop table, mobile card list. |
+| Receipt upload | Existing Drive/Media upload components | Reuse UploadDropzone and FilePreview. |
+| OCR | Existing Media/OCR pipeline | Receipt OCR should be an app-specific consumer of the generic OCR pipeline. |
+| AI categorization | AI Assistant/tool service | AI returns suggestions, never final unreviewed writes for low-confidence extraction. |
+| Product matching | Backend service + JSONB alias metadata | Start rule-based/manual, then add AI-assisted matching. |
+| Search | Meilisearch | Index transactions, merchants, receipt text, products, and reports. |
+| Events | RabbitMQ + outbox | Finance events should drive audit, notifications, search, and automations. |
+| Storage | PostgreSQL + JSONB + MinIO | Relational transaction data, JSONB parsed receipt payloads, MinIO receipt files. |
+
+Backend modules likely needed:
+
+- `finance` for transactions, budgets, products, reports, and settings
+- `receipt-processing` integration with Media/OCR and AI parsing
+- `finance-rules` for budgets, habits, and alerts
+- `product-price-intelligence` for line items, aliases, unit prices, and store ranking

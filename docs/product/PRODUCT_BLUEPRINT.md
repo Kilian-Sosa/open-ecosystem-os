@@ -116,7 +116,8 @@ Upload PDF invoice
   -> AI/mock extractor extracts invoice fields
   -> Open Ecosystem Flows reacts to OCR completion
   -> Knowledge/Open Pages item is created
-  -> Review notification is sent
+  -> Kanban task or approval is created
+  -> Notification is sent
   -> Audit trail records every action
 ```
 
@@ -184,3 +185,24 @@ Includes:
 ## Implementation warning
 
 The public design catalog represents the long-term vision. MVP implementation must still prioritize the flagship invoice automation journey and avoid building every designed screen upfront.
+
+## Open Ledger product area
+
+Open Ledger is the planned finance-tracking app for the ecosystem. It is a self-hosted personal/household finance tracker focused on manual transactions, receipt OCR, AI-assisted categorization, budget rules, product-price intelligence, and privacy.
+
+Open Ledger belongs to the authenticated workspace layer as a post-MVP app. It should not require bank connections. It should reuse existing ecosystem capabilities instead of building isolated infrastructure.
+
+Core Open Ledger capabilities:
+
+- add expenses with amount, item, merchant/shop/restaurant, category, person, payment method, date, notes, tags, and receipt attachment
+- add income with amount, item/source, person, category, date, and recurrence metadata
+- scan/upload receipts and convert them into reviewable transaction drafts using Media/OCR and AI parsing
+- classify spending into categories such as groceries, eating out, transport, subscriptions, utilities, shopping, health, travel, savings, and other
+- define budgets, limits, and habits such as “do not eat out more than once per week” or “groceries under 400 EUR/month”
+- compare recurring products across stores using line-item extraction and unit-price normalization
+- generate reports for income, expenses, net balance, savings rate, categories, merchants, people, recurring/variable costs, and product prices
+- preserve privacy by default: no bank connection, no external AI/OCR unless configured, export/delete data available
+
+Open Ledger reinforces the ecosystem story because it uses Drive, Media/OCR, AI Assistant, Open Ecosystem Flows, Notifications, Global Search, Activity/Audit Logs, and Open Pages together.
+
+See `docs/product/OPEN_LEDGER.md` for the detailed product logic.

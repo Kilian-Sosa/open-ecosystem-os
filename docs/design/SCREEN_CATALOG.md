@@ -1106,3 +1106,158 @@ States to consider:
 - Empty
 - Error
 - Permission denied when the screen exposes protected data
+
+## Open Ledger Dashboard
+
+- Priority: `P2`
+- Area: Apps / Finance
+- Mockup: `docs/design/mockups/apps/open-ledger/open-ledger-dashboard-desktop-mobile.png` (yes)
+- Purpose: Summarize private household finance health, receipt review status, budget rules, product-price opportunities, and recent transactions.
+- Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, FinanceMetricCard, ReceiptReviewCard, ProductPriceRow, AiFinanceSummaryCard, MobileCardList
+
+Desktop guidance:
+- Use Open Ledger sub-navigation in the authenticated app shell.
+- Show income, expenses, net balance, and savings rate as primary metrics.
+- Surface receipt review and rule alerts without requiring navigation.
+
+Mobile guidance:
+- Prioritize add expense, add income, and scan receipt actions.
+- Use a central scan action in bottom navigation.
+- Stack metrics, chart, recent transactions, and active rule cards.
+
+States to consider:
+- Normal
+- Loading
+- Empty finance data
+- OCR unavailable
+- Permission denied for shared household data
+
+## Open Ledger Transactions
+
+- Priority: `P2`
+- Area: Apps / Finance
+- Mockup: `docs/design/mockups/apps/open-ledger/open-ledger-transactions-desktop-mobile.png` (yes)
+- Purpose: Track, filter, edit, categorize, split, export, and inspect income and expense transactions.
+- Key components: AppShell, DataTable, MobileCardList, TransactionDetailPanel, FilterChips, StatusChip, ExportButton
+
+Desktop guidance:
+- Use table layout with filters and a right-side detail panel.
+- Include add expense, add income, and scan receipt actions.
+
+Mobile guidance:
+- Use card list and quick filters.
+- Use bottom sheet for selected transaction details.
+
+States to consider:
+- Normal
+- Empty transactions
+- Loading
+- Export failed
+- Permission denied
+
+## Open Ledger Receipts
+
+- Priority: `P2`
+- Area: Apps / Finance
+- Mockup: `docs/design/mockups/apps/open-ledger/open-ledger-receipts-desktop-mobile.png` (yes)
+- Purpose: Scan, upload, OCR, review, correct, and confirm receipts into transactions.
+- Key components: AppShell, ReceiptPreviewCard, ReceiptReviewPanel, ReceiptLineItemsTable, ReceiptConfidenceBadge, StatusChip, MobileBottomSheet
+
+Desktop guidance:
+- Show receipt table and selected receipt review panel.
+- Never save low-confidence parsed data without user review.
+
+Mobile guidance:
+- Use receipt cards and bottom-sheet review.
+- Keep confirm/create transaction action prominent.
+
+States to consider:
+- Uploaded
+- Processing
+- Needs review
+- Confirmed
+- Failed OCR
+- Re-run OCR
+
+## Open Ledger Budgets & Rules
+
+- Priority: `P2`
+- Area: Apps / Finance
+- Mockup: `docs/design/mockups/apps/open-ledger/open-ledger-budgets-rules-desktop-mobile.png` (yes)
+- Purpose: Configure budgets, saving goals, spending limits, habits, and alerts.
+- Key components: BudgetProgressRow, RuleStatusCard, RuleAlertCard, MetricCard, DataTable, MobileCardList
+
+Desktop guidance:
+- Show budgets by category and rules/habits side by side.
+- Include trend vs budget chart and alerts/recommendations.
+
+Mobile guidance:
+- Use tabs for all, budgets, rules, and alerts.
+
+States to consider:
+- On track
+- Near limit
+- Exceeded
+- At risk
+- Completed
+
+## Open Ledger Products & Prices
+
+- Priority: `P2`
+- Area: Apps / Finance
+- Mockup: `docs/design/mockups/apps/open-ledger/open-ledger-products-prices-desktop-mobile.png` (yes)
+- Purpose: Compare recurring products across stores, track unit prices, and identify savings opportunities.
+- Key components: ProductPriceRow, StoreRankingList, UnitPriceBadge, MiniChart, AlertBanner, DataTable
+
+Desktop guidance:
+- Show product comparison table and selected product detail panel.
+- Include price history, store ranking, category savings, and basket comparison.
+
+Mobile guidance:
+- Focus on top products, store ranking, and alerts.
+
+States to consider:
+- No tracked products
+- Product alias needs review
+- Price opportunity detected
+- Insufficient data for comparison
+
+## Open Ledger Reports
+
+- Priority: `P2`
+- Area: Apps / Finance
+- Mockup: `docs/design/mockups/apps/open-ledger/open-ledger-reports-desktop-mobile.png` (yes)
+- Purpose: Explain spending, income, savings, category, merchant, person, and product trends over time.
+- Key components: FinanceReportChartCard, AiFinanceSummaryCard, MetricCard, FilterChips, ExportButton
+
+Desktop guidance:
+- Use multiple chart cards and AI insight panel.
+- Include report presets and export actions.
+
+Mobile guidance:
+- Use report tabs and stacked charts.
+
+States to consider:
+- No data for selected period
+- Report generating
+- Export failed
+
+## Open Ledger Settings
+
+- Priority: `P2`
+- Area: Apps / Finance
+- Mockup: `docs/design/mockups/apps/open-ledger/open-ledger-settings-desktop-mobile.png` (yes)
+- Purpose: Configure household, categories, payment methods, recurring items, OCR/AI parsing, budget defaults, notifications, privacy, and localization.
+- Key components: FinanceSettingsGroup, SectionCard, StatusChip, Toggle, Select, ConfirmationDialog
+
+Desktop guidance:
+- Use categorized settings cards with a privacy-first side panel.
+
+Mobile guidance:
+- Use accordion sections and sticky save action.
+
+States to consider:
+- Unsaved changes
+- Export in progress
+- Delete finance data confirmation
+- Local AI/OCR unavailable

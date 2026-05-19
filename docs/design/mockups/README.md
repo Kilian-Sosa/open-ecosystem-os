@@ -19,3 +19,21 @@ This folder contains exported visual references for Open Ecosystem OS screens.
 - `developer/`: API, events, plugins, marketplace, community.
 - `case-studies/`: public case-study pages.
 - `flows/`: user journeys and system flowcharts.
+
+## Open Ledger mockups
+
+Open Ledger mockups live under:
+
+```txt
+docs/design/mockups/apps/open-ledger/
+```
+
+They cover:
+
+- dashboard
+- transactions
+- receipts
+- budgets and rules
+- products and prices
+- reports
+- settings

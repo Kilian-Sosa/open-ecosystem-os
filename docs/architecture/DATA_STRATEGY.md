@@ -138,3 +138,62 @@ Add later under Developer/Test Data Tools:
 - fake document generator
 
 Generated values must be clearly labeled as fake/test data.
+
+## Open Ledger data strategy
+
+Open Ledger should use PostgreSQL as the source of truth, JSONB for flexible receipt/parser payloads, MinIO for receipt files, Redis for short-lived rule evaluation/cache state when needed, and Meilisearch for finance search.
+
+### Relational data
+
+Use PostgreSQL tables for:
+
+- finance_accounts or payment methods
+- finance_people/household members
+- finance_transactions
+- finance_categories
+- finance_tags
+- finance_receipts
+- finance_receipt_line_items
+- finance_budgets
+- finance_rules
+- finance_rule_evaluations
+- finance_product_groups
+- finance_product_aliases
+- finance_price_observations
+- finance_reports
+
+### JSONB data
+
+Use JSONB for:
+
+- raw OCR extraction payload
+- AI parsing suggestions
+- receipt parser confidence fields
+- rule conditions
+- report snapshots
+- product matching evidence
+
+### Object storage
+
+Use MinIO/S3-compatible storage for:
+
+- receipt images
+- receipt PDFs
+- generated report exports
+- finance data export archives
+
+### Search indexing
+
+Index:
+
+- transaction title/item
+- merchant/source
+- category/person/tag
+- receipt OCR text
+- parsed line items
+- product aliases
+- report names/summaries
+
+### Retention and privacy
+
+Open Ledger must support export and deletion of finance data. Finance data should not be mixed with unrelated audit/search data in a way that prevents deletion requests from being completed.

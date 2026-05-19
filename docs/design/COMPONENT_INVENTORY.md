@@ -115,3 +115,44 @@ If a screen needs a UI pattern not listed here, must either:
 
 1. reuse the nearest existing component, or
 2. propose the new component in its summary and update this inventory in the same task.
+
+## Open Ledger components
+
+Finance-specific components should reuse generic cards, tables, filters, bottom sheets, and status chips before creating app-specific variants.
+
+Suggested components:
+
+- `FinanceMetricCard`
+- `TransactionTypeIcon`
+- `TransactionTable`
+- `TransactionCard`
+- `TransactionDetailPanel`
+- `ReceiptPreviewCard`
+- `ReceiptReviewPanel`
+- `ReceiptConfidenceBadge`
+- `ReceiptLineItemsTable`
+- `BudgetProgressRow`
+- `RuleStatusCard`
+- `RuleAlertCard`
+- `ProductPriceRow`
+- `StoreRankingList`
+- `UnitPriceBadge`
+- `FinanceReportChartCard`
+- `AiFinanceSummaryCard`
+- `FinanceSettingsGroup`
+
+Status chips:
+
+- `income`
+- `expense`
+- `needs review`
+- `confirmed`
+- `processing`
+- `failed`
+- `on track`
+- `near limit`
+- `exceeded`
+- `at risk`
+- `cheaper elsewhere`
+- `price up`
+- `stable`

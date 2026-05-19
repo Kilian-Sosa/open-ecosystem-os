@@ -161,3 +161,57 @@ Domain events are used for system behavior.
 Audit records are user/security traceability records.
 
 Do not rely only on broker messages as audit history. Persist audit records in PostgreSQL.
+
+## Open Ledger events
+
+Finance events should follow the standard event envelope and be emitted through the outbox pattern.
+
+Core events:
+
+```txt
+FinanceTransactionCreated
+FinanceTransactionUpdated
+FinanceTransactionDeleted
+ReceiptUploaded
+ReceiptOcrCompleted
+ReceiptParsingSuggested
+ReceiptConfirmed
+ReceiptRejected
+BudgetCreated
+BudgetUpdated
+BudgetExceeded
+FinanceRuleCreated
+FinanceRuleUpdated
+FinanceRuleEvaluated
+FinanceRuleViolated
+ProductPriceObserved
+ProductAliasMerged
+FinanceReportGenerated
+FinanceDataExported
+FinanceDataDeleted
+```
+
+Example `ReceiptConfirmed` payload:
+
+```json
+{
+  "receiptId": "receipt_123",
+  "transactionId": "txn_456",
+  "workspaceId": "wrk_123",
+  "merchant": "Mercadona",
+  "totalAmount": 78.32,
+  "currency": "EUR",
+  "categoryId": "cat_groceries",
+  "personId": "person_ana",
+  "lineItemCount": 6,
+  "ocrConfidence": 0.96
+}
+```
+
+Consumers:
+
+- Search indexer indexes transactions and receipt text
+- Notification service sends budget/rule alerts and review reminders
+- Audit service records sensitive finance changes
+- Open Ecosystem Flows triggers receipt and budget workflows
+- Reports module updates cached snapshots

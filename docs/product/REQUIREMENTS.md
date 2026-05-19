@@ -170,3 +170,75 @@ External stack optional:
 - OpenTelemetry Collector/Grafana Alloy
 - Tempo later
 - Alertmanager later
+
+## Open Ledger requirements
+
+Open Ledger must support a privacy-first finance tracker without bank connections.
+
+### Transactions
+
+- add expense
+- add income
+- edit/delete/duplicate/split transactions
+- fields: amount, item/title, merchant/source, person, category, payment method, date/time, status, tags, notes, linked receipt
+- filter by type, date range, category, person, shop/source, payment method, status, tags
+- export transaction data to CSV/PDF
+
+### Receipts
+
+- scan/upload receipt image or PDF
+- process receipt through Media/OCR
+- suggest merchant, date, total, category, person, and line items
+- show OCR confidence and low-confidence warnings
+- require review before saving extracted data
+- allow re-running OCR and editing fields
+- create transaction after confirmation
+
+### Budgets and rules
+
+- create category budgets
+- create saving goals
+- create habit/frequency rules
+- create merchant/subscription limits
+- evaluate rules on transaction creation/update
+- generate alerts for near-limit, exceeded, and at-risk rules
+
+### Products and prices
+
+- store receipt line items
+- normalize product aliases
+- calculate unit prices
+- compare stores for recurring products
+- track product price history
+- generate price alerts and recommendations
+
+### Reports
+
+- income, expenses, net balance, savings rate
+- spending by category
+- spending by merchant/shop
+- spending by person
+- recurring vs variable expenses
+- monthly comparison
+- product price intelligence
+- AI summary of spending changes
+
+### Settings
+
+- household members
+- categories and tags
+- payment methods
+- recurring income/expenses
+- OCR/AI parsing preferences
+- default budgets/rules
+- notification preferences
+- export/delete finance data
+- currency, locale, first day of week, date format
+
+### Privacy and safety
+
+- no bank connection in MVP
+- no external OCR/AI processing unless explicitly configured
+- finance data export and deletion must be supported
+- shared-household actions must be permissioned and audited
+- AI suggestions must be reviewable and correctable
