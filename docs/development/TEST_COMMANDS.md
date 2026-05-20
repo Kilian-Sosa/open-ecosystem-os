@@ -73,9 +73,12 @@ If worker is a separate app:
 
 ```bash
 cd apps/worker
+./mvnw spotless:check
+./mvnw spotless:apply
 ./mvnw test
 ./mvnw verify
 ./mvnw package
+./mvnw verify -P security-scan
 ```
 
 If worker lives inside backend initially, use backend commands.
@@ -115,6 +118,8 @@ Backend dependency check after Maven setup:
 
 ```bash
 cd apps/api
+./mvnw verify -P security-scan
+cd ../worker
 ./mvnw verify -P security-scan
 ```
 

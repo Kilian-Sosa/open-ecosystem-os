@@ -63,10 +63,16 @@ cd apps/api
 ./mvnw spotless:apply
 ./mvnw -q test
 ./mvnw -q verify
+cd ../worker
+./mvnw spotless:check
+./mvnw spotless:apply
+./mvnw -q test
+./mvnw -q verify
 ```
 
-`./mvnw verify` runs Spotless check for Java sources. Use `./mvnw spotless:apply`
-before committing when the check reports formatting drift.
+`./mvnw verify` runs Spotless check for Java sources in the API and worker. Use
+`./mvnw spotless:apply` before committing when the check reports formatting
+drift.
 
 ## Markdown/YAML/JSON rules
 
