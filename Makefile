@@ -50,7 +50,7 @@ docker-up: ensure-env
 	$(COMPOSE_BASE) --env-file .env up -d --build
 
 docker-down:
-	$(COMPOSE_BASE) down
+	$(COMPOSE_OBS) down --remove-orphans
 
 docker-logs:
 	$(COMPOSE_BASE) logs -f
@@ -80,7 +80,7 @@ obs-up: ensure-env
 	$(COMPOSE_OBS) --env-file .env up -d --build
 
 obs-down:
-	$(COMPOSE_OBS) down
+	$(COMPOSE_OBS) down --remove-orphans
 
 seed:
 	./scripts/seed-demo-data.sh

@@ -92,6 +92,8 @@ make logs
 make down
 ```
 
+`make down` uses the base and observability Compose files so it can cleanly remove the shared networks after `make obs-up`.
+
 Equivalent direct Docker Compose commands from the repository root:
 
 ```bash
