@@ -2,10 +2,16 @@ PNPM ?= corepack pnpm
 COMPOSE_BASE = docker compose -f infra/docker/docker-compose.yml
 COMPOSE_OBS = docker compose -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.observability.yml
 
+ifeq ($(OS),Windows_NT)
+ENSURE_ENV = powershell -NoProfile -ExecutionPolicy Bypass -Command "if (-not (Test-Path -LiteralPath '.env')) { Copy-Item -LiteralPath '.env.example' -Destination '.env'; Write-Host 'Created .env from .env.example' }"
+else
+ENSURE_ENV = if [ ! -f .env ]; then cp .env.example .env && echo "Created .env from .env.example"; fi
+endif
+
 .PHONY: install format format-check lint typecheck test test-unit test-integration test-e2e build docker-up docker-down docker-logs smoke security-scan k8s-validate ci-local up down logs ps obs-up obs-down seed reset ensure-env
 
 ensure-env:
-	@if [ ! -f .env ]; then cp .env.example .env && echo "Created .env from .env.example"; fi
+	@$(ENSURE_ENV)
 
 install: ensure-env
 	cd apps/web && $(PNPM) install
@@ -44,7 +50,7 @@ docker-up: ensure-env
 	$(COMPOSE_BASE) --env-file .env up -d --build
 
 docker-down:
-	$(COMPOSE_BASE) down
+	$(COMPOSE_OBS) down --remove-orphans
 
 docker-logs:
 	$(COMPOSE_BASE) logs -f
@@ -71,10 +77,10 @@ ps:
 	$(COMPOSE_BASE) ps
 
 obs-up: ensure-env
-	$(COMPOSE_OBS) --env-file .env up -d
+	$(COMPOSE_OBS) --env-file .env up -d --build
 
 obs-down:
-	$(COMPOSE_OBS) down
+	$(COMPOSE_OBS) down --remove-orphans
 
 seed:
 	./scripts/seed-demo-data.sh
