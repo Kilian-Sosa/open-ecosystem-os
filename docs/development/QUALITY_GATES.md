@@ -126,7 +126,7 @@ Formatting is not subjective. If the formatter says the code is wrong, fix it.
 Rules:
 
 - Frontend: Prettier + ESLint.
-- Backend Java: Spotless with Google Java Format.
+- Backend/worker Java: Spotless with Google Java Format.
 - Markdown/YAML/JSON: Prettier where practical.
 - Generated files: do not format manually unless they are committed source files.
 
