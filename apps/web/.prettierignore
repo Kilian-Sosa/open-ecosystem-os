@@ -1,6 +1,10 @@
 .next
 node_modules
+out
 coverage
 playwright-report
 test-results
+dist
 *.tsbuildinfo
+next-env.d.ts
+pnpm-lock.yaml
