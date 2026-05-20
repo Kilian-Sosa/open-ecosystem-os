@@ -123,6 +123,14 @@ Default local endpoints:
 
 PostgreSQL, Redis, RabbitMQ AMQP, and Meilisearch are kept on the internal Compose network by default. Expose additional data-service ports only when a local debugging workflow needs them.
 
+If Docker volumes already exist, changes to first-boot database or broker initialization options may require recreating local volumes:
+
+```bash
+docker compose --env-file .env -f infra/docker/docker-compose.yml down -v
+```
+
+This deletes local Compose data. The MinIO single-node warning about host failure is expected in local development and should not appear in production storage topology.
+
 ## Development, CI/CD, and AI workflow
 
 The development process is documented in:
