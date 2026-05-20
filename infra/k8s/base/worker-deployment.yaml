@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-ecosystem-worker
+  namespace: open-ecosystem-os
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: open-ecosystem-worker
+  template:
+    metadata:
+      labels:
+        app: open-ecosystem-worker
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/your-org/open-ecosystem-worker:dev
+          ports:
+            - containerPort: 8081
+          env:
+            - name: WORKER_PORT
+              value: "8081"
+          envFrom:
+            - configMapRef:
+                name: open-ecosystem-config
+            - secretRef:
+                name: open-ecosystem-secrets
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: open-ecosystem-worker
+  namespace: open-ecosystem-os
+spec:
+  selector:
+    app: open-ecosystem-worker
+  ports:
+    - port: 8081
+      targetPort: 8081

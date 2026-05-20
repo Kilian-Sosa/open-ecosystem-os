@@ -12,9 +12,12 @@ Recommended:
 
 - Vitest
 - Testing Library
+- axe/accessibility checks later
+
+Deferred until the matching configuration and smoke suites exist:
+
 - Playwright
 - Storybook
-- axe/accessibility checks later
 
 Test:
 

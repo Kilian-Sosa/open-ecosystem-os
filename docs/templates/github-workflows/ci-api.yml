@@ -1,0 +1,78 @@
+name: API CI
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/**'
+      - 'packages/shared/**'
+      - 'AGENTS.md'
+      - 'docs/architecture/**'
+      - 'docs/development/**'
+      - '.github/workflows/ci-api.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - 'packages/shared/**'
+      - 'AGENTS.md'
+      - 'docs/architecture/**'
+      - 'docs/development/**'
+      - '.github/workflows/ci-api.yml'
+
+permissions:
+  contents: read
+
+env:
+  JAVA_VERSION: '25'
+  MAVEN_VERSION: '3.9.15'
+
+jobs:
+  api:
+    name: Compile and test API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Install Maven
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSLO "https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz"
+          curl -fsSLO "https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz.sha512"
+          echo "$(cat "apache-maven-${MAVEN_VERSION}-bin.tar.gz.sha512")  apache-maven-${MAVEN_VERSION}-bin.tar.gz" | sha512sum -c -
+          tar -xzf "apache-maven-${MAVEN_VERSION}-bin.tar.gz"
+          echo "$RUNNER_TEMP/apache-maven-${MAVEN_VERSION}/bin" >> "$GITHUB_PATH"
+
+      - name: Verify toolchain
+        run: |
+          java -version
+          mvn -version
+
+      - name: Prepare Maven wrapper shim
+        run: chmod +x mvnw
+
+      - name: Unit and slice tests
+        run: ./mvnw -B test
+
+      - name: Verify
+        run: ./mvnw -B verify
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-reports
+          path: |
+            apps/api/**/target/surefire-reports/**
+            apps/api/**/target/failsafe-reports/**

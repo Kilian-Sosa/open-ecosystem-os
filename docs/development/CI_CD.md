@@ -28,8 +28,8 @@ Responsibilities:
 - typecheck
 - unit/component tests
 - build
-- optional Storybook build
-- optional Playwright component tests later
+- deferred Storybook build after Storybook configuration exists
+- deferred Playwright component tests after Playwright configuration exists
 
 ### 2. Backend CI
 
@@ -83,14 +83,14 @@ Responsibilities:
 
 ### 6. E2E / Compose CI
 
-Runs after the basic app skeleton exists.
+Runs after the basic app skeleton, Playwright configuration, and smoke tests exist.
 
 Responsibilities:
 
 - start Docker Compose stack
 - wait for health endpoints
 - seed demo data
-- run Playwright E2E smoke tests
+- run Playwright E2E smoke tests once the E2E harness is no longer deferred
 - upload logs/artifacts on failure
 
 ### 7. Release CI
@@ -139,7 +139,7 @@ On failures, upload:
 
 - backend test reports
 - frontend test reports
-- Playwright traces/screenshots/videos
+- Playwright traces/screenshots/videos, once Playwright is enabled
 - Docker Compose logs
 - Trivy reports
 - Dependency-Check reports

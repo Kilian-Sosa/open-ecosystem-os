@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: open-ecosystem-ingress
+  namespace: open-ecosystem-os
+spec:
+  rules:
+    - host: open-ecosystem.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: open-ecosystem-web
+                port:
+                  number: 3000
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: open-ecosystem-api
+                port:
+                  number: 8080

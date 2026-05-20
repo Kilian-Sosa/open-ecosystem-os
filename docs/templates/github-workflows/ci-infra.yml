@@ -1,0 +1,50 @@
+name: Infrastructure CI
+
+on:
+  pull_request:
+    paths:
+      - 'infra/**'
+      - 'docs/architecture/DEPLOYMENT.md'
+      - 'docs/architecture/OBSERVABILITY.md'
+      - 'docs/development/CI_CD.md'
+      - '.github/workflows/ci-infra.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - 'docs/architecture/DEPLOYMENT.md'
+      - 'docs/architecture/OBSERVABILITY.md'
+      - 'docs/development/CI_CD.md'
+      - '.github/workflows/ci-infra.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  infra:
+    name: Validate Docker and Kubernetes config
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Docker Compose config
+        run: docker compose -f infra/docker/docker-compose.yml config
+
+      - name: Setup Kubeconform
+        run: |
+          curl -L -o kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
+          tar -xzf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/kubeconform
+
+      - name: Validate Kubernetes manifests
+        run: |
+          kubectl kustomize infra/k8s/base | kubeconform -strict -summary
+
+      - name: Trivy config scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: config
+          scan-ref: infra
+          severity: HIGH,CRITICAL
+          exit-code: '1'
