@@ -1,0 +1,8 @@
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - web-deployment.yaml
+  - api-deployment.yaml
+  - worker-deployment.yaml
+  - ingress.yaml
+# Do not apply secret.example.yaml directly. Create a real Secret securely.

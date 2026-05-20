@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-ecosystem-web
+  namespace: open-ecosystem-os
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: open-ecosystem-web
+  template:
+    metadata:
+      labels:
+        app: open-ecosystem-web
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/your-org/open-ecosystem-web:dev
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: open-ecosystem-config
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: open-ecosystem-web
+  namespace: open-ecosystem-os
+spec:
+  selector:
+    app: open-ecosystem-web
+  ports:
+    - port: 3000
+      targetPort: 3000

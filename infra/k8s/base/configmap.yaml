@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: open-ecosystem-config
+  namespace: open-ecosystem-os
+data:
+  APP_ENV: "kubernetes"
+  API_BASE_URL: "http://open-ecosystem-api:8080"
+  S3_ENDPOINT: "http://minio.open-ecosystem-data:9000"
+  MEILISEARCH_HOST: "http://meilisearch.open-ecosystem-data:7700"
