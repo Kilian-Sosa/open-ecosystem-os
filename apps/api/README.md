@@ -62,6 +62,13 @@ Available foundation endpoints:
 Local checks:
 
 ```bash
-mvn -q test
-mvn -q verify
+./mvnw test
+./mvnw spotless:check
+./mvnw spotless:apply
+./mvnw verify
+./mvnw verify -P security-scan
 ```
+
+`verify` runs Spotless with Google Java Format. The `security-scan` profile runs
+OWASP Dependency-Check and blocks high/critical dependency findings. It reads
+`NVD_API_KEY` from the repository root `.env` file when present.

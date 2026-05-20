@@ -50,7 +50,7 @@ Recommended package scripts:
 Recommended tools:
 
 - Maven wrapper.
-- Checkstyle or Spotless once selected.
+- Spotless with Google Java Format.
 - Maven Surefire for unit tests.
 - Maven Failsafe for integration tests, if split.
 - Error Prone/SpotBugs later, optional.
@@ -59,16 +59,14 @@ Expected commands after backend bootstrap:
 
 ```bash
 cd apps/api
+./mvnw spotless:check
+./mvnw spotless:apply
 ./mvnw -q test
 ./mvnw -q verify
 ```
 
-Formatting decision still to be made:
-
-- Option A: Spotless with Google Java Format.
-- Option B: Checkstyle plus IDE formatter.
-
-Recommendation: use Spotless early because it gives deterministic formatting and easy CI enforcement.
+`./mvnw verify` runs Spotless check for Java sources. Use `./mvnw spotless:apply`
+before committing when the check reports formatting drift.
 
 ## Markdown/YAML/JSON rules
 

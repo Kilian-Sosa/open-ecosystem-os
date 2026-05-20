@@ -52,6 +52,8 @@ pnpm playwright test
 Expected under `apps/api`:
 
 ```bash
+./mvnw spotless:check
+./mvnw spotless:apply
 ./mvnw test
 ./mvnw verify
 ./mvnw package
@@ -113,7 +115,7 @@ Backend dependency check after Maven setup:
 
 ```bash
 cd apps/api
-./mvnw org.owasp:dependency-check-maven:check
+./mvnw verify -P security-scan
 ```
 
 Frontend audit after package manager selection:
