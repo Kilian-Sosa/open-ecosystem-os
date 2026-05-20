@@ -37,6 +37,11 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
+```
+
+Deferred until the matching tooling/configuration exists:
+
+```bash
 pnpm storybook
 pnpm build-storybook
 pnpm playwright test

@@ -64,7 +64,7 @@ Required:
 - integration tests with Testcontainers
 - Docker image build
 - Docker Compose smoke test
-- Playwright E2E smoke test against Compose
+- Playwright E2E smoke test against Compose, deferred until the E2E harness exists
 - Trivy filesystem/image scan
 - generated artifacts published as CI artifacts
 
@@ -75,7 +75,7 @@ Runs on schedule.
 Required:
 
 - full integration suite
-- full Playwright suite
+- full Playwright suite, deferred until Playwright is configured
 - k6 performance smoke tests
 - kind Kubernetes deployment smoke test
 - backup/restore smoke test

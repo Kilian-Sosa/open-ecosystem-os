@@ -33,8 +33,8 @@
 | Charts | Recharts or Tremor-style components | Use tokens; avoid hardcoded chart colors |
 | Forms | React Hook Form + Zod | Good validation and schemas |
 | API state | TanStack Query | Caching, mutations, server state |
-| Testing | Vitest, Testing Library, Playwright | Component + E2E |
-| Storybook | Storybook | Component/design-system validation |
+| Testing | Vitest, Testing Library, Playwright later | Vitest/Testing Library are current; Playwright is deferred until the E2E harness exists |
+| Storybook | Storybook later | Deferred until shared component/design-system validation is configured |
 
 ## Backend
 
