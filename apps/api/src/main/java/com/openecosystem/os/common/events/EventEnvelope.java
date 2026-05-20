@@ -19,8 +19,7 @@ public record EventEnvelope<T>(
   public EventEnvelope {
     eventId = requireText(eventId, "eventId");
     eventType = requireText(eventType, "eventType");
-    if (version < 1)
-      throw new IllegalArgumentException("version must be greater than zero");
+    if (version < 1) throw new IllegalArgumentException("version must be greater than zero");
     occurredAt = Objects.requireNonNull(occurredAt, "occurredAt must not be null");
     workspaceId = requireText(workspaceId, "workspaceId");
     actorId = requireText(actorId, "actorId");

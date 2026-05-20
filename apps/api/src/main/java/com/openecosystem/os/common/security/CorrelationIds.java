@@ -9,8 +9,7 @@ public final class CorrelationIds {
   private CorrelationIds() {}
 
   public static String normalize(String correlationId) {
-    if (correlationId == null || correlationId.isBlank())
-      return newCorrelationId();
+    if (correlationId == null || correlationId.isBlank()) return newCorrelationId();
     return correlationId.trim();
   }
 

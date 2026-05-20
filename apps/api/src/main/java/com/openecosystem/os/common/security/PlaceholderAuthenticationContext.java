@@ -18,13 +18,16 @@ public class PlaceholderAuthenticationContext implements AuthenticationContext {
   public AuthenticatedPrincipal currentPrincipal() {
     HttpServletRequest request = currentRequest();
     String actorId =
-        request == null ? DEFAULT_ACTOR_ID : valueOrDefault(request, ACTOR_HEADER, DEFAULT_ACTOR_ID);
+        request == null
+            ? DEFAULT_ACTOR_ID
+            : valueOrDefault(request, ACTOR_HEADER, DEFAULT_ACTOR_ID);
     String workspaceId =
         request == null
             ? DEFAULT_WORKSPACE_ID
             : valueOrDefault(request, WORKSPACE_HEADER, DEFAULT_WORKSPACE_ID);
 
-    return new AuthenticatedPrincipal(actorId, workspaceId, Set.of("DEVELOPMENT_PLACEHOLDER"), true);
+    return new AuthenticatedPrincipal(
+        actorId, workspaceId, Set.of("DEVELOPMENT_PLACEHOLDER"), true);
   }
 
   private HttpServletRequest currentRequest() {
@@ -33,7 +36,8 @@ public class PlaceholderAuthenticationContext implements AuthenticationContext {
     return null;
   }
 
-  private String valueOrDefault(HttpServletRequest request, String headerName, String defaultValue) {
+  private String valueOrDefault(
+      HttpServletRequest request, String headerName, String defaultValue) {
     String value = request.getHeader(headerName);
     return value == null || value.isBlank() ? defaultValue : value.trim();
   }
