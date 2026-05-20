@@ -56,7 +56,7 @@ This validates the architecture before the project expands.
 4. `docs/architecture/ARCHITECTURE.md`
 5. `docs/architecture/TECH_STACK.md`
 6. `docs/architecture/EVENTS.md`
-7. `docs/development/AGENTS.md`
+7. `AGENTS.md`
 8. `docs/development/DESIGN.md`
 
 ## Local development target

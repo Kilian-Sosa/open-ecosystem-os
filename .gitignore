@@ -39,5 +39,4 @@ test-results/
 *.tsbuildinfo
 
 # Misc
-docs/adr/
 docs/prompts/

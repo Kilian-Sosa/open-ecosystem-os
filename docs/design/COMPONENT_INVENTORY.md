@@ -1,6 +1,6 @@
 # Component Inventory
 
-This file defines the reusable UI building blocks Codex should use before creating new components.
+This file defines the reusable UI building blocks humans and coding agents should use before creating new components.
 
 ## Layout components
 
