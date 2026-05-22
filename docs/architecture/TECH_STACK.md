@@ -23,18 +23,18 @@
 
 ### Feature-specific frontend libraries
 
-| Feature | Suggested tech | Notes |
-|---|---|---|
-| App shell | Next.js layouts + shared components | Public/private layout separation |
-| Design system | Tailwind CSS variables + shadcn/ui | Avoid hardcoded colors |
-| Open Pages editor | TipTap/ProseMirror or Lexical | Do not build editor engine from scratch |
-| Kanban | dnd-kit | Good React drag/drop primitives |
-| Workflow builder | React Flow later | Start with vertical builder before complex canvas |
-| Charts | Recharts or Tremor-style components | Use tokens; avoid hardcoded chart colors |
-| Forms | React Hook Form + Zod | Good validation and schemas |
-| API state | TanStack Query | Caching, mutations, server state |
-| Testing | Vitest, Testing Library, Playwright later | Vitest/Testing Library are current; Playwright is deferred until the E2E harness exists |
-| Storybook | Storybook later | Deferred until shared component/design-system validation is configured |
+| Feature           | Suggested tech                            | Notes                                                                                   |
+| ----------------- | ----------------------------------------- | --------------------------------------------------------------------------------------- |
+| App shell         | Next.js layouts + shared components       | Public/private layout separation                                                        |
+| Design system     | Tailwind CSS variables + shadcn/ui        | Avoid hardcoded colors                                                                  |
+| Open Pages editor | TipTap/ProseMirror or Lexical             | Do not build editor engine from scratch                                                 |
+| Kanban            | dnd-kit                                   | Good React drag/drop primitives                                                         |
+| Workflow builder  | React Flow later                          | Start with vertical builder before complex canvas                                       |
+| Charts            | Recharts or Tremor-style components       | Use tokens; avoid hardcoded chart colors                                                |
+| Forms             | React Hook Form + Zod                     | Good validation and schemas                                                             |
+| API state         | TanStack Query                            | Caching, mutations, server state                                                        |
+| Testing           | Vitest, Testing Library, Playwright later | Vitest/Testing Library are current; Playwright is deferred until the E2E harness exists |
+| Storybook         | Storybook later                           | Deferred until shared component/design-system validation is configured                  |
 
 ## Backend
 
@@ -66,36 +66,36 @@ NestJS is a valid option for faster full-stack TypeScript delivery, but Spring B
 
 ## Data and storage
 
-| Need | Technology | Why |
-|---|---|---|
-| Transactional state | PostgreSQL | Users, workspaces, permissions, files, workflow executions, audit logs |
-| Flexible documents | PostgreSQL JSONB first | Pages, workflow definitions, forms, themes, plugin manifests |
-| Object/files | MinIO/S3-compatible storage | Uploaded files, PDFs, media, previews, exports, backups |
-| Cache/locks/rate limits | Redis | Idempotency keys, short-lived state, queues if needed |
-| Full-text/semantic search | Meilisearch first | Simple self-hosted search and AI/RAG-friendly indexing |
-| Message broker | RabbitMQ first | Reliable queues, DLQ, retries, Spring support |
-| Event streaming alternative | NATS JetStream later | Simpler ops and replayable streams if needed |
+| Need                        | Technology                  | Why                                                                    |
+| --------------------------- | --------------------------- | ---------------------------------------------------------------------- |
+| Transactional state         | PostgreSQL                  | Users, workspaces, permissions, files, workflow executions, audit logs |
+| Flexible documents          | PostgreSQL JSONB first      | Pages, workflow definitions, forms, themes, plugin manifests           |
+| Object/files                | MinIO/S3-compatible storage | Uploaded files, PDFs, media, previews, exports, backups                |
+| Cache/locks/rate limits     | Redis                       | Idempotency keys, short-lived state, queues if needed                  |
+| Full-text/semantic search   | Meilisearch first           | Simple self-hosted search and AI/RAG-friendly indexing                 |
+| Message broker              | RabbitMQ first              | Reliable queues, DLQ, retries, Spring support                          |
+| Event streaming alternative | NATS JetStream later        | Simpler ops and replayable streams if needed                           |
 
 ## Feature technology matrix
 
-| Feature | Frontend | Backend | Storage | Async/events |
-|---|---|---|---|---|
-| Dashboard | Next.js + cards/charts | API aggregations | PostgreSQL + metrics | none initially |
-| Drive | file browser components | Drive module | PostgreSQL + MinIO | FileUploaded |
-| PDF Editor | PDF viewer/editor libs | PDF processing module/worker | MinIO + metadata | PdfProcessed, PdfRedacted |
-| AI redaction | review UI | AI/mock extractor + redaction worker | MinIO + audit | RedactionRequested/Completed |
-| Delete metadata | PDF processing action | worker | MinIO new version | PdfMetadataRemoved |
-| Watermark | PDF editor controls | PDF worker | MinIO new version | WatermarkApplied |
-| Media/OCR | queue/status UI | OCR module + worker | MinIO + PostgreSQL | OcrRequested/Completed/Failed |
-| Open Pages | TipTap/Lexical | Pages module | PostgreSQL + JSONB | PageCreated/Updated/Indexed |
-| Open Ecosystem Flows | builder/run UI | Flows module + runner | PostgreSQL + JSONB | WorkflowTriggered/Completed/Failed |
-| Search | global results UI | Search module/indexer | Meilisearch | PageIndexed/FileIndexed/OcrIndexed |
-| Notifications | inbox UI | Notifications module | PostgreSQL | NotificationCreated/Sent |
-| Audit logs | table/timeline UI | Audit module | PostgreSQL | from domain/app events |
-| Security | settings UI | Identity/Security module | PostgreSQL + Redis | SecurityEventRaised |
-| Backups | status/action UI | Backup worker | MinIO/external target | BackupStarted/Completed/Failed |
-| Observability | links/summaries | metrics endpoints | Prometheus/Loki/Tempo | external stack |
-| Plugins later | portal UI | plugin registry/sandbox | PostgreSQL JSONB | PluginSubmitted/Approved |
+| Feature              | Frontend                | Backend                              | Storage               | Async/events                       |
+| -------------------- | ----------------------- | ------------------------------------ | --------------------- | ---------------------------------- |
+| Dashboard            | Next.js + cards/charts  | API aggregations                     | PostgreSQL + metrics  | none initially                     |
+| Drive                | file browser components | Drive module                         | PostgreSQL + MinIO    | FileUploaded                       |
+| PDF Editor           | PDF viewer/editor libs  | PDF processing module/worker         | MinIO + metadata      | PdfProcessed, PdfRedacted          |
+| AI redaction         | review UI               | AI/mock extractor + redaction worker | MinIO + audit         | RedactionRequested/Completed       |
+| Delete metadata      | PDF processing action   | worker                               | MinIO new version     | PdfMetadataRemoved                 |
+| Watermark            | PDF editor controls     | PDF worker                           | MinIO new version     | WatermarkApplied                   |
+| Media/OCR            | queue/status UI         | OCR module + worker                  | MinIO + PostgreSQL    | OcrRequested/Completed/Failed      |
+| Open Pages           | TipTap/Lexical          | Pages module                         | PostgreSQL + JSONB    | PageCreated/Updated/Indexed        |
+| Open Ecosystem Flows | builder/run UI          | Flows module + runner                | PostgreSQL + JSONB    | WorkflowTriggered/Completed/Failed |
+| Search               | global results UI       | Search module/indexer                | Meilisearch           | PageIndexed/FileIndexed/OcrIndexed |
+| Notifications        | inbox UI                | Notifications module                 | PostgreSQL            | NotificationCreated/Sent           |
+| Audit logs           | table/timeline UI       | Audit module                         | PostgreSQL            | from domain/app events             |
+| Security             | settings UI             | Identity/Security module             | PostgreSQL + Redis    | SecurityEventRaised                |
+| Backups              | status/action UI        | Backup worker                        | MinIO/external target | BackupStarted/Completed/Failed     |
+| Observability        | links/summaries         | metrics endpoints                    | Prometheus/Loki/Tempo | external stack                     |
+| Plugins later        | portal UI               | plugin registry/sandbox              | PostgreSQL JSONB      | PluginSubmitted/Approved           |
 
 ## Infrastructure
 
@@ -125,18 +125,18 @@ NestJS is a valid option for faster full-stack TypeScript delivery, but Spring B
 
 ## Open Ledger technology choices
 
-| Area | Suggested technology | Notes |
-|---|---|---|
-| Dashboard and reports | Recharts or token-based chart components | Use shared design tokens; avoid hardcoded chart colors. |
-| Transaction forms | React Hook Form + Zod | Strong validation for amount, dates, category, person, and payment method. |
-| Tables/lists | Shared DataTable + MobileCardList | Desktop table, mobile card list. |
-| Receipt upload | Existing Drive/Media upload components | Reuse UploadDropzone and FilePreview. |
-| OCR | Existing Media/OCR pipeline | Receipt OCR should be an app-specific consumer of the generic OCR pipeline. |
-| AI categorization | AI Assistant/tool service | AI returns suggestions, never final unreviewed writes for low-confidence extraction. |
-| Product matching | Backend service + JSONB alias metadata | Start rule-based/manual, then add AI-assisted matching. |
-| Search | Meilisearch | Index transactions, merchants, receipt text, products, and reports. |
-| Events | RabbitMQ + outbox | Finance events should drive audit, notifications, search, and automations. |
-| Storage | PostgreSQL + JSONB + MinIO | Relational transaction data, JSONB parsed receipt payloads, MinIO receipt files. |
+| Area                  | Suggested technology                     | Notes                                                                                |
+| --------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------ |
+| Dashboard and reports | Recharts or token-based chart components | Use shared design tokens; avoid hardcoded chart colors.                              |
+| Transaction forms     | React Hook Form + Zod                    | Strong validation for amount, dates, category, person, and payment method.           |
+| Tables/lists          | Shared DataTable + MobileCardList        | Desktop table, mobile card list.                                                     |
+| Receipt upload        | Existing Drive/Media upload components   | Reuse UploadDropzone and FilePreview.                                                |
+| OCR                   | Existing Media/OCR pipeline              | Receipt OCR should be an app-specific consumer of the generic OCR pipeline.          |
+| AI categorization     | AI Assistant/tool service                | AI returns suggestions, never final unreviewed writes for low-confidence extraction. |
+| Product matching      | Backend service + JSONB alias metadata   | Start rule-based/manual, then add AI-assisted matching.                              |
+| Search                | Meilisearch                              | Index transactions, merchants, receipt text, products, and reports.                  |
+| Events                | RabbitMQ + outbox                        | Finance events should drive audit, notifications, search, and automations.           |
+| Storage               | PostgreSQL + JSONB + MinIO               | Relational transaction data, JSONB parsed receipt payloads, MinIO receipt files.     |
 
 Backend modules likely needed:
 

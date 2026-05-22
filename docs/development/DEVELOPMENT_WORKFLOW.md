@@ -133,20 +133,25 @@ At the end of each task, should produce:
 
 ```md
 ## Summary
+
 - ...
 
 ## Files changed
+
 - ...
 
 ## Checks run
+
 - `command` — passed/failed
 
 ## Architecture impact
+
 - Events: ...
 - Permissions: ...
 - Infrastructure: ...
 
 ## Risks / follow-ups
+
 - ...
 ```
 
