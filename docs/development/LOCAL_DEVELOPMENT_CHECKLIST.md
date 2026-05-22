@@ -54,23 +54,29 @@ Use this checklist before opening a pull request.
 
 ```md
 ## What changed
+
 -
 
 ## Why
+
 -
 
 ## Tests/checks run
+
 -
 
 ## Screenshots/videos
+
 -
 
 ## Architecture impact
+
 - Events:
 - Permissions:
 - Data/storage:
 - Infrastructure:
 
 ## Risks/follow-ups
+
 -
 ```

@@ -2,24 +2,9 @@ name: Web CI
 
 on:
   pull_request:
-    paths:
-      - 'apps/web/**'
-      - 'packages/ui/**'
-      - 'packages/shared/**'
-      - 'DESIGN.md'
-      - 'AGENTS.md'
-      - 'docs/development/**'
-      - '.github/workflows/ci-web.yml'
+    branches: [main, develop]
   push:
-    branches: [main]
-    paths:
-      - 'apps/web/**'
-      - 'packages/ui/**'
-      - 'packages/shared/**'
-      - 'DESIGN.md'
-      - 'AGENTS.md'
-      - 'docs/development/**'
-      - '.github/workflows/ci-web.yml'
+    branches: [main, develop]
 
 permissions:
   contents: read
@@ -35,17 +20,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'pnpm'
-          cache-dependency-path: apps/web/pnpm-lock.yaml
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

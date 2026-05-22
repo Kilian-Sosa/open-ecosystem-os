@@ -1,0 +1,3 @@
+# Root-level ignore for repository-wide Prettier commands.
+# App-specific .prettierignore files still apply when formatting inside that app.
+**/pnpm-lock.yaml

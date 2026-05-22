@@ -169,4 +169,3 @@ The design folder contains the long-term vision. Must not implement `P2` or `P3`
 ## Route planning
 
 Before adding or changing routes, check `docs/development/ROUTES.md` and keep route names consistent with the catalog.
-

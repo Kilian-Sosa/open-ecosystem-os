@@ -5,15 +5,15 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '0 4 * * 1'
+    - cron: "0 4 * * 1"
 
 permissions:
   contents: read
   security-events: write
 
 env:
-  JAVA_VERSION: '25'
-  MAVEN_VERSION: '3.9.15'
+  JAVA_VERSION: "25"
+  MAVEN_VERSION: "3.9.15"
 
 jobs:
   trivy-fs:
@@ -29,7 +29,7 @@ jobs:
           scan-type: fs
           scan-ref: .
           severity: HIGH,CRITICAL
-          exit-code: '1'
+          exit-code: "1"
           ignore-unfixed: true
 
   dependency-check-api:

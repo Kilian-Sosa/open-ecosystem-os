@@ -1,4 +1,5 @@
 # Screen Catalog
+
 This catalog links every designed screen to its implementation priority, product area, mockup reference, and required component patterns.
 Priority tags: `P0` first vertical slice, `P1` MVP, `P2` post-MVP, `P3` long-term/showcase.
 
@@ -11,14 +12,17 @@ Priority tags: `P0` first vertical slice, `P1` MVP, `P2` post-MVP, `P3` long-ter
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -34,14 +38,17 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -57,14 +64,17 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -80,14 +90,17 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -103,14 +116,17 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -126,14 +142,17 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -149,14 +168,17 @@ States to consider:
 - Key components: AppShell, UploadDropzone, FilePreview, FileTable, FileInspectorPanel, StatusChip, ProgressBar, MobileBottomSheet
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -172,14 +194,17 @@ States to consider:
 - Key components: AppShell, UploadDropzone, FilePreview, FileTable, FileInspectorPanel, StatusChip, ProgressBar, MobileBottomSheet
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -195,14 +220,17 @@ States to consider:
 - Key components: AppShell, WorkflowCanvas, NodeCatalog, NodeConfigPanel, RunTimeline, StatusChip, DataTable, MobileBottomSheet
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -218,14 +246,17 @@ States to consider:
 - Key components: AdminShell, MetricCard, StatusChip, DataTable, ActivityFeed, RightInspectorPanel, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -241,14 +272,17 @@ States to consider:
 - Key components: AppShell, UploadDropzone, FilePreview, FileTable, FileInspectorPanel, StatusChip, ProgressBar, MobileBottomSheet
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -264,14 +298,17 @@ States to consider:
 - Key components: AppShell, PageTree, BlockEditor, SlashCommandMenu, CollaboratorPresence, RightInspectorPanel, MobileBottomSheet
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -287,14 +324,17 @@ States to consider:
 - Key components: AppShell, PageTree, BlockEditor, SlashCommandMenu, CollaboratorPresence, RightInspectorPanel, MobileBottomSheet
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -310,14 +350,17 @@ States to consider:
 - Key components: AdminShell, MetricCard, StatusChip, DataTable, ActivityFeed, RightInspectorPanel, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -333,14 +376,17 @@ States to consider:
 - Key components: AdminShell, MetricCard, StatusChip, DataTable, ActivityFeed, RightInspectorPanel, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -356,14 +402,17 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -379,14 +428,17 @@ States to consider:
 - Key components: PublicShell, PageHeader, SectionCard, MetricCard, CTAGroup, ResponsivePageContainer
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -405,7 +457,7 @@ States to consider:
   Product architecture, main layers, core modules, request/event flow, and design principles.
 
 ## Architecture & Infrastructure Blueprint
-  
+
 - Priority: `P1`
 - Area: Technical / Developer Documentation
 - Route: /architecture/infrastructure
@@ -423,14 +475,17 @@ States to consider:
 - Key components: AdminShell, MetricCard, StatusChip, DataTable, ActivityFeed, RightInspectorPanel, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -446,14 +501,17 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -469,14 +527,17 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -492,14 +553,17 @@ States to consider:
 - Key components: AdminShell, MetricCard, StatusChip, DataTable, ActivityFeed, RightInspectorPanel, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -515,14 +579,17 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -538,14 +605,17 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -561,14 +631,17 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -584,14 +657,17 @@ States to consider:
 - Key components: DeveloperShell, DataTable, StatusChip, CodeBlock, RightInspectorPanel, TabsNav, MobileBottomSheet
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -607,14 +683,17 @@ States to consider:
 - Key components: DeveloperShell, DataTable, StatusChip, CodeBlock, RightInspectorPanel, TabsNav, MobileBottomSheet
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -630,14 +709,17 @@ States to consider:
 - Key components: DeveloperShell, DataTable, StatusChip, CodeBlock, RightInspectorPanel, TabsNav, MobileBottomSheet
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -653,14 +735,17 @@ States to consider:
 - Key components: AppShell, WorkflowCanvas, NodeCatalog, NodeConfigPanel, RunTimeline, StatusChip, DataTable, MobileBottomSheet
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -676,14 +761,17 @@ States to consider:
 - Key components: AppShell, PageTree, BlockEditor, SlashCommandMenu, CollaboratorPresence, RightInspectorPanel, MobileBottomSheet
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -699,14 +787,17 @@ States to consider:
 - Key components: AppShell, UploadDropzone, FilePreview, FileTable, FileInspectorPanel, StatusChip, ProgressBar, MobileBottomSheet
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -722,14 +813,17 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -745,14 +839,17 @@ States to consider:
 - Key components: DeveloperShell, DataTable, StatusChip, CodeBlock, RightInspectorPanel, TabsNav, MobileBottomSheet
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -768,14 +865,17 @@ States to consider:
 - Key components: AppShell, WorkflowCanvas, NodeCatalog, NodeConfigPanel, RunTimeline, StatusChip, DataTable, MobileBottomSheet
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -791,14 +891,17 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -814,14 +917,17 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -837,14 +943,17 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -860,14 +969,17 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -883,14 +995,17 @@ States to consider:
 - Key components: AppShell, Sidebar, TopCommandBar, MobileShell, MobileBottomNav, AppSwitcher
 
 Desktop guidance:
+
 - Use the workspace sidebar, top command/search bar, main content region, and optional right inspector panel.
 - Keep navigation labels consistent with `docs/development/ROUTES.md`.
 
 Mobile guidance:
+
 - Use top header, concise app identity, stacked content, and bottom navigation.
 - Move inspectors and contextual actions into bottom sheets.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -906,14 +1021,17 @@ States to consider:
 - Key components: CommandPalette, SearchInput, StatusChip, TabsNav, MobileBottomSheet
 
 Desktop guidance:
+
 - Keep command groups scannable and keyboard friendly.
 - Show command type, destination, and permission context where relevant.
 
 Mobile guidance:
+
 - Present the command palette as a full-height sheet or focused search surface.
 - Keep touch targets large and action labels explicit.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -929,13 +1047,16 @@ States to consider:
 - Key components: Sidebar, MobileBottomNav, Breadcrumbs, FilterChips, TabsNav, RightInspectorPanel
 
 Desktop guidance:
+
 - Prefer persistent navigation and visible hierarchy for internal apps.
 - Keep dense controls predictable across apps.
 
 Mobile guidance:
+
 - Use top-level bottom navigation, horizontal chips/tabs, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -951,13 +1072,16 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, MobileCardList
 
 Desktop guidance:
+
 - Use the same layout as the light dashboard and swap only semantic theme tokens.
 - Preserve contrast, focus states, and status labels.
 
 Mobile guidance:
+
 - Preserve the light dashboard mobile hierarchy with dark theme tokens.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -973,13 +1097,16 @@ States to consider:
 - Key components: PublicShell, ResponsivePageContainer, CTAGroup, SectionCard, MetricCard
 
 Desktop guidance:
+
 - Use public navigation and a clear first-viewport product signal.
 - Keep the hero tied to the actual ecosystem rather than generic marketing copy.
 
 Mobile guidance:
+
 - Keep calls to action visible and stack sections in a clear reading order.
 
 States to consider:
+
 - Normal
 - Loading
 - Error
@@ -993,12 +1120,15 @@ States to consider:
 - Key components: PublicShell, ResponsivePageContainer, SectionCard, Timeline, CTAGroup
 
 Desktop guidance:
+
 - Organize long-form content into clear sections with restrained visual emphasis.
 
 Mobile guidance:
+
 - Stack sections and keep paragraphs short enough for scanning.
 
 States to consider:
+
 - Normal
 - Loading
 - Error
@@ -1012,12 +1142,15 @@ States to consider:
 - Key components: PublicShell, ResourceCard, StatusChip, FilterChips, ResponsivePageContainer
 
 Desktop guidance:
+
 - Separate MVP-ready apps from post-MVP and long-term apps using visible status labels.
 
 Mobile guidance:
+
 - Use stacked app cards with compact metadata and explicit status labels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -1032,12 +1165,15 @@ States to consider:
 - Key components: PublicShell, Timeline, StatusChip, SectionCard, FilterChips
 
 Desktop guidance:
+
 - Present roadmap phases with clear sequencing and priority labels.
 
 Mobile guidance:
+
 - Use timeline cards and avoid dense multi-column phase layouts.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -1052,12 +1188,15 @@ States to consider:
 - Key components: PublicShell, Timeline, StatusChip, SectionCard, FilterChips
 
 Desktop guidance:
+
 - Keep entries grouped by release/date and label breaking or security-relevant changes.
 
 Mobile guidance:
+
 - Use stacked release cards and concise entry summaries.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -1072,12 +1211,15 @@ States to consider:
 - Key components: AdminShell, AppManagementRow, StatusChip, DataTable, RightInspectorPanel, MobileCardList
 
 Desktop guidance:
+
 - Use tables for dense app metadata and a right inspector for selected app details.
 
 Mobile guidance:
+
 - Use app cards and bottom sheets for details and configuration.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -1093,14 +1235,17 @@ States to consider:
 - Key components: AppShell, WorkflowCanvas, NodeCatalog, NodeConfigPanel, RunTimeline, StatusChip, DataTable, MobileBottomSheet
 
 Desktop guidance:
+
 - Use the appropriate shell for the area.
 - Preserve clear section hierarchy, action hierarchy, and right-side detail panels where shown.
 - Prefer tables/grids for dense desktop data.
 
 Mobile guidance:
+
 - Use top header, search/filter row where relevant, stacked cards, sticky primary actions, and bottom sheets for detail panels.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty
@@ -1116,16 +1261,19 @@ States to consider:
 - Key components: AppShell, PageHeader, MetricCard, SectionCard, StatusChip, FinanceMetricCard, ReceiptReviewCard, ProductPriceRow, AiFinanceSummaryCard, MobileCardList
 
 Desktop guidance:
+
 - Use Open Ledger sub-navigation in the authenticated app shell.
 - Show income, expenses, net balance, and savings rate as primary metrics.
 - Surface receipt review and rule alerts without requiring navigation.
 
 Mobile guidance:
+
 - Prioritize add expense, add income, and scan receipt actions.
 - Use a central scan action in bottom navigation.
 - Stack metrics, chart, recent transactions, and active rule cards.
 
 States to consider:
+
 - Normal
 - Loading
 - Empty finance data
@@ -1141,14 +1289,17 @@ States to consider:
 - Key components: AppShell, DataTable, MobileCardList, TransactionDetailPanel, FilterChips, StatusChip, ExportButton
 
 Desktop guidance:
+
 - Use table layout with filters and a right-side detail panel.
 - Include add expense, add income, and scan receipt actions.
 
 Mobile guidance:
+
 - Use card list and quick filters.
 - Use bottom sheet for selected transaction details.
 
 States to consider:
+
 - Normal
 - Empty transactions
 - Loading
@@ -1164,14 +1315,17 @@ States to consider:
 - Key components: AppShell, ReceiptPreviewCard, ReceiptReviewPanel, ReceiptLineItemsTable, ReceiptConfidenceBadge, StatusChip, MobileBottomSheet
 
 Desktop guidance:
+
 - Show receipt table and selected receipt review panel.
 - Never save low-confidence parsed data without user review.
 
 Mobile guidance:
+
 - Use receipt cards and bottom-sheet review.
 - Keep confirm/create transaction action prominent.
 
 States to consider:
+
 - Uploaded
 - Processing
 - Needs review
@@ -1188,13 +1342,16 @@ States to consider:
 - Key components: BudgetProgressRow, RuleStatusCard, RuleAlertCard, MetricCard, DataTable, MobileCardList
 
 Desktop guidance:
+
 - Show budgets by category and rules/habits side by side.
 - Include trend vs budget chart and alerts/recommendations.
 
 Mobile guidance:
+
 - Use tabs for all, budgets, rules, and alerts.
 
 States to consider:
+
 - On track
 - Near limit
 - Exceeded
@@ -1210,13 +1367,16 @@ States to consider:
 - Key components: ProductPriceRow, StoreRankingList, UnitPriceBadge, MiniChart, AlertBanner, DataTable
 
 Desktop guidance:
+
 - Show product comparison table and selected product detail panel.
 - Include price history, store ranking, category savings, and basket comparison.
 
 Mobile guidance:
+
 - Focus on top products, store ranking, and alerts.
 
 States to consider:
+
 - No tracked products
 - Product alias needs review
 - Price opportunity detected
@@ -1231,13 +1391,16 @@ States to consider:
 - Key components: FinanceReportChartCard, AiFinanceSummaryCard, MetricCard, FilterChips, ExportButton
 
 Desktop guidance:
+
 - Use multiple chart cards and AI insight panel.
 - Include report presets and export actions.
 
 Mobile guidance:
+
 - Use report tabs and stacked charts.
 
 States to consider:
+
 - No data for selected period
 - Report generating
 - Export failed
@@ -1251,12 +1414,15 @@ States to consider:
 - Key components: FinanceSettingsGroup, SectionCard, StatusChip, Toggle, Select, ConfirmationDialog
 
 Desktop guidance:
+
 - Use categorized settings cards with a privacy-first side panel.
 
 Mobile guidance:
+
 - Use accordion sections and sticky save action.
 
 States to consider:
+
 - Unsaved changes
 - Export in progress
 - Delete finance data confirmation

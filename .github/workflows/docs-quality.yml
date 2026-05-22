@@ -1,0 +1,26 @@
+name: Docs Quality
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  docs-format:
+    name: Markdown/YAML/JSON format check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Prettier check
+        run: npx --yes prettier@3.8.3 "**/*.{md,json,yaml,yml}" --check

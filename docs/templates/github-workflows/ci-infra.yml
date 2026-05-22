@@ -3,19 +3,19 @@ name: Infrastructure CI
 on:
   pull_request:
     paths:
-      - 'infra/**'
-      - 'docs/architecture/DEPLOYMENT.md'
-      - 'docs/architecture/OBSERVABILITY.md'
-      - 'docs/development/CI_CD.md'
-      - '.github/workflows/ci-infra.yml'
+      - "infra/**"
+      - "docs/architecture/DEPLOYMENT.md"
+      - "docs/architecture/OBSERVABILITY.md"
+      - "docs/development/CI_CD.md"
+      - ".github/workflows/ci-infra.yml"
   push:
     branches: [main]
     paths:
-      - 'infra/**'
-      - 'docs/architecture/DEPLOYMENT.md'
-      - 'docs/architecture/OBSERVABILITY.md'
-      - 'docs/development/CI_CD.md'
-      - '.github/workflows/ci-infra.yml'
+      - "infra/**"
+      - "docs/architecture/DEPLOYMENT.md"
+      - "docs/architecture/OBSERVABILITY.md"
+      - "docs/development/CI_CD.md"
+      - ".github/workflows/ci-infra.yml"
 
 permissions:
   contents: read
@@ -47,4 +47,4 @@ jobs:
           scan-type: config
           scan-ref: infra
           severity: HIGH,CRITICAL
-          exit-code: '1'
+          exit-code: "1"
