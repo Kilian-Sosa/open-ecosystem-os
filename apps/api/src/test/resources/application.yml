@@ -1,0 +1,30 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:openecosystem;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+openecosystem:
+  cors:
+    allowed-origins: http://localhost:3000,http://127.0.0.1:3000
+  drive:
+    max-upload-size: 25MB
+    allowed-content-types:
+      - application/pdf
+      - image/png
+      - image/jpeg
+      - text/plain
+      - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/vnd.openxmlformats-officedocument.presentationml.presentation
+    encryption:
+      key-id: test-key
+      key-base64: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+  storage:
+    s3:
+      endpoint: http://localhost:9000
+      region: local
+      bucket: openecosystem-test
+      access-key: openecosystem
+      secret-key: openecosystem_dev_password
