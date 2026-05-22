@@ -81,10 +81,12 @@ Use Prettier where practical.
 Recommended:
 
 ```bash
-prettier "**/*.{md,json,yaml,yml}" --check
+npx --yes prettier@3.8.3 "**/*.{md,json,yaml,yml}" --check
 ```
 
-Do not run Prettier over generated files or vendored code.
+Do not run Prettier over generated files or vendored code. The root
+`.prettierignore` excludes `**/pnpm-lock.yaml` so repository-wide Markdown,
+JSON, and YAML checks do not rewrite package-manager lockfiles.
 
 ## Rules
 
