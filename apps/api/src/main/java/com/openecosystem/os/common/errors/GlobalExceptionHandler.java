@@ -6,6 +6,8 @@ import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -16,6 +18,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
   @ExceptionHandler(ApiException.class)
   public ResponseEntity<ApiErrorResponse> handleApiException(
@@ -71,6 +75,11 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ApiErrorResponse> handleException(
       Exception exception, HttpServletRequest request) {
+    LOGGER.error(
+        "Unexpected API error at path {} with correlationId {}",
+        request.getRequestURI(),
+        CorrelationContext.currentOrCreate(),
+        exception);
     return buildResponse(
         HttpStatus.INTERNAL_SERVER_ERROR,
         ApiErrorCode.INTERNAL_ERROR,

@@ -66,6 +66,8 @@ Use for binary and large assets:
 - backups
 - plugin packages
 
+Drive upload objects are private by default and stored under opaque keys such as `workspaces/{workspaceId}/drive/{fileId}/original`. The application encrypts original file bytes with AES-256-GCM before writing to MinIO or AWS S3-compatible storage. Original filenames are stored encrypted in PostgreSQL metadata, not embedded in object keys.
+
 ### Redis
 
 Use for transient operational state:
@@ -107,6 +109,7 @@ Users must be able to export:
 Do not log:
 
 - file contents
+- original filenames from private uploads unless explicitly required for a user-facing response
 - OCR extracted text by default
 - AI prompts/responses by default
 - secrets

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-import { ThemeProvider, ThemeScript } from "@/components/theme";
+import { AppProviders } from "@/components/providers/app-providers";
+import { ThemeScript } from "@/components/theme";
 
 import "./globals.css";
 
@@ -21,7 +22,7 @@ export default function RootLayout({
         <ThemeScript />
       </head>
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );
