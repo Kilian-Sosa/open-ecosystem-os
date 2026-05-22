@@ -54,6 +54,34 @@ Commands request action. Events record that something happened.
 - `FileVersionCreated`
 - `FileShared`
 
+#### `FileUploaded` v1
+
+Produced by the Drive API through the transactional outbox in the same PostgreSQL transaction that persists file metadata and the upload audit record.
+
+Payload:
+
+```json
+{
+  "fileId": "file_123",
+  "contentType": "application/pdf",
+  "sizeBytes": 1048576,
+  "checksumSha256": "hex_sha256_of_original_bytes",
+  "storageKey": "workspaces/wrk_123/drive/file_123/original",
+  "encryptionAlgorithm": "AES-256-GCM",
+  "encryptionKeyId": "key_2026_05",
+  "contentIv": "base64_iv",
+  "uploadedAt": "2026-05-13T10:00:00Z"
+}
+```
+
+Notes:
+
+- `source` is `drive`.
+- `version` is `1`.
+- `idempotencyKey` is `drive:{fileId}:uploaded:v1`.
+- The payload intentionally excludes the plaintext filename. File names are encrypted in PostgreSQL and file content is encrypted before writing to MinIO/S3-compatible object storage.
+- Consumers must treat `storageKey` as a private object pointer, not a downloadable URL.
+
 ### PDF
 
 - `PdfWatermarkRequested`
@@ -130,7 +158,7 @@ Commands request action. Events record that something happened.
 For MVP:
 
 - Start with transactional persistence of business state and queue publish where acceptable.
-- For critical workflows, introduce outbox pattern.
+- Critical workflows such as Drive upload use the outbox pattern from the first slice.
 
 Target outbox flow:
 
