@@ -1,6 +1,18 @@
 spring:
   application:
     name: open-ecosystem-worker
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:openecosystem}
+    password: ${RABBITMQ_PASSWORD:openecosystem_dev_password}
+    listener:
+      simple:
+        default-requeue-rejected: false
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/openecosystem}
+    username: ${SPRING_DATASOURCE_USERNAME:openecosystem}
+    password: ${SPRING_DATASOURCE_PASSWORD:openecosystem_dev_password}
 
 server:
   port: ${WORKER_PORT:8081}
@@ -14,3 +26,16 @@ management:
     web:
       exposure:
         include: health,info,metrics
+
+openecosystem:
+  events:
+    exchange: ${EVENTS_EXCHANGE:openecosystem.events}
+    retry-exchange: ${EVENTS_RETRY_EXCHANGE:openecosystem.events.retry}
+    dead-letter-exchange: ${EVENTS_DEAD_LETTER_EXCHANGE:openecosystem.events.dlx}
+    queues:
+      retry-delay: ${OCR_RETRY_DELAY_SECONDS:30s}
+  media:
+    ocr:
+      provider: ${OCR_PROVIDER:mock}
+      max-attempts: ${OCR_MAX_ATTEMPTS:3}
+      retry-delay: ${OCR_RETRY_DELAY_SECONDS:30s}
