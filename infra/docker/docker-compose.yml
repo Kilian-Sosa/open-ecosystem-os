@@ -50,6 +50,10 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-openecosystem_dev_password}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://openecosystem:openecosystem_dev_password@rabbitmq:5672}
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-openecosystem}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-openecosystem_dev_password}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
       S3_REGION: ${S3_REGION:-local}
       S3_BUCKET: ${S3_BUCKET:-openecosystem}
@@ -62,6 +66,8 @@ services:
       DRIVE_ENCRYPTION_KEY_BASE64: ${DRIVE_ENCRYPTION_KEY_BASE64:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
       MEILISEARCH_HOST: ${MEILISEARCH_HOST:-http://meilisearch:7700}
       MEILISEARCH_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-openecosystem_dev_master_key}
+      OCR_MAX_ATTEMPTS: ${OCR_MAX_ATTEMPTS:-3}
+      OCR_RETRY_DELAY_SECONDS: ${OCR_RETRY_DELAY_SECONDS:-30s}
       AI_PROVIDER: ${AI_PROVIDER:-mock}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       LOCAL_LLM_BASE_URL: ${LOCAL_LLM_BASE_URL:-}
@@ -107,6 +113,10 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-openecosystem_dev_password}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://openecosystem:openecosystem_dev_password@rabbitmq:5672}
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-openecosystem}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-openecosystem_dev_password}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
       S3_REGION: ${S3_REGION:-local}
       S3_BUCKET: ${S3_BUCKET:-openecosystem}
@@ -117,6 +127,9 @@ services:
       DRIVE_ENCRYPTION_KEY_BASE64: ${DRIVE_ENCRYPTION_KEY_BASE64:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
       MEILISEARCH_HOST: ${MEILISEARCH_HOST:-http://meilisearch:7700}
       MEILISEARCH_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-openecosystem_dev_master_key}
+      OCR_PROVIDER: ${OCR_PROVIDER:-mock}
+      OCR_MAX_ATTEMPTS: ${OCR_MAX_ATTEMPTS:-3}
+      OCR_RETRY_DELAY_SECONDS: ${OCR_RETRY_DELAY_SECONDS:-30s}
       AI_PROVIDER: ${AI_PROVIDER:-mock}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       LOCAL_LLM_BASE_URL: ${LOCAL_LLM_BASE_URL:-}

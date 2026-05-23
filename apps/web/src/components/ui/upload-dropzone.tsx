@@ -8,12 +8,14 @@ import { cn } from "@/lib/cn";
 type UploadDropzoneProps = {
   label?: string;
   description?: string;
+  acceptedFileTypes?: readonly string[];
   busy?: boolean;
   compact?: boolean;
+  onReject?: (file: File) => void;
   onUpload: (file: File) => void;
 };
 
-const acceptedFileTypes = [
+const defaultAcceptedFileTypes = [
   "application/pdf",
   "image/png",
   "image/jpeg",
@@ -21,21 +23,28 @@ const acceptedFileTypes = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-].join(",");
+];
 
 export function UploadDropzone({
   label = "Upload file",
   description = "Drop a PDF, image, or Office document here",
+  acceptedFileTypes = defaultAcceptedFileTypes,
   busy = false,
   compact = false,
+  onReject,
   onUpload,
 }: UploadDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
+  const accept = acceptedFileTypes.join(",");
 
   function uploadFiles(files: FileList | null) {
     const file = files?.item(0);
     if (file) {
+      if (!isAcceptedFile(file, acceptedFileTypes)) {
+        onReject?.(file);
+        return;
+      }
       onUpload(file);
     }
   }
@@ -48,10 +57,13 @@ export function UploadDropzone({
         <input
           ref={inputRef}
           type="file"
-          accept={acceptedFileTypes}
+          accept={accept}
           className="sr-only"
           disabled={busy}
-          onChange={(event) => uploadFiles(event.currentTarget.files)}
+          onChange={(event) => {
+            uploadFiles(event.currentTarget.files);
+            event.currentTarget.value = "";
+          }}
         />
       </label>
     );
@@ -93,11 +105,28 @@ export function UploadDropzone({
       <input
         ref={inputRef}
         type="file"
-        accept={acceptedFileTypes}
+        accept={accept}
         className="sr-only"
         disabled={busy}
-        onChange={(event) => uploadFiles(event.currentTarget.files)}
+        onChange={(event) => {
+          uploadFiles(event.currentTarget.files);
+          event.currentTarget.value = "";
+        }}
       />
     </div>
   );
+}
+
+function isAcceptedFile(file: File, acceptedFileTypes: readonly string[]) {
+  if (acceptedFileTypes.includes(file.type)) {
+    return true;
+  }
+
+  const fileName = file.name.toLowerCase();
+  return acceptedFileTypes.some((fileType) => {
+    if (!fileType.startsWith(".")) {
+      return false;
+    }
+    return fileName.endsWith(fileType.toLowerCase());
+  });
 }
