@@ -1,6 +1,14 @@
 spring:
   application:
     name: open-ecosystem-api
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:openecosystem}
+    password: ${RABBITMQ_PASSWORD:openecosystem_dev_password}
+    listener:
+      simple:
+        default-requeue-rejected: false
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/openecosystem}
     username: ${SPRING_DATASOURCE_USERNAME:openecosystem}
@@ -39,6 +47,20 @@ openecosystem:
       - application/vnd.openxmlformats-officedocument.wordprocessingml.document
       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
       - application/vnd.openxmlformats-officedocument.presentationml.presentation
+  events:
+    exchange: ${EVENTS_EXCHANGE:openecosystem.events}
+    retry-exchange: ${EVENTS_RETRY_EXCHANGE:openecosystem.events.retry}
+    dead-letter-exchange: ${EVENTS_DEAD_LETTER_EXCHANGE:openecosystem.events.dlx}
+    outbox:
+      enabled: ${EVENT_OUTBOX_PUBLISHER_ENABLED:true}
+      poll-interval-ms: ${EVENT_OUTBOX_POLL_INTERVAL_MS:1000}
+      batch-size: ${EVENT_OUTBOX_BATCH_SIZE:50}
+    queues:
+      retry-delay: ${OCR_RETRY_DELAY_SECONDS:30s}
+  media:
+    ocr:
+      max-attempts: ${OCR_MAX_ATTEMPTS:3}
+      retry-delay: ${OCR_RETRY_DELAY_SECONDS:30s}
   storage:
     s3:
       endpoint: ${S3_ENDPOINT:http://localhost:9000}
