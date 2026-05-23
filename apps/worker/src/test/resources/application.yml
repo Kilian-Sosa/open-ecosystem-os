@@ -1,0 +1,24 @@
+spring:
+  rabbitmq:
+    dynamic: false
+    listener:
+      simple:
+        auto-startup: false
+  datasource:
+    url: jdbc:h2:mem:openecosystem_worker;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+openecosystem:
+  events:
+    exchange: openecosystem.events
+    retry-exchange: openecosystem.events.retry
+    dead-letter-exchange: openecosystem.events.dlx
+    queues:
+      retry-delay: 1s
+  media:
+    ocr:
+      provider: mock
+      max-attempts: 2
+      retry-delay: 1s
