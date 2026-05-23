@@ -1,7 +1,7 @@
 "use client";
 
 import { Bot, FileText, Image as ImageIcon, RefreshCw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import {
@@ -34,12 +34,45 @@ type MediaScreenProps = {
   stateOverride?: MediaState;
 };
 
+const OCR_SOURCE_FILE_TYPES = [
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+] as const;
+const OCR_JOB_POLL_INTERVAL_MS = 1500;
+const OCR_JOB_WAIT_TIMEOUT_MS = 20000;
+
+type UploadFeedback = {
+  tone: "info" | "warning";
+  message: string;
+};
+
+type PendingUpload = {
+  fileId: string;
+  fileName: string;
+};
+
 export function MediaScreen({ stateOverride }: MediaScreenProps) {
-  const jobsQuery = useOcrJobs(stateOverride === undefined);
+  const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(
+    null,
+  );
+  const jobsQuery = useOcrJobs(
+    stateOverride === undefined,
+    pendingUpload ? OCR_JOB_POLL_INTERVAL_MS : false,
+  );
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const uploadMutation = useUploadOcrSourceFile();
+  const [uploadFeedback, setUploadFeedback] = useState<UploadFeedback | null>(
+    null,
+  );
+  const uploadMutation = useUploadOcrSourceFile((file) => {
+    setPendingUpload({ fileId: file.fileId, fileName: file.name });
+    setUploadFeedback({
+      tone: "info",
+      message: `Upload complete. Waiting for the OCR job for ${file.name}...`,
+    });
+  });
 
   const jobs = useMemo(() => {
     if (stateOverride === "normal") {
@@ -91,9 +124,62 @@ export function MediaScreen({ stateOverride }: MediaScreenProps) {
     state === "normal" && selectedJob ? (
       <MediaJobInspector job={selectedJob} detailLoading={detailLoading} />
     ) : undefined;
+  const pendingOcrJob = useMemo(() => {
+    if (!pendingUpload) {
+      return null;
+    }
+    return (
+      jobs.find((candidate) => candidate.fileId === pendingUpload.fileId) ??
+      null
+    );
+  }, [jobs, pendingUpload]);
+
+  useEffect(() => {
+    if (!pendingUpload || !pendingOcrJob) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setSelectedJobId(pendingOcrJob.jobId);
+      setUploadFeedback({
+        tone: "info",
+        message: `OCR job created for ${pendingUpload.fileName}.`,
+      });
+      setPendingUpload(null);
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [pendingOcrJob, pendingUpload]);
+
+  useEffect(() => {
+    if (!pendingUpload) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setUploadFeedback({
+        tone: "warning",
+        message:
+          "Upload succeeded, but the OCR job has not appeared yet. It may still be moving through the event queue.",
+      });
+      setPendingUpload(null);
+    }, OCR_JOB_WAIT_TIMEOUT_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [pendingUpload]);
 
   function handleUpload(file: File) {
+    setPendingUpload(null);
+    setUploadFeedback(null);
     uploadMutation.mutate(file);
+  }
+
+  function handleRejectedUpload(file: File) {
+    setPendingUpload(null);
+    setUploadFeedback({
+      tone: "warning",
+      message: `${file.name} was not uploaded. OCR accepts PDF, PNG, and JPEG files only.`,
+    });
   }
 
   return (
@@ -112,11 +198,17 @@ export function MediaScreen({ stateOverride }: MediaScreenProps) {
             <UploadDropzone
               compact
               label="Upload OCR file"
+              acceptedFileTypes={OCR_SOURCE_FILE_TYPES}
               busy={uploadMutation.isPending}
+              onReject={handleRejectedUpload}
               onUpload={handleUpload}
             />
           }
         />
+
+        {uploadFeedback ? (
+          <UploadFeedbackBanner feedback={uploadFeedback} />
+        ) : null}
 
         {state === "loading" ? (
           <LoadingState label="Loading OCR jobs" />
@@ -128,7 +220,9 @@ export function MediaScreen({ stateOverride }: MediaScreenProps) {
               <UploadDropzone
                 compact
                 label="Upload first OCR file"
+                acceptedFileTypes={OCR_SOURCE_FILE_TYPES}
                 busy={uploadMutation.isPending}
+                onReject={handleRejectedUpload}
                 onUpload={handleUpload}
               />
             }
@@ -162,6 +256,7 @@ export function MediaScreen({ stateOverride }: MediaScreenProps) {
             uploadBusy={uploadMutation.isPending}
             uploadError={uploadMutation.isError}
             onQueryChange={setQuery}
+            onRejectUpload={handleRejectedUpload}
             onUpload={handleUpload}
             onSelect={(job) => {
               setSelectedJobId(job.jobId);
@@ -210,6 +305,7 @@ function MediaNormalState({
   uploadBusy,
   uploadError,
   onQueryChange,
+  onRejectUpload,
   onUpload,
   onSelect,
 }: {
@@ -220,6 +316,7 @@ function MediaNormalState({
   uploadBusy: boolean;
   uploadError: boolean;
   onQueryChange: (query: string) => void;
+  onRejectUpload: (file: File) => void;
   onUpload: (file: File) => void;
   onSelect: (job: OcrJobSummary) => void;
 }) {
@@ -358,7 +455,9 @@ function MediaNormalState({
           <UploadDropzone
             label="Upload PDF or image"
             description="The Drive upload emits FileUploaded, then OCR queues from the event."
+            acceptedFileTypes={OCR_SOURCE_FILE_TYPES}
             busy={uploadBusy}
+            onReject={onRejectUpload}
             onUpload={onUpload}
           />
           {uploadError ? (
@@ -368,6 +467,21 @@ function MediaNormalState({
           ) : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+function UploadFeedbackBanner({ feedback }: { feedback: UploadFeedback }) {
+  return (
+    <div
+      className={cn(
+        "rounded-card border p-4 text-sm",
+        feedback.tone === "warning"
+          ? "border-warning-soft bg-warning-soft text-warning"
+          : "border-info-soft bg-info-soft text-info",
+      )}
+    >
+      {feedback.message}
     </div>
   );
 }
