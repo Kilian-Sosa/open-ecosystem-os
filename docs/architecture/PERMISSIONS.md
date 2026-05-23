@@ -23,6 +23,7 @@ Initial roles:
 - role
 - file
 - folder
+- ocr_job
 - page
 - workflow
 - workflow_execution
@@ -63,6 +64,7 @@ Initial roles:
 | Workspace settings | manage | manage | view                 | none               | none   | none         | view            |
 | Users/roles        | manage | manage | none                 | none               | none   | none         | view            |
 | Files/folders      | manage | manage | edit                 | edit               | view   | limited view | view audit only |
+| OCR jobs           | manage | manage | view                 | view               | view   | none         | view audit only |
 | Pages              | manage | manage | edit                 | edit               | view   | limited view | view audit only |
 | Workflows          | manage | manage | edit/execute         | execute if allowed | view   | none         | view audit only |
 | Integrations       | manage | manage | configure if allowed | none               | none   | none         | view            |
@@ -147,3 +149,13 @@ AI/OCR rules:
 - AI categorization can suggest fields but must respect user/workspace access.
 - Receipt text and parsed content must not be sent to external providers unless AI settings allow it.
 - Finance exports and deletes require explicit confirmation and should create audit records.
+
+## Media/OCR permissions
+
+The MVP uses placeholder authentication and workspace scoping. Full RBAC should
+map OCR job access to the source file permission:
+
+- viewing OCR job status requires `file:view`
+- viewing extracted OCR text requires `file:view` on the source file
+- re-running or deleting OCR jobs later should require `file:edit` or `file:manage`
+- auditors may view OCR audit metadata but not extracted text by default

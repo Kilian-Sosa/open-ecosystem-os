@@ -100,6 +100,98 @@ Notes:
 - `OcrFailed`
 - `MediaIndexed`
 
+#### `OcrRequested` v1
+
+Produced by the Media/OCR module after consuming `FileUploaded` v1 for OCR-eligible
+content types: `application/pdf`, `image/png`, and `image/jpeg`.
+
+Payload:
+
+```json
+{
+  "jobId": "ocr_123",
+  "fileId": "file_123",
+  "contentType": "application/pdf",
+  "storageKey": "workspaces/wrk_123/drive/file_123/original",
+  "attemptCount": 0,
+  "maxAttempts": 3,
+  "requestedAt": "2026-05-22T10:00:05Z"
+}
+```
+
+Notes:
+
+- `source` is `media`.
+- `causationId` is the consumed `FileUploaded` event ID.
+- `idempotencyKey` is `media:ocr:{jobId}:requested:v1`.
+- Payload does not include filenames, file content, or OCR text.
+
+#### `OcrStarted` v1
+
+Produced by the OCR worker when it claims a queued job.
+
+Payload:
+
+```json
+{
+  "jobId": "ocr_123",
+  "fileId": "file_123",
+  "provider": "mock",
+  "attemptCount": 1,
+  "maxAttempts": 3,
+  "startedAt": "2026-05-22T10:00:10Z"
+}
+```
+
+#### `OcrCompleted` v1
+
+Produced by the OCR worker after the provider returns extracted text and the job
+is persisted as completed.
+
+Payload:
+
+```json
+{
+  "jobId": "ocr_123",
+  "fileId": "file_123",
+  "provider": "mock",
+  "attemptCount": 1,
+  "extractedTextLength": 2048,
+  "completedAt": "2026-05-22T10:00:20Z"
+}
+```
+
+Notes:
+
+- Extracted text is stored in PostgreSQL for job detail preview.
+- Event payloads intentionally include only text length, never raw OCR text.
+
+#### `OcrFailed` v1
+
+Produced by the OCR worker after the final configured attempt fails.
+
+Payload:
+
+```json
+{
+  "jobId": "ocr_123",
+  "fileId": "file_123",
+  "provider": "mock",
+  "attemptCount": 3,
+  "maxAttempts": 3,
+  "errorCode": "MOCK_OCR_FAILED",
+  "errorMessage": "Mock OCR provider failed",
+  "failedAt": "2026-05-22T10:02:20Z"
+}
+```
+
+Notes:
+
+- Error details must be sanitized and must not include file content or OCR text.
+- The MVP retry policy uses `OCR_MAX_ATTEMPTS` and `OCR_RETRY_DELAY_SECONDS`.
+- RabbitMQ primary queues dead-letter to retry queues. Final worker failures are
+  also published to the OCR requested DLQ for inspection.
+
 ### Open Pages
 
 - `PageCreated`
