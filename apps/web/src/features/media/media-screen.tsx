@@ -52,14 +52,23 @@ type PendingUpload = {
   fileName: string;
 };
 
+type TrackedUpload = PendingUpload & {
+  jobId: string;
+};
+
 export function MediaScreen({ stateOverride }: MediaScreenProps) {
   const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(
     null,
   );
-  const jobsQuery = useOcrJobs(
-    stateOverride === undefined,
-    pendingUpload ? OCR_JOB_POLL_INTERVAL_MS : false,
+  const [trackedUpload, setTrackedUpload] = useState<TrackedUpload | null>(
+    null,
   );
+  const jobsQuery = useOcrJobs(stateOverride === undefined, (query) => {
+    const queryJobs = query.state.data?.jobs ?? [];
+    return pendingUpload || queryJobs.some(isActiveOcrJob)
+      ? OCR_JOB_POLL_INTERVAL_MS
+      : false;
+  });
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -101,9 +110,12 @@ export function MediaScreen({ stateOverride }: MediaScreenProps) {
     filteredJobs.find((job) => job.jobId === selectedJobId) ??
     filteredJobs[0] ??
     null;
+  const selectedSummaryActive =
+    selectedSummary !== null && isActiveOcrJob(selectedSummary);
   const selectedDetailQuery = useOcrJobDetail(
     selectedSummary?.jobId ?? null,
     stateOverride === undefined && selectedSummary !== null,
+    selectedSummaryActive ? OCR_JOB_POLL_INTERVAL_MS : false,
   );
   const selectedJob =
     stateOverride === "normal"
@@ -141,15 +153,55 @@ export function MediaScreen({ stateOverride }: MediaScreenProps) {
 
     const timeout = window.setTimeout(() => {
       setSelectedJobId(pendingOcrJob.jobId);
+      setTrackedUpload({
+        fileId: pendingUpload.fileId,
+        fileName: pendingUpload.fileName,
+        jobId: pendingOcrJob.jobId,
+      });
       setUploadFeedback({
         tone: "info",
-        message: `OCR job created for ${pendingUpload.fileName}.`,
+        message: `OCR job created for ${pendingUpload.fileName}. Tracking status...`,
       });
       setPendingUpload(null);
     }, 0);
 
     return () => window.clearTimeout(timeout);
   }, [pendingOcrJob, pendingUpload]);
+
+  useEffect(() => {
+    if (!trackedUpload) {
+      return;
+    }
+
+    const trackedJob = jobs.find((job) => job.jobId === trackedUpload.jobId);
+    if (!trackedJob || isActiveOcrJob(trackedJob)) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setUploadFeedback(
+        trackedJob.status === "completed"
+          ? {
+              tone: "info",
+              message: `OCR completed for ${trackedUpload.fileName}.`,
+            }
+          : {
+              tone: "warning",
+              message: `OCR failed for ${trackedUpload.fileName}.`,
+            },
+      );
+      setTrackedUpload(null);
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [jobs, trackedUpload]);
+
+  useEffect(() => {
+    if (uploadFeedback?.message.startsWith("OCR completed for")) {
+      const timeout = window.setTimeout(() => setUploadFeedback(null), 4000);
+      return () => window.clearTimeout(timeout);
+    }
+  }, [uploadFeedback]);
 
   useEffect(() => {
     if (!pendingUpload) {
@@ -170,12 +222,14 @@ export function MediaScreen({ stateOverride }: MediaScreenProps) {
 
   function handleUpload(file: File) {
     setPendingUpload(null);
+    setTrackedUpload(null);
     setUploadFeedback(null);
     uploadMutation.mutate(file);
   }
 
   function handleRejectedUpload(file: File) {
     setPendingUpload(null);
+    setTrackedUpload(null);
     setUploadFeedback({
       tone: "warning",
       message: `${file.name} was not uploaded. OCR accepts PDF, PNG, and JPEG files only.`,
@@ -640,6 +694,10 @@ function statusChip(status: OcrJobStatus) {
 
 function statusLabel(status: OcrJobStatus) {
   return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function isActiveOcrJob(job: OcrJobSummary | OcrJobDetail) {
+  return job.status === "queued" || job.status === "processing";
 }
 
 function formatDate(value: string) {

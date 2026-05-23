@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryObserverOptions,
+} from "@tanstack/react-query";
 
 import { uploadDriveFile } from "@/lib/drive-api";
 import type { DriveFile } from "@/lib/drive-api";
@@ -12,10 +17,14 @@ import {
 } from "@/lib/media-api";
 
 const ocrJobsQueryKey = ["ocr-jobs"];
+type OcrJobsRefetchInterval =
+  QueryObserverOptions<OcrJobListResponse>["refetchInterval"];
+type OcrJobDetailRefetchInterval =
+  QueryObserverOptions<OcrJobDetail>["refetchInterval"];
 
 export function useOcrJobs(
   enabled = true,
-  refetchInterval: number | false = false,
+  refetchInterval: OcrJobsRefetchInterval = false,
 ) {
   return useQuery<OcrJobListResponse>({
     queryKey: ocrJobsQueryKey,
@@ -25,11 +34,16 @@ export function useOcrJobs(
   });
 }
 
-export function useOcrJobDetail(jobId: string | null, enabled = true) {
+export function useOcrJobDetail(
+  jobId: string | null,
+  enabled = true,
+  refetchInterval: OcrJobDetailRefetchInterval = false,
+) {
   return useQuery<OcrJobDetail>({
     queryKey: [...ocrJobsQueryKey, jobId],
     queryFn: () => fetchOcrJob(jobId ?? ""),
     enabled: enabled && jobId !== null,
+    refetchInterval,
   });
 }
 
