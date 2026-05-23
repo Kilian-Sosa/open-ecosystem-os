@@ -8,7 +8,7 @@ else
 ENSURE_ENV = if [ ! -f .env ]; then cp .env.example .env && echo "Created .env from .env.example"; fi
 endif
 
-.PHONY: install format format-check lint typecheck test test-unit test-integration test-e2e build docker-up docker-down docker-logs smoke security-scan k8s-validate ci-local up down logs ps obs-up obs-down seed reset ensure-env
+.PHONY: install format format-check lint typecheck test test-unit test-integration test-e2e build docker-up docker-watch docker-watch-web docker-watch-api docker-watch-worker docker-down docker-logs smoke security-scan k8s-validate ci-local up watch down logs ps obs-up obs-watch obs-down seed reset ensure-env
 
 ensure-env:
 	@$(ENSURE_ENV)
@@ -49,6 +49,18 @@ build:
 docker-up: ensure-env
 	$(COMPOSE_BASE) --env-file .env up -d --build
 
+docker-watch: ensure-env
+	$(COMPOSE_BASE) --env-file .env up --build --watch
+
+docker-watch-web: ensure-env
+	$(COMPOSE_BASE) --env-file .env up --build --watch web
+
+docker-watch-api: ensure-env
+	$(COMPOSE_BASE) --env-file .env up --build --watch api
+
+docker-watch-worker: ensure-env
+	$(COMPOSE_BASE) --env-file .env up --build --watch worker
+
 docker-down:
 	$(COMPOSE_OBS) down --remove-orphans
 
@@ -69,6 +81,8 @@ ci-local: format-check lint typecheck test-unit build smoke k8s-validate
 
 up: docker-up
 
+watch: docker-watch
+
 down: docker-down
 
 logs: docker-logs
@@ -78,6 +92,9 @@ ps:
 
 obs-up: ensure-env
 	$(COMPOSE_OBS) --env-file .env up -d --build
+
+obs-watch: ensure-env
+	$(COMPOSE_OBS) --env-file .env up --build --watch
 
 obs-down:
 	$(COMPOSE_OBS) down --remove-orphans

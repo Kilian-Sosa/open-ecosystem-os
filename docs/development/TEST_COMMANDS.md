@@ -18,6 +18,7 @@ make test-integration
 make test-e2e
 make build
 make docker-up
+make docker-watch
 make docker-down
 make docker-logs
 make smoke
@@ -88,6 +89,7 @@ If worker lives inside backend initially, use backend commands.
 ```bash
 cd infra/docker
 docker compose up -d
+docker compose up --build --watch
 docker compose ps
 docker compose logs -f api
 docker compose down -v
@@ -98,6 +100,7 @@ With observability profile/file:
 ```bash
 cd infra/docker
 docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.observability.yml up --build --watch
 ```
 
 ## Kubernetes validation commands

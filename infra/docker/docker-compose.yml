@@ -5,6 +5,14 @@ services:
     build:
       context: ../../apps/web
       dockerfile: Dockerfile
+    develop:
+      watch:
+        - action: rebuild
+          path: ../../apps/web
+          ignore:
+            - node_modules/
+            - .next/
+            - coverage/
     init: true
     restart: unless-stopped
     environment:
@@ -37,6 +45,12 @@ services:
     build:
       context: ../../apps/api
       dockerfile: Dockerfile
+    develop:
+      watch:
+        - action: rebuild
+          path: ../../apps/api
+          ignore:
+            - target/
     init: true
     restart: unless-stopped
     environment:
@@ -102,6 +116,12 @@ services:
     build:
       context: ../../apps/worker
       dockerfile: Dockerfile
+    develop:
+      watch:
+        - action: rebuild
+          path: ../../apps/worker
+          ignore:
+            - target/
     init: true
     restart: unless-stopped
     environment:
