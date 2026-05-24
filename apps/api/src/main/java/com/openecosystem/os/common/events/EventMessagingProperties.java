@@ -16,7 +16,10 @@ public record EventMessagingProperties(
     retryExchange = defaultText(retryExchange, "openecosystem.events.retry");
     deadLetterExchange = defaultText(deadLetterExchange, "openecosystem.events.dlx");
     outbox = outbox == null ? new Outbox(true, 1000, 50) : outbox;
-    queues = queues == null ? new Queues(null, null, null, null, null, null, null) : queues;
+    queues =
+        queues == null
+            ? new Queues(null, null, null, null, null, null, null, null, null, null)
+            : queues;
   }
 
   private static String defaultText(String value, String fallback) {
@@ -38,6 +41,9 @@ public record EventMessagingProperties(
       String ocrRequested,
       String ocrRequestedRetry,
       String ocrRequestedDlq,
+      String flowsOcrCompleted,
+      String flowsOcrCompletedRetry,
+      String flowsOcrCompletedDlq,
       Duration retryDelay) {
 
     public Queues {
@@ -49,6 +55,11 @@ public record EventMessagingProperties(
       ocrRequested = defaultText(ocrRequested, "openecosystem.ocr.requested");
       ocrRequestedRetry = defaultText(ocrRequestedRetry, "openecosystem.ocr.requested.retry");
       ocrRequestedDlq = defaultText(ocrRequestedDlq, "openecosystem.ocr.requested.dlq");
+      flowsOcrCompleted = defaultText(flowsOcrCompleted, "openecosystem.flows.ocr-completed");
+      flowsOcrCompletedRetry =
+          defaultText(flowsOcrCompletedRetry, "openecosystem.flows.ocr-completed.retry");
+      flowsOcrCompletedDlq =
+          defaultText(flowsOcrCompletedDlq, "openecosystem.flows.ocr-completed.dlq");
       retryDelay =
           retryDelay == null || retryDelay.isNegative() ? Duration.ofSeconds(30) : retryDelay;
     }
