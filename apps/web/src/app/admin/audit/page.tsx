@@ -1,16 +1,44 @@
-import { Activity } from "lucide-react";
+import {
+  AuditLogScreen,
+  type AuditLogState,
+} from "@/features/audit/audit-log-screen";
 
-import { LinkedRouteScreen } from "@/features/navigation/linked-route-screen";
+type AuditPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
 
-export default function AuditPage() {
+export default async function AuditPage({ searchParams }: AuditPageProps) {
+  const params = await searchParams;
+  const state = parseAuditState(params?.state);
+  const correlationId = firstParam(params?.correlationId);
+
   return (
-    <LinkedRouteScreen
-      activeHref="/admin/audit"
-      title="Audit logs"
-      subtitle="Inspect workspace audit records and automation traceability."
-      icon={Activity}
-      scope="This shell keeps the admin audit route live while the MVP audit table is queried from backend contracts."
-      nextStep="Connect audit records with filters for actor, resource, outcome, correlation ID, and event source."
+    <AuditLogScreen
+      correlationId={correlationId || undefined}
+      stateOverride={state}
     />
   );
+}
+
+function parseAuditState(
+  value: string | string[] | undefined,
+): AuditLogState | undefined {
+  const state = Array.isArray(value) ? value[0] : value;
+  const validStates: AuditLogState[] = [
+    "normal",
+    "loading",
+    "empty",
+    "error",
+    "permission-denied",
+  ];
+
+  if (validStates.includes(state as AuditLogState))
+    return state as AuditLogState;
+  return undefined;
+}
+
+function firstParam(value: string | string[] | undefined) {
+  if (Array.isArray(value))
+    return value[0] ?? "";
+  return value ?? "";
 }

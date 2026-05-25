@@ -31,6 +31,8 @@ import {
 } from "./use-ocr-jobs";
 
 type MediaScreenProps = {
+  initialFileId?: string;
+  initialJobId?: string;
   stateOverride?: MediaState;
 };
 
@@ -56,7 +58,11 @@ type TrackedUpload = PendingUpload & {
   jobId: string;
 };
 
-export function MediaScreen({ stateOverride }: MediaScreenProps) {
+export function MediaScreen({
+  initialFileId,
+  initialJobId,
+  stateOverride,
+}: MediaScreenProps) {
   const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(
     null,
   );
@@ -69,7 +75,9 @@ export function MediaScreen({ stateOverride }: MediaScreenProps) {
       ? OCR_JOB_POLL_INTERVAL_MS
       : false;
   });
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(
+    initialJobId ?? null,
+  );
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [uploadFeedback, setUploadFeedback] = useState<UploadFeedback | null>(
@@ -105,6 +113,15 @@ export function MediaScreen({ stateOverride }: MediaScreenProps) {
         job.status.toLowerCase().includes(normalized),
     );
   }, [jobs, query]);
+
+  useEffect(() => {
+    if (selectedJobId || !initialFileId)
+      return;
+
+    const linkedJob = jobs.find((job) => job.fileId === initialFileId);
+    if (linkedJob)
+      setSelectedJobId(linkedJob.jobId);
+  }, [initialFileId, jobs, selectedJobId]);
 
   const selectedSummary =
     filteredJobs.find((job) => job.jobId === selectedJobId) ??

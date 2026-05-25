@@ -35,19 +35,27 @@ import { FlowsNormalState } from "./flows-normal-state";
 import { resolveFlowsState } from "./flows-view-helpers";
 
 type FlowsScreenProps = {
+  initialCorrelationId?: string;
+  initialExecutionId?: string;
+  initialWorkflowId?: string;
   stateOverride?: FlowsState;
 };
 
-export function FlowsScreen({ stateOverride }: FlowsScreenProps) {
+export function FlowsScreen({
+  initialCorrelationId,
+  initialExecutionId,
+  initialWorkflowId,
+  stateOverride,
+}: FlowsScreenProps) {
   const [liveQueriesReady, setLiveQueriesReady] = useState(false);
   const liveQueriesEnabled = stateOverride === undefined && liveQueriesReady;
   const workflowsQuery = useWorkflows(liveQueriesEnabled);
   const executionsQuery = useWorkflowExecutions(liveQueriesEnabled);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(
-    null,
+    initialWorkflowId ?? null,
   );
   const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(
-    null,
+    initialExecutionId ?? null,
   );
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const runMutation = useRunWorkflow((execution) => {
@@ -62,24 +70,33 @@ export function FlowsScreen({ stateOverride }: FlowsScreenProps) {
   }, []);
 
   const workflows = useMemo(() => {
-    if (stateOverride === "normal") {
+    if (stateOverride === "normal")
       return flowsMockWorkflows;
-    }
-    if (stateOverride === "empty") {
+    if (stateOverride === "empty")
       return [];
-    }
     return workflowsQuery.data?.workflows ?? [];
   }, [stateOverride, workflowsQuery.data?.workflows]);
 
   const executions = useMemo(() => {
-    if (stateOverride === "normal") {
+    if (stateOverride === "normal")
       return flowsMockExecutions;
-    }
-    if (stateOverride === "empty") {
+    if (stateOverride === "empty")
       return [];
-    }
     return executionsQuery.data?.executions ?? [];
   }, [executionsQuery.data?.executions, stateOverride]);
+
+  useEffect(() => {
+    if (selectedExecutionId || !initialCorrelationId) {
+      return;
+    }
+
+    const linkedExecution = executions.find(
+      (execution) => execution.correlationId === initialCorrelationId,
+    );
+    if (linkedExecution) {
+      setSelectedExecutionId(linkedExecution.executionId);
+    }
+  }, [executions, initialCorrelationId, selectedExecutionId]);
 
   const selectedWorkflowSummary =
     workflows.find((workflow) => workflow.workflowId === selectedWorkflowId) ??

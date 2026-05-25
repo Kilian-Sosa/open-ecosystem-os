@@ -8,6 +8,15 @@ type DrivePageProps = {
 export default async function DrivePage({ searchParams }: DrivePageProps) {
   const params = await searchParams;
   const state = parseDriveState(params?.state);
+  const fileId = firstParam(params?.fileId);
 
-  return <DriveScreen stateOverride={state} />;
+  return (
+    <DriveScreen initialFileId={fileId || undefined} stateOverride={state} />
+  );
+}
+
+function firstParam(value: string | string[] | undefined) {
+  if (Array.isArray(value))
+    return value[0] ?? "";
+  return value ?? "";
 }

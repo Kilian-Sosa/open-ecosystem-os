@@ -18,8 +18,8 @@ export const mediaMockJobs: OcrJobDetail[] = [
     attemptCount: 1,
     maxAttempts: 3,
     extractedText:
-      "Mock OCR result\nInvoice number: INV-2026-0517\nSupplier: Demo Supplies Ltd\nTotal: 124.00 EUR\nDue date: May 30, 2026",
-    extractedTextLength: 119,
+      "Mock OCR result\nInvoice number: TEST-INV-2026-0001\nSupplier: Demo Supplies S.L. (fake/test data)\nTest NIF: B00000000 (test data)\nTest IBAN: ES00 0000 0000 0000 0000 0000 (test data)\nTotal: 124.00 EUR\nDue date: 2026-06-15",
+    extractedTextLength: 232,
     failureCode: null,
     failureMessage: null,
     correlationId: "corr_invoice_demo",

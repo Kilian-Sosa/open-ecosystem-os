@@ -29,12 +29,18 @@ import { cn } from "@/lib/cn";
 import { useDriveFiles, useUploadDriveFile } from "./use-drive-files";
 
 type DriveScreenProps = {
+  initialFileId?: string;
   stateOverride?: DriveState;
 };
 
-export function DriveScreen({ stateOverride }: DriveScreenProps) {
+export function DriveScreen({
+  initialFileId,
+  stateOverride,
+}: DriveScreenProps) {
   const filesQuery = useDriveFiles(stateOverride === undefined);
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(
+    initialFileId ?? null,
+  );
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const uploadMutation = useUploadDriveFile((file) =>
     setSelectedFileId(file.fileId),
