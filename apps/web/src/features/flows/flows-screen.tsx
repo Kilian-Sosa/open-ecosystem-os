@@ -81,18 +81,16 @@ export function FlowsScreen({
     return executionsQuery.data?.executions ?? [];
   }, [executionsQuery.data?.executions, stateOverride]);
 
-  useEffect(() => {
-    if (selectedExecutionId || !initialCorrelationId) {
-      return;
-    }
+  const linkedExecutionId = useMemo(() => {
+    if (selectedExecutionId || !initialCorrelationId) return null;
 
-    const linkedExecution = executions.find(
-      (execution) => execution.correlationId === initialCorrelationId,
+    return (
+      executions.find(
+        (execution) => execution.correlationId === initialCorrelationId,
+      )?.executionId ?? null
     );
-    if (linkedExecution) {
-      setSelectedExecutionId(linkedExecution.executionId);
-    }
   }, [executions, initialCorrelationId, selectedExecutionId]);
+  const effectiveSelectedExecutionId = selectedExecutionId ?? linkedExecutionId;
 
   const selectedWorkflowSummary =
     workflows.find((workflow) => workflow.workflowId === selectedWorkflowId) ??
@@ -112,7 +110,7 @@ export function FlowsScreen({
 
   const selectedExecutionSummary =
     executions.find(
-      (execution) => execution.executionId === selectedExecutionId,
+      (execution) => execution.executionId === effectiveSelectedExecutionId,
     ) ??
     executions[0] ??
     null;

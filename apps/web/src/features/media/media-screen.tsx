@@ -114,15 +114,15 @@ export function MediaScreen({
     );
   }, [jobs, query]);
 
-  useEffect(() => {
-    if (selectedJobId || !initialFileId) return;
+  const linkedInitialJobId = useMemo(() => {
+    if (selectedJobId || !initialFileId) return null;
 
-    const linkedJob = jobs.find((job) => job.fileId === initialFileId);
-    if (linkedJob) setSelectedJobId(linkedJob.jobId);
+    return jobs.find((job) => job.fileId === initialFileId)?.jobId ?? null;
   }, [initialFileId, jobs, selectedJobId]);
+  const effectiveSelectedJobId = selectedJobId ?? linkedInitialJobId;
 
   const selectedSummary =
-    filteredJobs.find((job) => job.jobId === selectedJobId) ??
+    filteredJobs.find((job) => job.jobId === effectiveSelectedJobId) ??
     filteredJobs[0] ??
     null;
   const selectedSummaryActive =

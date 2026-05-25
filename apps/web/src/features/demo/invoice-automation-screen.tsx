@@ -364,8 +364,6 @@ function DemoMetric({
 }
 
 function TimelineStep({ step }: { step: DemoTimelineStep }) {
-  const Icon = timelineIcon(step.status);
-
   return (
     <div className="flex gap-4">
       <div
@@ -378,7 +376,7 @@ function TimelineStep({ step }: { step: DemoTimelineStep }) {
           step.status === "failed" && "bg-danger-soft text-danger",
         )}
       >
-        <Icon className="h-4 w-4" aria-hidden="true" />
+        <TimelineStatusIcon status={step.status} />
       </div>
       <div className="min-w-0 flex-1 rounded-card border border-border bg-surface p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -410,6 +408,16 @@ function TimelineStep({ step }: { step: DemoTimelineStep }) {
       </div>
     </div>
   );
+}
+
+function TimelineStatusIcon({ status }: { status: DemoTimelineStatus }) {
+  if (status === "completed")
+    return <CheckCircle2 className="h-4 w-4" aria-hidden="true" />;
+  if (status === "failed")
+    return <XCircle className="h-4 w-4" aria-hidden="true" />;
+  if (status === "pending")
+    return <Clock3 className="h-4 w-4" aria-hidden="true" />;
+  return <Database className="h-4 w-4" aria-hidden="true" />;
 }
 
 function InvoiceExtractionCard({
@@ -526,13 +534,6 @@ function searchMetricState(run: DemoInvoiceRun): {
   if (searchStep?.status === "failed")
     return { status: "failed", value: "Failed" };
   return { status: "processing", value: "Requested" };
-}
-
-function timelineIcon(status: DemoTimelineStatus) {
-  if (status === "completed") return CheckCircle2;
-  if (status === "failed") return XCircle;
-  if (status === "pending") return Clock3;
-  return Database;
 }
 
 function formatMoney(amount: number, currency: string) {
