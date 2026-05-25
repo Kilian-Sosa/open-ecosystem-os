@@ -3,15 +3,15 @@ import {
   Activity,
   Bell,
   Boxes,
+  Bot,
   FileText,
   Folder,
   HelpCircle,
   Home,
-  LayoutGrid,
   Menu,
+  Search,
   Settings,
   ShieldCheck,
-  Sparkles,
   UploadCloud,
   Workflow,
 } from "lucide-react";
@@ -30,9 +30,11 @@ type NavigationItem = {
 
 const primaryNavigation: NavigationItem[] = [
   { label: "Dashboard", href: "/app/dashboard", icon: Home },
+  { label: "Invoice demo", href: "/app/demo/invoice-automation", icon: Bot },
   { label: "Drive", href: "/app/drive", icon: Folder },
   { label: "Media and OCR", href: "/app/media", icon: UploadCloud },
   { label: "Flows", href: "/app/flows", icon: Workflow },
+  { label: "Search", href: "/app/search", icon: Search },
   { label: "Notifications", href: "/app/notifications", icon: Bell },
 ];
 
@@ -44,8 +46,8 @@ const systemNavigation: NavigationItem[] = [
 
 const mobileNavigation: NavigationItem[] = [
   { label: "Home", href: "/app/dashboard", icon: Home },
-  { label: "Apps", href: "/app/drive", icon: LayoutGrid },
-  { label: "AI", href: "/app/flows", icon: Sparkles },
+  { label: "Demo", href: "/app/demo/invoice-automation", icon: Bot },
+  { label: "Search", href: "/app/search", icon: Search },
   { label: "Files", href: "/app/media", icon: FileText },
   { label: "Settings", href: "/app/settings", icon: Settings },
 ];
