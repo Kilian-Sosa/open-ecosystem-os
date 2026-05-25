@@ -229,8 +229,7 @@ public class WorkflowRunner {
     OcrCompletedEvent ocrEvent = requiredOcrEvent(command);
     Optional<DemoInvoiceExtraction> existing =
         demoInvoiceRepository.findExtractionByWorkflowExecutionId(execution.executionId());
-    if (existing.isPresent())
-      return extractionOutput(existing.get());
+    if (existing.isPresent()) return extractionOutput(existing.get());
 
     OcrJob ocrJob =
         ocrJobRepository

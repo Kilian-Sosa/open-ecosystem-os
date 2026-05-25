@@ -327,15 +327,14 @@ public class DemoInvoiceService {
       Optional<SearchDocument> searchDocument) {
 
     boolean ocrFailed = ocrJob.map(job -> job.status() == OcrJobStatus.FAILED).orElse(false);
-    boolean workflowFailed = workflowExecution
+    boolean workflowFailed =
+        workflowExecution
             .map(execution -> execution.status().value().equals("failed"))
             .orElse(false);
-    boolean searchFailed = searchDocument
-            .map(document -> document.status().value().equals("failed"))
-            .orElse(false);
-            
-    if (ocrFailed || workflowFailed || searchFailed)
-      return "failed";
+    boolean searchFailed =
+        searchDocument.map(document -> document.status().value().equals("failed")).orElse(false);
+
+    if (ocrFailed || workflowFailed || searchFailed) return "failed";
     if (searchDocument.map(document -> document.status().value().equals("indexed")).orElse(false))
       return "completed";
     return "processing";

@@ -128,8 +128,7 @@ class SearchServiceTest {
     @Override
     public List<SearchResultResponse> search(String workspaceId, String query)
         throws IOException, InterruptedException {
-      if (failure != null)
-        throw failure;
+      if (failure != null) throw failure;
       return results;
     }
   }

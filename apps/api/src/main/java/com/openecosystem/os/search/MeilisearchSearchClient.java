@@ -46,12 +46,10 @@ public class MeilisearchSearchClient {
 
     JsonNode hits = objectMapper.readTree(response.body()).path("hits");
     List<SearchResultResponse> results = new ArrayList<>();
-    if (!hits.isArray())
-      return results;
+    if (!hits.isArray()) return results;
 
     for (JsonNode hit : hits) {
-      if (!workspaceId.equals(hit.path("workspaceId").asText()))
-        continue;
+      if (!workspaceId.equals(hit.path("workspaceId").asText())) continue;
       results.add(toResult(hit));
     }
     return results;
@@ -72,8 +70,7 @@ public class MeilisearchSearchClient {
   }
 
   private Map<String, Object> metadata(JsonNode metadata) {
-    if (!metadata.isObject())
-      return Map.of();
+    if (!metadata.isObject()) return Map.of();
     return objectMapper.convertValue(
         metadata, new TypeReference<LinkedHashMap<String, Object>>() {});
   }
