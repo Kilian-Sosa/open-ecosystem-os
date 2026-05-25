@@ -16,6 +16,7 @@ public class EventRabbitConfiguration {
 
   static final String FILE_UPLOADED_ROUTING_KEY = "FileUploaded";
   static final String OCR_REQUESTED_ROUTING_KEY = "OcrRequested";
+  static final String OCR_COMPLETED_ROUTING_KEY = "OcrCompleted";
 
   @Bean
   DirectExchange eventExchange(EventMessagingProperties properties) {
@@ -77,6 +78,28 @@ public class EventRabbitConfiguration {
   }
 
   @Bean
+  Queue flowsOcrCompletedQueue(EventMessagingProperties properties) {
+    return primaryQueue(
+        properties.queues().flowsOcrCompleted(),
+        properties.retryExchange(),
+        properties.queues().flowsOcrCompletedRetry());
+  }
+
+  @Bean
+  Queue flowsOcrCompletedRetryQueue(EventMessagingProperties properties) {
+    return retryQueue(
+        properties.queues().flowsOcrCompletedRetry(),
+        properties.exchange(),
+        OCR_COMPLETED_ROUTING_KEY,
+        properties.queues().retryDelay().toMillis());
+  }
+
+  @Bean
+  Queue flowsOcrCompletedDlq(EventMessagingProperties properties) {
+    return new Queue(properties.queues().flowsOcrCompletedDlq(), true);
+  }
+
+  @Bean
   Binding mediaFileUploadedBinding(
       @Qualifier("mediaFileUploadedQueue") Queue mediaFileUploadedQueue,
       @Qualifier("eventExchange") DirectExchange eventExchange) {
@@ -130,6 +153,35 @@ public class EventRabbitConfiguration {
     return BindingBuilder.bind(ocrRequestedDlq)
         .to(eventDeadLetterExchange)
         .with(properties.queues().ocrRequestedDlq());
+  }
+
+  @Bean
+  Binding flowsOcrCompletedBinding(
+      @Qualifier("flowsOcrCompletedQueue") Queue flowsOcrCompletedQueue,
+      @Qualifier("eventExchange") DirectExchange eventExchange) {
+    return BindingBuilder.bind(flowsOcrCompletedQueue)
+        .to(eventExchange)
+        .with(OCR_COMPLETED_ROUTING_KEY);
+  }
+
+  @Bean
+  Binding flowsOcrCompletedRetryBinding(
+      @Qualifier("flowsOcrCompletedRetryQueue") Queue flowsOcrCompletedRetryQueue,
+      @Qualifier("eventRetryExchange") DirectExchange eventRetryExchange,
+      EventMessagingProperties properties) {
+    return BindingBuilder.bind(flowsOcrCompletedRetryQueue)
+        .to(eventRetryExchange)
+        .with(properties.queues().flowsOcrCompletedRetry());
+  }
+
+  @Bean
+  Binding flowsOcrCompletedDlqBinding(
+      @Qualifier("flowsOcrCompletedDlq") Queue flowsOcrCompletedDlq,
+      @Qualifier("eventDeadLetterExchange") DirectExchange eventDeadLetterExchange,
+      EventMessagingProperties properties) {
+    return BindingBuilder.bind(flowsOcrCompletedDlq)
+        .to(eventDeadLetterExchange)
+        .with(properties.queues().flowsOcrCompletedDlq());
   }
 
   private Queue primaryQueue(String queueName, String retryExchange, String retryRoutingKey) {

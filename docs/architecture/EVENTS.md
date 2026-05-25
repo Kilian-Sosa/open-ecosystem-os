@@ -215,6 +215,41 @@ Notes:
 - `WorkflowExecutionRetried`
 - `WorkflowDeadLettered`
 
+#### Flows MVP execution events v1
+
+The first automation engine MVP persists workflow state in PostgreSQL and emits
+execution events through the transactional outbox. Workflow definitions are
+stored as JSON and support:
+
+- trigger type `manual`
+- event trigger `OcrCompleted`
+- ordered actions `create_notification`, `create_audit_entry`, and
+  `create_knowledge_item_placeholder`
+
+Execution event payloads intentionally carry workflow, version, execution,
+step, trigger, status, retry, and failure metadata. They must not include raw
+OCR text, document content, AI prompts, or user file content.
+
+`WorkflowTriggered` v1 payload:
+
+```json
+{
+  "workflowId": "flow_123",
+  "workflowVersionId": "wfv_123",
+  "executionId": "wfe_123",
+  "triggerType": "event",
+  "sourceEventType": "OcrCompleted",
+  "sourceEventId": "evt_ocr_completed",
+  "triggeredAt": "2026-05-23T10:00:00Z"
+}
+```
+
+`WorkflowExecutionStarted`, `WorkflowStepCompleted`,
+`WorkflowStepFailed`, `WorkflowExecutionCompleted`, and
+`WorkflowExecutionFailed` follow the same envelope and include the relevant
+workflow/execution IDs, step key/action type where applicable, timestamps, and
+sanitized failure reason for failed records.
+
 ### Search
 
 - `IndexingRequested`
@@ -227,6 +262,27 @@ Notes:
 - `NotificationSent`
 - `NotificationRead`
 - `NotificationFailed`
+
+#### `NotificationCreated` v1
+
+Produced by the Notifications module when a workflow action creates an MVP
+notification record.
+
+Payload:
+
+```json
+{
+  "notificationId": "ntf_123",
+  "title": "OCR completed for invoice file",
+  "severity": "info",
+  "sourceType": "workflow_execution",
+  "sourceId": "wfe_123",
+  "createdAt": "2026-05-23T10:00:01Z"
+}
+```
+
+Notification payloads should remain metadata-oriented and avoid embedding
+document content or OCR text.
 
 ### Security/Audit
 
