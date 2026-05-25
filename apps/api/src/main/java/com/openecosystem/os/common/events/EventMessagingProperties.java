@@ -18,7 +18,8 @@ public record EventMessagingProperties(
     outbox = outbox == null ? new Outbox(true, 1000, 50) : outbox;
     queues =
         queues == null
-            ? new Queues(null, null, null, null, null, null, null, null, null, null)
+            ? new Queues(
+                null, null, null, null, null, null, null, null, null, null, null, null, null)
             : queues;
   }
 
@@ -44,6 +45,9 @@ public record EventMessagingProperties(
       String flowsOcrCompleted,
       String flowsOcrCompletedRetry,
       String flowsOcrCompletedDlq,
+      String searchIndexingRequested,
+      String searchIndexingRequestedRetry,
+      String searchIndexingRequestedDlq,
       Duration retryDelay) {
 
     public Queues {
@@ -60,6 +64,13 @@ public record EventMessagingProperties(
           defaultText(flowsOcrCompletedRetry, "openecosystem.flows.ocr-completed.retry");
       flowsOcrCompletedDlq =
           defaultText(flowsOcrCompletedDlq, "openecosystem.flows.ocr-completed.dlq");
+      searchIndexingRequested =
+          defaultText(searchIndexingRequested, "openecosystem.search.indexing-requested");
+      searchIndexingRequestedRetry =
+          defaultText(
+              searchIndexingRequestedRetry, "openecosystem.search.indexing-requested.retry");
+      searchIndexingRequestedDlq =
+          defaultText(searchIndexingRequestedDlq, "openecosystem.search.indexing-requested.dlq");
       retryDelay =
           retryDelay == null || retryDelay.isNegative() ? Duration.ofSeconds(30) : retryDelay;
     }
