@@ -163,8 +163,7 @@ public class SearchIndexingProcessor {
 
   private String sanitizedMessage(RuntimeException exception) {
     String message = exception.getMessage();
-    if (message == null || message.isBlank())
-      return "Search indexing failed";
+    if (message == null || message.isBlank()) return "Search indexing failed";
     return message.length() > 256 ? message.substring(0, 256) : message;
   }
 }

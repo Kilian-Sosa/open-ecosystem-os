@@ -35,8 +35,7 @@ public class IndexingRequestedEventConsumer {
       SearchIndexingResult result = processor.process(event);
       if (result.retry())
         throw new AmqpRejectAndDontRequeueException("Search indexing will be retried");
-      if (result.deadLetter())
-        publishToDeadLetterQueue(envelopeJson);
+      if (result.deadLetter()) publishToDeadLetterQueue(envelopeJson);
     } catch (AmqpRejectAndDontRequeueException exception) {
       throw exception;
     } catch (RuntimeException exception) {

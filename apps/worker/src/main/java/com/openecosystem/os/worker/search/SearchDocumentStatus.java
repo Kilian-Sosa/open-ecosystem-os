@@ -17,9 +17,7 @@ public enum SearchDocumentStatus {
   }
 
   public static SearchDocumentStatus fromValue(String value) {
-    for (SearchDocumentStatus status : values())
-      if (status.value.equals(value))
-        return status;
+    for (SearchDocumentStatus status : values()) if (status.value.equals(value)) return status;
     throw new IllegalArgumentException("Unsupported search document status: " + value);
   }
 }

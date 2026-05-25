@@ -145,8 +145,7 @@ public class SearchDocumentRepository {
   }
 
   private static String trim(String value) {
-    if (value == null)
-      return null;
+    if (value == null) return null;
     return value.length() > 512 ? value.substring(0, 512) : value;
   }
 }
