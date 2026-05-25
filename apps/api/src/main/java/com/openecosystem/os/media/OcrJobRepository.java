@@ -114,6 +114,20 @@ public class OcrJobRepository {
     return results.stream().findFirst();
   }
 
+  public Optional<OcrJob> findByFileIdForWorkspace(String fileId, String workspaceId) {
+    List<OcrJob> results =
+        jdbcTemplate.query(
+            """
+            select *
+            from ocr_jobs
+            where file_id = ? and workspace_id = ?
+            """,
+            ROW_MAPPER,
+            fileId,
+            workspaceId);
+    return results.stream().findFirst();
+  }
+
   private static OcrJob mapRow(ResultSet resultSet, int rowNumber) throws SQLException {
     return new OcrJob(
         resultSet.getString("job_id"),
