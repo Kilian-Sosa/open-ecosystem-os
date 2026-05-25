@@ -14,15 +14,20 @@ export type WorkflowStatus = "draft" | "active" | "paused";
 export type WorkflowTriggerType = "manual" | "event";
 export type WorkflowExecutionStatus = "running" | "completed" | "failed";
 export type WorkflowActionType =
+  | "extract_invoice_fields"
   | "create_notification"
   | "create_audit_entry"
-  | "create_knowledge_item_placeholder";
+  | "create_knowledge_item_placeholder"
+  | "request_search_indexing";
 
 export type WorkflowTrigger =
   | { type: "manual" }
   | { type: "event"; eventType: "OcrCompleted" };
 
 export type WorkflowAction =
+  | {
+      type: "extract_invoice_fields";
+    }
   | {
       type: "create_notification";
       title?: string;
@@ -39,6 +44,9 @@ export type WorkflowAction =
       type: "create_knowledge_item_placeholder";
       title?: string;
       summary?: string;
+    }
+  | {
+      type: "request_search_indexing";
     };
 
 export type WorkflowStepDefinition = {

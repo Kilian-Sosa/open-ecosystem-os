@@ -4,8 +4,12 @@ COMPOSE_OBS = docker compose -f infra/docker/docker-compose.yml -f infra/docker/
 
 ifeq ($(OS),Windows_NT)
 ENSURE_ENV = powershell -NoProfile -ExecutionPolicy Bypass -Command "if (-not (Test-Path -LiteralPath '.env')) { Copy-Item -LiteralPath '.env.example' -Destination '.env'; Write-Host 'Created .env from .env.example' }"
+SEED_DEMO = powershell -NoProfile -ExecutionPolicy Bypass -File scripts/seed-demo-data.ps1
+RESET_DEMO = powershell -NoProfile -ExecutionPolicy Bypass -File scripts/reset-demo-data.ps1
 else
 ENSURE_ENV = if [ ! -f .env ]; then cp .env.example .env && echo "Created .env from .env.example"; fi
+SEED_DEMO = ./scripts/seed-demo-data.sh
+RESET_DEMO = ./scripts/reset-demo-data.sh
 endif
 
 .PHONY: install format format-check lint typecheck test test-unit test-integration test-e2e build docker-up docker-watch docker-watch-web docker-watch-api docker-watch-worker docker-down docker-logs smoke security-scan k8s-validate ci-local up watch down logs ps obs-up obs-watch obs-down seed reset ensure-env
@@ -100,7 +104,7 @@ obs-down:
 	$(COMPOSE_OBS) down --remove-orphans
 
 seed:
-	./scripts/seed-demo-data.sh
+	$(SEED_DEMO)
 
 reset:
-	./scripts/reset-demo-data.sh
+	$(RESET_DEMO)

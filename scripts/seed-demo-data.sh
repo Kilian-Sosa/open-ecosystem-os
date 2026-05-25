@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "TODO: Seed demo workspaces, users, files, OCR results, workflows, notifications, and audit logs."
+API_BASE_URL="${API_BASE_URL:-http://localhost:8080}"
+WORKSPACE_ID="${WORKSPACE_ID:-wrk_dev_placeholder}"
+ACTOR_ID="${ACTOR_ID:-usr_dev_placeholder}"
+
+echo "Starting fake/test invoice automation demo run against ${API_BASE_URL}"
+curl --fail --silent --show-error \
+  --request POST \
+  --header "X-Workspace-Id: ${WORKSPACE_ID}" \
+  --header "X-Actor-Id: ${ACTOR_ID}" \
+  "${API_BASE_URL}/api/demo/invoice-automation/runs"
+echo

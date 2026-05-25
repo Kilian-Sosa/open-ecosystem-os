@@ -18,10 +18,16 @@ public class MockOcrProvider implements OcrProvider {
 
     String text =
         """
-        Mock OCR result
+        Mock OCR result - fake/test data only
         File: %s
         Content type: %s
         Storage key: %s
+        Invoice number: TEST-INV-2026-0001
+        Supplier: Demo Supplies S.L. (fake/test data)
+        Test NIF: B00000000 (test data)
+        Test IBAN: ES00 0000 0000 0000 0000 0000 (test data)
+        Total: 124.00 EUR
+        Due date: 2026-06-15
         Extracted text is generated locally by the mock provider for MVP validation.
         """
             .formatted(job.fileId(), job.contentType(), job.storageKey())

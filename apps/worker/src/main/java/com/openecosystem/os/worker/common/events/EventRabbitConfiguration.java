@@ -16,6 +16,7 @@ public class EventRabbitConfiguration {
 
   static final String FILE_UPLOADED_ROUTING_KEY = "FileUploaded";
   static final String OCR_REQUESTED_ROUTING_KEY = "OcrRequested";
+  static final String INDEXING_REQUESTED_ROUTING_KEY = "IndexingRequested";
 
   @Bean
   DirectExchange eventExchange(EventMessagingProperties properties) {
@@ -77,6 +78,28 @@ public class EventRabbitConfiguration {
   }
 
   @Bean
+  Queue searchIndexingRequestedQueue(EventMessagingProperties properties) {
+    return primaryQueue(
+        properties.queues().searchIndexingRequested(),
+        properties.retryExchange(),
+        properties.queues().searchIndexingRequestedRetry());
+  }
+
+  @Bean
+  Queue searchIndexingRequestedRetryQueue(EventMessagingProperties properties) {
+    return retryQueue(
+        properties.queues().searchIndexingRequestedRetry(),
+        properties.exchange(),
+        INDEXING_REQUESTED_ROUTING_KEY,
+        properties.queues().retryDelay().toMillis());
+  }
+
+  @Bean
+  Queue searchIndexingRequestedDlq(EventMessagingProperties properties) {
+    return new Queue(properties.queues().searchIndexingRequestedDlq(), true);
+  }
+
+  @Bean
   Binding mediaFileUploadedBinding(
       @Qualifier("mediaFileUploadedQueue") Queue mediaFileUploadedQueue,
       @Qualifier("eventExchange") DirectExchange eventExchange) {
@@ -130,6 +153,35 @@ public class EventRabbitConfiguration {
     return BindingBuilder.bind(ocrRequestedDlq)
         .to(eventDeadLetterExchange)
         .with(properties.queues().ocrRequestedDlq());
+  }
+
+  @Bean
+  Binding searchIndexingRequestedBinding(
+      @Qualifier("searchIndexingRequestedQueue") Queue searchIndexingRequestedQueue,
+      @Qualifier("eventExchange") DirectExchange eventExchange) {
+    return BindingBuilder.bind(searchIndexingRequestedQueue)
+        .to(eventExchange)
+        .with(INDEXING_REQUESTED_ROUTING_KEY);
+  }
+
+  @Bean
+  Binding searchIndexingRequestedRetryBinding(
+      @Qualifier("searchIndexingRequestedRetryQueue") Queue searchIndexingRequestedRetryQueue,
+      @Qualifier("eventRetryExchange") DirectExchange eventRetryExchange,
+      EventMessagingProperties properties) {
+    return BindingBuilder.bind(searchIndexingRequestedRetryQueue)
+        .to(eventRetryExchange)
+        .with(properties.queues().searchIndexingRequestedRetry());
+  }
+
+  @Bean
+  Binding searchIndexingRequestedDlqBinding(
+      @Qualifier("searchIndexingRequestedDlq") Queue searchIndexingRequestedDlq,
+      @Qualifier("eventDeadLetterExchange") DirectExchange eventDeadLetterExchange,
+      EventMessagingProperties properties) {
+    return BindingBuilder.bind(searchIndexingRequestedDlq)
+        .to(eventDeadLetterExchange)
+        .with(properties.queues().searchIndexingRequestedDlq());
   }
 
   private Queue primaryQueue(String queueName, String retryExchange, String retryRoutingKey) {

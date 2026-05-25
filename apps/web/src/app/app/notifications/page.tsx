@@ -1,16 +1,45 @@
-import { Bell } from "lucide-react";
+import {
+  NotificationCenterScreen,
+  type NotificationCenterState,
+} from "@/features/notifications/notification-center-screen";
 
-import { LinkedRouteScreen } from "@/features/navigation/linked-route-screen";
+type NotificationsPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
 
-export default function NotificationsPage() {
+export default async function NotificationsPage({
+  searchParams,
+}: NotificationsPageProps) {
+  const params = await searchParams;
+  const state = parseNotificationState(params?.state);
+  const correlationId = firstParam(params?.correlationId);
+
   return (
-    <LinkedRouteScreen
-      activeHref="/app/notifications"
-      title="Notifications"
-      subtitle="Review workspace notifications from workflows and system activity."
-      icon={Bell}
-      scope="This shell keeps the navigation route live while the MVP notification inbox is shaped around persisted workflow notifications."
-      nextStep="Connect this page to the notifications table, unread filters, and read-state actions."
+    <NotificationCenterScreen
+      correlationId={correlationId || undefined}
+      stateOverride={state}
     />
   );
+}
+
+function parseNotificationState(
+  value: string | string[] | undefined,
+): NotificationCenterState | undefined {
+  const state = Array.isArray(value) ? value[0] : value;
+  const validStates: NotificationCenterState[] = [
+    "normal",
+    "loading",
+    "empty",
+    "error",
+    "permission-denied",
+  ];
+
+  if (validStates.includes(state as NotificationCenterState))
+    return state as NotificationCenterState;
+  return undefined;
+}
+
+function firstParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
 }

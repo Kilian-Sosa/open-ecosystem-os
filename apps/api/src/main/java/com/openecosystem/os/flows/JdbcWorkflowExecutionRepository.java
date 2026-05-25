@@ -228,6 +228,23 @@ public class JdbcWorkflowExecutionRepository {
     return results.stream().findFirst();
   }
 
+  public Optional<WorkflowExecution> findLatestByCorrelationId(
+      String workspaceId, String correlationId) {
+    List<WorkflowExecution> results =
+        jdbcTemplate.query(
+            """
+            select *
+            from workflow_executions
+            where workspace_id = ? and correlation_id = ?
+            order by created_at desc
+            limit 1
+            """,
+            EXECUTION_ROW_MAPPER,
+            workspaceId,
+            correlationId);
+    return results.stream().findFirst();
+  }
+
   public List<WorkflowStepExecution> listSteps(String executionId) {
     return jdbcTemplate.query(
         """

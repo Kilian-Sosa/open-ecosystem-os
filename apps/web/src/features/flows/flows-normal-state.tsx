@@ -65,21 +65,23 @@ export function FlowsNormalState({
         </div>
       ) : null}
 
-      <section className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
+      <section className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
         <WorkflowListCard
           workflows={workflows}
           selectedWorkflowId={selectedWorkflowSummary?.workflowId ?? null}
           onSelectWorkflow={onSelectWorkflow}
         />
-        <WorkflowBuilderCard
-          workflowSummary={selectedWorkflowSummary}
-          workflow={selectedWorkflow}
-        />
-        <RunHistoryCard
-          executions={executions}
-          selectedExecutionId={selectedExecution?.executionId ?? null}
-          onSelectExecution={onSelectExecution}
-        />
+        <div className="min-w-0 space-y-6">
+          <WorkflowBuilderCard
+            workflowSummary={selectedWorkflowSummary}
+            workflow={selectedWorkflow}
+          />
+          <RunHistoryCard
+            executions={executions}
+            selectedExecutionId={selectedExecution?.executionId ?? null}
+            onSelectExecution={onSelectExecution}
+          />
+        </div>
       </section>
     </div>
   );

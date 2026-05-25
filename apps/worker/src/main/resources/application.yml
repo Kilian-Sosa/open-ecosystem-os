@@ -39,3 +39,8 @@ openecosystem:
       provider: ${OCR_PROVIDER:mock}
       max-attempts: ${OCR_MAX_ATTEMPTS:3}
       retry-delay: ${OCR_RETRY_DELAY_SECONDS:30s}
+  search:
+    meilisearch-host: ${MEILISEARCH_HOST:http://localhost:7700}
+    meilisearch-master-key: ${MEILISEARCH_MASTER_KEY:openecosystem_dev_master_key}
+    index-name: ${MEILISEARCH_INDEX_NAME:openecosystem_documents}
+    max-attempts: ${SEARCH_INDEX_MAX_ATTEMPTS:3}

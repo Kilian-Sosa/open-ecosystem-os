@@ -125,6 +125,25 @@ Default local endpoints:
 
 PostgreSQL, Redis, RabbitMQ AMQP, and Meilisearch are kept on the internal Compose network by default. Expose additional data-service ports only when a local debugging workflow needs them.
 
+### Flagship invoice automation demo
+
+The seeded flagship demo is available at:
+
+```txt
+http://localhost:3000/app/demo/invoice-automation
+```
+
+It creates fake/test data only: a placeholder invoice document in Drive, mock OCR output, deterministic fake invoice extraction fields, a workflow notification, audit records, and a Meilisearch indexing request/result. Any NIF or IBAN examples in the seeded data are labelled as test data.
+
+With the Compose stack running, start or reset a demo run from the UI or with:
+
+```bash
+make seed
+make reset
+```
+
+On Windows, the same Make targets call `scripts/seed-demo-data.ps1` and `scripts/reset-demo-data.ps1`. You can override `API_BASE_URL`, `WORKSPACE_ID`, and `ACTOR_ID` for either shell.
+
 If Docker volumes already exist, changes to first-boot database or broker initialization options may require recreating local volumes:
 
 ```bash

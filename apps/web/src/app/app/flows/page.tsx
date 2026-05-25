@@ -8,6 +8,21 @@ type FlowsPageProps = {
 export default async function FlowsPage({ searchParams }: FlowsPageProps) {
   const params = await searchParams;
   const state = parseFlowsState(params?.state);
+  const executionId = firstParam(params?.executionId);
+  const workflowId = firstParam(params?.workflowId);
+  const correlationId = firstParam(params?.correlationId);
 
-  return <FlowsScreen stateOverride={state} />;
+  return (
+    <FlowsScreen
+      initialCorrelationId={correlationId || undefined}
+      initialExecutionId={executionId || undefined}
+      initialWorkflowId={workflowId || undefined}
+      stateOverride={state}
+    />
+  );
+}
+
+function firstParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
 }

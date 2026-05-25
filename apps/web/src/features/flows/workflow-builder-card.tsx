@@ -30,7 +30,11 @@ export function WorkflowBuilderCard({
   return (
     <SectionCard
       title="Vertical builder"
-      description={workflowSummary?.description}
+      description={
+        workflowSummary
+          ? `${workflowSummary.triggerEventType ?? workflowSummary.triggerType} trigger - ${workflowSummary.stepCount} steps`
+          : undefined
+      }
       action={
         workflowSummary ? (
           <StatusChip
@@ -106,9 +110,19 @@ function FlowNode({
       >
         {icon}
       </span>
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-text-primary">{title}</p>
-        <p className="mt-1 text-xs text-text-secondary">{subtitle}</p>
+      <div className="min-w-0 flex-1">
+        <p
+          className="truncate text-sm font-semibold text-text-primary"
+          title={title}
+        >
+          {title}
+        </p>
+        <p
+          className="mt-1 truncate text-xs text-text-secondary"
+          title={subtitle}
+        >
+          {subtitle}
+        </p>
       </div>
     </div>
   );

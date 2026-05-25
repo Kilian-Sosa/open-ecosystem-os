@@ -21,12 +21,16 @@ public class WorkflowDefinitionValidator {
   public static final String ACTION_CREATE_AUDIT_ENTRY = "create_audit_entry";
   public static final String ACTION_CREATE_KNOWLEDGE_ITEM_PLACEHOLDER =
       "create_knowledge_item_placeholder";
+  public static final String ACTION_EXTRACT_INVOICE_FIELDS = "extract_invoice_fields";
+  public static final String ACTION_REQUEST_SEARCH_INDEXING = "request_search_indexing";
 
   private static final Set<String> SUPPORTED_ACTIONS =
       Set.of(
+          ACTION_EXTRACT_INVOICE_FIELDS,
           ACTION_CREATE_NOTIFICATION,
           ACTION_CREATE_AUDIT_ENTRY,
-          ACTION_CREATE_KNOWLEDGE_ITEM_PLACEHOLDER);
+          ACTION_CREATE_KNOWLEDGE_ITEM_PLACEHOLDER,
+          ACTION_REQUEST_SEARCH_INDEXING);
 
   public WorkflowDefinition validate(JsonNode definition) {
     if (definition == null || !definition.isObject())
