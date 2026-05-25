@@ -3,21 +3,38 @@ kind: Deployment
 metadata:
   name: open-ecosystem-api
   namespace: open-ecosystem-os
+  labels:
+    app.kubernetes.io/name: open-ecosystem-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: open-ecosystem-os
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: open-ecosystem-api
+      app.kubernetes.io/name: open-ecosystem-api
+      app.kubernetes.io/component: api
   template:
     metadata:
       labels:
         app: open-ecosystem-api
+        app.kubernetes.io/name: open-ecosystem-api
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: open-ecosystem-os
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: api
           image: ghcr.io/your-org/open-ecosystem-api:dev
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
           envFrom:
             - configMapRef:
                 name: open-ecosystem-config
@@ -26,15 +43,24 @@ spec:
           readinessProbe:
             httpGet:
               path: /ready
-              port: 8080
-            initialDelaySeconds: 10
+              port: http
+            initialDelaySeconds: 30
             periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 12
           livenessProbe:
             httpGet:
               path: /health
-              port: 8080
-            initialDelaySeconds: 30
+              port: http
+            initialDelaySeconds: 180
             periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 6
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           resources:
             requests:
               cpu: "250m"
@@ -48,9 +74,15 @@ kind: Service
 metadata:
   name: open-ecosystem-api
   namespace: open-ecosystem-os
+  labels:
+    app.kubernetes.io/name: open-ecosystem-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: open-ecosystem-os
 spec:
   selector:
-    app: open-ecosystem-api
+    app.kubernetes.io/name: open-ecosystem-api
+    app.kubernetes.io/component: api
   ports:
-    - port: 8080
-      targetPort: 8080
+    - name: http
+      port: 8080
+      targetPort: http

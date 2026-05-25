@@ -3,18 +3,34 @@ kind: ConfigMap
 metadata:
   name: open-ecosystem-config
   namespace: open-ecosystem-os
+  labels:
+    app.kubernetes.io/name: open-ecosystem-config
+    app.kubernetes.io/part-of: open-ecosystem-os
 data:
   APP_ENV: "kubernetes"
-  API_BASE_URL: "http://open-ecosystem-api:8080"
-  S3_ENDPOINT: "http://minio.open-ecosystem-data:9000"
+  APP_BASE_URL: "http://open-ecosystem.local"
+  API_BASE_URL: "http://open-ecosystem-api.open-ecosystem-os.svc.cluster.local:8080"
+  NEXT_PUBLIC_API_BASE_URL: ""
+  HOSTNAME: "0.0.0.0"
+  PORT: "3000"
+  API_PORT: "8080"
+  WORKER_PORT: "8081"
+  S3_ENDPOINT: "http://minio.open-ecosystem-data.svc.cluster.local:9000"
   S3_REGION: "local"
   S3_BUCKET: "openecosystem"
   S3_PATH_STYLE_ACCESS: "true"
   DRIVE_MAX_UPLOAD_SIZE: "25MB"
   DRIVE_MAX_REQUEST_SIZE: "25MB"
-  RABBITMQ_HOST: "rabbitmq.open-ecosystem-data"
+  RABBITMQ_HOST: "rabbitmq.open-ecosystem-data.svc.cluster.local"
   RABBITMQ_PORT: "5672"
+  EVENTS_EXCHANGE: "openecosystem.events"
+  EVENTS_RETRY_EXCHANGE: "openecosystem.events.retry"
+  EVENTS_DEAD_LETTER_EXCHANGE: "openecosystem.events.dlx"
   OCR_PROVIDER: "mock"
   OCR_MAX_ATTEMPTS: "3"
   OCR_RETRY_DELAY_SECONDS: "30s"
-  MEILISEARCH_HOST: "http://meilisearch.open-ecosystem-data:7700"
+  MEILISEARCH_HOST: "http://meilisearch.open-ecosystem-data.svc.cluster.local:7700"
+  MEILISEARCH_INDEX_NAME: "openecosystem_documents"
+  SEARCH_INDEX_MAX_ATTEMPTS: "3"
+  AI_PROVIDER: "mock"
+  LOCAL_LLM_BASE_URL: ""
