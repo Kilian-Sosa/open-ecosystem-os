@@ -11,7 +11,10 @@ public record EventMessagingProperties(
     exchange = defaultText(exchange, "openecosystem.events");
     retryExchange = defaultText(retryExchange, "openecosystem.events.retry");
     deadLetterExchange = defaultText(deadLetterExchange, "openecosystem.events.dlx");
-    queues = queues == null ? new Queues(null, null, null, null, null, null, null) : queues;
+    queues =
+        queues == null
+            ? new Queues(null, null, null, null, null, null, null, null, null, null)
+            : queues;
   }
 
   private static String defaultText(String value, String fallback) {
@@ -25,6 +28,9 @@ public record EventMessagingProperties(
       String ocrRequested,
       String ocrRequestedRetry,
       String ocrRequestedDlq,
+      String searchIndexingRequested,
+      String searchIndexingRequestedRetry,
+      String searchIndexingRequestedDlq,
       Duration retryDelay) {
 
     public Queues {
@@ -36,6 +42,13 @@ public record EventMessagingProperties(
       ocrRequested = defaultText(ocrRequested, "openecosystem.ocr.requested");
       ocrRequestedRetry = defaultText(ocrRequestedRetry, "openecosystem.ocr.requested.retry");
       ocrRequestedDlq = defaultText(ocrRequestedDlq, "openecosystem.ocr.requested.dlq");
+      searchIndexingRequested =
+          defaultText(searchIndexingRequested, "openecosystem.search.indexing-requested");
+      searchIndexingRequestedRetry =
+          defaultText(
+              searchIndexingRequestedRetry, "openecosystem.search.indexing-requested.retry");
+      searchIndexingRequestedDlq =
+          defaultText(searchIndexingRequestedDlq, "openecosystem.search.indexing-requested.dlq");
       retryDelay =
           retryDelay == null || retryDelay.isNegative() ? Duration.ofSeconds(30) : retryDelay;
     }
