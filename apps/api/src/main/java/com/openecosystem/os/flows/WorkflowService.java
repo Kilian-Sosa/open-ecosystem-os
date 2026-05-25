@@ -295,7 +295,7 @@ public class WorkflowService {
   }
 
   private String requiredText(String value, String fieldName) {
-    if (value != null && value.isBlank()) return value.trim();
+    if (value != null && !value.isBlank()) return value.trim();
     throw new ApiException(
         HttpStatus.BAD_REQUEST,
         ApiErrorCode.VALIDATION_FAILED,
