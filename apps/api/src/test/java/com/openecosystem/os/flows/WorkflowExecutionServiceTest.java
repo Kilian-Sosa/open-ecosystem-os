@@ -23,6 +23,9 @@ class WorkflowExecutionServiceTest {
   @BeforeEach
   void cleanDatabase() {
     jdbcTemplate.update("delete from event_consumptions");
+    jdbcTemplate.update("delete from search_documents");
+    jdbcTemplate.update("delete from demo_invoice_extractions");
+    jdbcTemplate.update("delete from demo_invoice_runs");
     jdbcTemplate.update("delete from knowledge_items");
     jdbcTemplate.update("delete from notifications");
     jdbcTemplate.update("delete from workflow_step_executions");
@@ -83,6 +86,33 @@ class WorkflowExecutionServiceTest {
         .asString()
         .contains("\"extractedTextLength\":2048");
     assertThat(knowledgeItem.get("metadata_json")).asString().doesNotContain("Test OCR text");
+  }
+
+  @Test
+  void ocrCompletedTriggerExtractsFakeInvoiceFieldsAndRequestsSearchIndexing() throws Exception {
+    createWorkflow("event", invoiceDemoDefinition());
+    insertCompletedOcrJob("ocr_invoice_demo", "file_invoice_demo");
+    OcrCompletedEvent event =
+        ocrCompletedEvent("evt_ocr_invoice_demo", "ocr_invoice_demo", "file_invoice_demo");
+
+    triggerService.trigger(event);
+
+    assertThat(count("workflow_executions")).isEqualTo(1);
+    assertThat(count("demo_invoice_extractions")).isEqualTo(1);
+    assertThat(count("search_documents")).isEqualTo(1);
+    assertThat(outboxCount("IndexingRequested")).isEqualTo(1);
+
+    Map<String, Object> extraction =
+        jdbcTemplate.queryForMap("select * from demo_invoice_extractions limit 1");
+    assertThat(extraction.get("invoice_number")).isEqualTo("TEST-INV-2026-0001");
+    assertThat(extraction.get("is_test_data")).isEqualTo(true);
+
+    Map<String, Object> indexingEvent =
+        jdbcTemplate.queryForMap(
+            "select * from event_outbox where event_type = 'IndexingRequested'");
+    assertThat(indexingEvent.get("payload_json")).asString().contains("searchDocumentId");
+    assertThat(indexingEvent.get("payload_json")).asString().doesNotContain("ES00 0000");
+    assertThat(indexingEvent.get("payload_json")).asString().doesNotContain("B00000000");
   }
 
   @Test
@@ -174,6 +204,26 @@ class WorkflowExecutionServiceTest {
         .formatted(trigger);
   }
 
+  private String invoiceDemoDefinition() {
+    return """
+    {
+      "trigger": { "type": "event", "eventType": "OcrCompleted" },
+      "steps": [
+        {
+          "id": "extract",
+          "name": "Extract fake/test invoice fields",
+          "action": { "type": "extract_invoice_fields" }
+        },
+        {
+          "id": "index",
+          "name": "Request search indexing",
+          "action": { "type": "request_search_indexing" }
+        }
+      ]
+    }
+    """;
+  }
+
   private OcrCompletedEvent ocrCompletedEvent(String eventId, String jobId, String fileId) {
     Instant now = Instant.parse("2026-05-22T10:00:00Z");
     return new OcrCompletedEvent(
@@ -190,6 +240,68 @@ class WorkflowExecutionServiceTest {
         "mock",
         1,
         2048,
+        now);
+  }
+
+  private void insertCompletedOcrJob(String jobId, String fileId) {
+    Instant now = Instant.parse("2026-05-22T10:00:00Z");
+    String extractedText =
+        """
+        Mock OCR result - fake/test data only
+        Invoice number: TEST-INV-2026-0001
+        Supplier: Demo Supplies S.L. (fake/test data)
+        Test NIF: B00000000 (test data)
+        Test IBAN: ES00 0000 0000 0000 0000 0000 (test data)
+        Total: 124.00 EUR
+        Due date: 2026-06-15
+        """
+            .trim();
+    jdbcTemplate.update(
+        """
+        insert into ocr_jobs (
+          job_id,
+          file_id,
+          workspace_id,
+          actor_id,
+          source_event_id,
+          correlation_id,
+          content_type,
+          storage_key,
+          status,
+          provider,
+          attempt_count,
+          max_attempts,
+          extracted_text,
+          extracted_text_length,
+          failure_code,
+          failure_message,
+          queued_at,
+          processing_started_at,
+          completed_at,
+          failed_at,
+          next_attempt_at,
+          created_at,
+          updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null, null, ?, ?, ?, null, null, ?, ?)
+        """,
+        jobId,
+        fileId,
+        "wrk_dev_placeholder",
+        "usr_dev_placeholder",
+        "evt_uploaded",
+        "corr_123",
+        "application/pdf",
+        "workspaces/wrk_dev_placeholder/drive/" + fileId + "/original",
+        "completed",
+        "mock",
+        1,
+        3,
+        extractedText,
+        extractedText.length(),
+        now,
+        now,
+        now,
+        now,
         now);
   }
 
