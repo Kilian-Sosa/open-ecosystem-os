@@ -21,6 +21,7 @@ Use for:
 - file metadata
 - workflow executions
 - notifications
+- Knowledge item placeholders
 - audit logs
 - settings
 - integration metadata

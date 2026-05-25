@@ -25,6 +25,7 @@ Initial roles:
 - folder
 - ocr_job
 - page
+- knowledge_item
 - workflow
 - workflow_execution
 - form
