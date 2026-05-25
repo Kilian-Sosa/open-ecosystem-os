@@ -33,6 +33,8 @@ Initial roles:
 - task_board
 - task
 - notification
+- search_document
+- demo_invoice_extraction
 - audit_log
 - integration
 - api_key
@@ -68,6 +70,8 @@ Initial roles:
 | OCR jobs           | manage | manage | view                 | view               | view   | none         | view audit only |
 | Pages              | manage | manage | edit                 | edit               | view   | limited view | view audit only |
 | Workflows          | manage | manage | edit/execute         | execute if allowed | view   | none         | view audit only |
+| Search documents   | manage | manage | view                 | view               | view   | none         | view audit only |
+| Demo invoice data  | manage | manage | execute              | execute if allowed | view   | none         | view audit only |
 | Integrations       | manage | manage | configure if allowed | none               | none   | none         | view            |
 | API keys           | manage | manage | create own           | none               | none   | none         | view audit only |
 | Audit logs         | view   | view   | limited own          | limited own        | none   | none         | view            |

@@ -223,8 +223,9 @@ stored as JSON and support:
 
 - trigger type `manual`
 - event trigger `OcrCompleted`
-- ordered actions `create_notification`, `create_audit_entry`, and
-  `create_knowledge_item_placeholder`
+- ordered actions `extract_invoice_fields`, `create_notification`,
+  `create_audit_entry`, `create_knowledge_item_placeholder`, and
+  `request_search_indexing`
 
 Execution event payloads intentionally carry workflow, version, execution,
 step, trigger, status, retry, and failure metadata. They must not include raw
@@ -255,6 +256,71 @@ sanitized failure reason for failed records.
 - `IndexingRequested`
 - `IndexingCompleted`
 - `IndexingFailed`
+
+#### `IndexingRequested` v1
+
+Produced by Flows through the outbox when a workflow asks Search to index a
+metadata document. For the invoice demo, this follows fake/test invoice field
+extraction and never places OCR text in the event payload.
+
+Payload:
+
+```json
+{
+  "searchDocumentId": "srch_123",
+  "sourceType": "demo_invoice_extraction",
+  "sourceId": "dinv_123",
+  "resourceHref": "/app/demo/invoice-automation",
+  "requestedAt": "2026-05-25T10:00:00Z"
+}
+```
+
+Notes:
+
+- `source` is `search`.
+- Payload is metadata only and excludes raw OCR text, document content, and
+  invoice field values such as test IBAN or test NIF examples.
+- The worker reads the local `search_documents` row, indexes the configured
+  document shape into Meilisearch, and records idempotent processing in
+  PostgreSQL.
+
+#### `IndexingCompleted` v1
+
+Produced by the search indexing worker after Meilisearch accepts the document.
+
+Payload:
+
+```json
+{
+  "searchDocumentId": "srch_123",
+  "sourceType": "demo_invoice_extraction",
+  "sourceId": "dinv_123",
+  "indexedAt": "2026-05-25T10:00:02Z"
+}
+```
+
+#### `IndexingFailed` v1
+
+Produced by the search indexing worker after the final configured attempt
+fails.
+
+Payload:
+
+```json
+{
+  "searchDocumentId": "srch_123",
+  "sourceType": "demo_invoice_extraction",
+  "sourceId": "dinv_123",
+  "errorCode": "meilisearch_index_failed",
+  "errorMessage": "Sanitized failure summary",
+  "failedAt": "2026-05-25T10:00:30Z"
+}
+```
+
+Failure details must be sanitized and must not contain OCR text or document
+content. The MVP retry policy uses `SEARCH_INDEX_MAX_ATTEMPTS`, primary
+RabbitMQ queues dead-letter to retry queues, and final failures are routed to
+the search indexing DLQ.
 
 ### Notifications
 

@@ -32,6 +32,7 @@ This is the proposed Next.js route structure. It is a planning artifact until th
 
 ```txt
 /app/dashboard                  Workspace dashboard
+/app/demo/invoice-automation    Seeded flagship invoice automation demo
 /app/drive                      Drive / file manager
 /app/pdf                        PDF editor
 /app/pages                      Open Pages
