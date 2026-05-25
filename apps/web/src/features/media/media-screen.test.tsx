@@ -36,7 +36,7 @@ describe("MediaScreen", () => {
     );
     expect(screen.getByLabelText("OCR job detail")).toBeInTheDocument();
     expect(
-      screen.getByText(/Invoice number: INV-2026-0517/i),
+      screen.getByText(/Invoice number: TEST-INV-2026-0001/i),
     ).toBeInTheDocument();
   });
 
