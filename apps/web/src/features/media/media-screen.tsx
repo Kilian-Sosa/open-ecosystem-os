@@ -115,12 +115,10 @@ export function MediaScreen({
   }, [jobs, query]);
 
   useEffect(() => {
-    if (selectedJobId || !initialFileId)
-      return;
+    if (selectedJobId || !initialFileId) return;
 
     const linkedJob = jobs.find((job) => job.fileId === initialFileId);
-    if (linkedJob)
-      setSelectedJobId(linkedJob.jobId);
+    if (linkedJob) setSelectedJobId(linkedJob.jobId);
   }, [initialFileId, jobs, selectedJobId]);
 
   const selectedSummary =

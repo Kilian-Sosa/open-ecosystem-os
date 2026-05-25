@@ -13,26 +13,20 @@ export function resolveFlowsState(
   error: boolean,
   workflows: WorkflowSummary[],
 ): FlowsState {
-  if (override)
-    return override;
-  if (loading)
-    return "loading";
-  if (error)
-    return "error";
+  if (override) return override;
+  if (loading) return "loading";
+  if (error) return "error";
   return workflows.length === 0 ? "empty" : "normal";
 }
 
 export function workflowStatusChip(status: WorkflowStatus) {
-  if (status === "active")
-    return "active";
-  if (status === "paused")
-    return "disabled";
+  if (status === "active") return "active";
+  if (status === "paused") return "disabled";
   return "draft";
 }
 
 export function executionStatusChip(status: WorkflowExecutionStatus) {
-  if (status === "running")
-    return "processing";
+  if (status === "running") return "processing";
   return status;
 }
 
@@ -43,12 +37,9 @@ export function triggerTitle(trigger: WorkflowTrigger) {
 export function nodeTone(
   actionType: WorkflowActionType,
 ): "info" | "success" | "warning" {
-  if (actionType === "create_notification")
-    return "info";
-  if (actionType === "create_audit_entry")
-    return "warning";
-  if (actionType === "request_search_indexing")
-    return "info";
+  if (actionType === "create_notification") return "info";
+  if (actionType === "create_audit_entry") return "warning";
+  if (actionType === "request_search_indexing") return "info";
   return "success";
 }
 

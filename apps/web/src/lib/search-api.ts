@@ -27,8 +27,7 @@ export async function fetchSearchResults(
     headers: workspaceHeaders,
   });
 
-  if (!response.ok)
-    throw new Error("Search results could not be loaded");
+  if (!response.ok) throw new Error("Search results could not be loaded");
 
   return response.json() as Promise<SearchResponse>;
 }

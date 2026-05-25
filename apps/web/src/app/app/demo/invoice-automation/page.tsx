@@ -20,15 +20,15 @@ function parseDemoInvoiceState(
   value: string | string[] | undefined,
 ): DemoInvoiceState | undefined {
   const state = Array.isArray(value) ? value[0] : value;
-    const validStates: DemoInvoiceState[] = [
-      "normal",
-      "loading",
-      "empty",
-      "error",
-      "permission-denied",
-    ];
-  
-    if (validStates.includes(state as DemoInvoiceState))
-      return state as DemoInvoiceState;
-    return undefined;
+  const validStates: DemoInvoiceState[] = [
+    "normal",
+    "loading",
+    "empty",
+    "error",
+    "permission-denied",
+  ];
+
+  if (validStates.includes(state as DemoInvoiceState))
+    return state as DemoInvoiceState;
+  return undefined;
 }

@@ -19,21 +19,20 @@ function parseSearchState(
   value: string | string[] | undefined,
 ): SearchScreenState | undefined {
   const state = Array.isArray(value) ? value[0] : value;
-    const validStates: SearchScreenState[] = [
-      "normal",
-      "loading",
-      "empty",
-      "error",
-      "permission-denied",
-    ];
-  
-    if (validStates.includes(state as SearchScreenState))
-      return state as SearchScreenState;
-    return undefined;
+  const validStates: SearchScreenState[] = [
+    "normal",
+    "loading",
+    "empty",
+    "error",
+    "permission-denied",
+  ];
+
+  if (validStates.includes(state as SearchScreenState))
+    return state as SearchScreenState;
+  return undefined;
 }
 
 function firstParam(value: string | string[] | undefined) {
-  if (Array.isArray(value))
-    return value[0] ?? "";
+  if (Array.isArray(value)) return value[0] ?? "";
   return value ?? "";
 }

@@ -70,18 +70,14 @@ export function FlowsScreen({
   }, []);
 
   const workflows = useMemo(() => {
-    if (stateOverride === "normal")
-      return flowsMockWorkflows;
-    if (stateOverride === "empty")
-      return [];
+    if (stateOverride === "normal") return flowsMockWorkflows;
+    if (stateOverride === "empty") return [];
     return workflowsQuery.data?.workflows ?? [];
   }, [stateOverride, workflowsQuery.data?.workflows]);
 
   const executions = useMemo(() => {
-    if (stateOverride === "normal")
-      return flowsMockExecutions;
-    if (stateOverride === "empty")
-      return [];
+    if (stateOverride === "normal") return flowsMockExecutions;
+    if (stateOverride === "empty") return [];
     return executionsQuery.data?.executions ?? [];
   }, [executionsQuery.data?.executions, stateOverride]);
 

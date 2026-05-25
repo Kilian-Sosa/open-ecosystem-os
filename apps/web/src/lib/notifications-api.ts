@@ -21,8 +21,7 @@ export async function fetchNotifications(
   correlationId?: string,
 ): Promise<NotificationListResponse> {
   const params = new URLSearchParams();
-  if (correlationId)
-    params.set("correlationId", correlationId);
+  if (correlationId) params.set("correlationId", correlationId);
 
   const response = await fetch(
     `${API_BASE_URL}/api/notifications${params.size ? `?${params}` : ""}`,
@@ -31,8 +30,7 @@ export async function fetchNotifications(
     },
   );
 
-  if (!response.ok)
-    throw new Error("Notifications could not be loaded");
+  if (!response.ok) throw new Error("Notifications could not be loaded");
 
   return response.json() as Promise<NotificationListResponse>;
 }

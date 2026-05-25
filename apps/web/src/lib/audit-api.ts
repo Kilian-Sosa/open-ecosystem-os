@@ -20,8 +20,7 @@ export async function fetchAuditRecords(
   correlationId?: string,
 ): Promise<AuditRecordListResponse> {
   const params = new URLSearchParams();
-  if (correlationId)
-    params.set("correlationId", correlationId);
+  if (correlationId) params.set("correlationId", correlationId);
 
   const response = await fetch(
     `${API_BASE_URL}/api/audit/records${params.size ? `?${params}` : ""}`,
@@ -30,8 +29,7 @@ export async function fetchAuditRecords(
     },
   );
 
-  if (!response.ok)
-    throw new Error("Audit records could not be loaded");
+  if (!response.ok) throw new Error("Audit records could not be loaded");
 
   return response.json() as Promise<AuditRecordListResponse>;
 }

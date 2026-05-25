@@ -123,12 +123,9 @@ function resolveState(
   error: boolean,
   records: AuditRecord[],
 ): AuditLogState {
-  if (override)
-    return override;
-  if (loading)
-    return "loading";
-  if (error)
-    return "error";
+  if (override) return override;
+  if (loading) return "loading";
+  if (error) return "error";
   return records.length === 0 ? "empty" : "normal";
 }
 

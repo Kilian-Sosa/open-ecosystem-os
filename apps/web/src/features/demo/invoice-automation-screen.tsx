@@ -272,12 +272,9 @@ function resolveState(
   error: boolean,
   run: DemoInvoiceRun | null,
 ): DemoInvoiceState {
-  if (override)
-    return override;
-  if (loading)
-    return "loading";
-  if (error)
-    return "error";
+  if (override) return override;
+  if (loading) return "loading";
+  if (error) return "error";
   return run === null ? "empty" : "normal";
 }
 
@@ -507,12 +504,9 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 function statusChip(status: DemoTimelineStatus): StatusKind {
-  if (status === "completed")
-    return "completed";
-  if (status === "failed")
-    return "failed";
-  if (status === "pending")
-    return "queued";
+  if (status === "completed") return "completed";
+  if (status === "failed") return "failed";
+  if (status === "pending") return "queued";
   return "processing";
 }
 
@@ -535,12 +529,9 @@ function searchMetricState(run: DemoInvoiceRun): {
 }
 
 function timelineIcon(status: DemoTimelineStatus) {
-  if (status === "completed")
-    return CheckCircle2;
-  if (status === "failed")
-    return XCircle;
-  if (status === "pending")
-    return Clock3;
+  if (status === "completed") return CheckCircle2;
+  if (status === "failed") return XCircle;
+  if (status === "pending") return Clock3;
   return Database;
 }
 
