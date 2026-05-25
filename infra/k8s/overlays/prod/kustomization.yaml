@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+
+images:
+  - name: ghcr.io/your-org/open-ecosystem-web
+    newName: ghcr.io/your-org/open-ecosystem-web
+    newTag: 0.1.0
+  - name: ghcr.io/your-org/open-ecosystem-api
+    newName: ghcr.io/your-org/open-ecosystem-api
+    newTag: 0.1.0
+  - name: ghcr.io/your-org/open-ecosystem-worker
+    newName: ghcr.io/your-org/open-ecosystem-worker
+    newTag: 0.1.0
+
+patches:
+  - path: app-config-patch.yaml
+  - path: deployment-patch.yaml
+  - path: ingress-patch.yaml

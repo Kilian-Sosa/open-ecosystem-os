@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: open-ecosystem-ingress
+  namespace: open-ecosystem-os
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "25m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - open-ecosystem.example.com
+      secretName: open-ecosystem-tls
+  rules:
+    - host: open-ecosystem.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: open-ecosystem-api
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: open-ecosystem-web
+                port:
+                  name: http

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: open-ecosystem-config
+  namespace: open-ecosystem-os
+data:
+  APP_ENV: "production"
+  APP_BASE_URL: "https://open-ecosystem.example.com"
+  NEXT_PUBLIC_API_BASE_URL: ""
+  API_BASE_URL: "http://open-ecosystem-api.open-ecosystem-os.svc.cluster.local:8080"
+  S3_ENDPOINT: "https://s3.example.com"
+  S3_REGION: "us-east-1"
+  RABBITMQ_HOST: "rabbitmq.example.internal"
+  MEILISEARCH_HOST: "https://meilisearch.example.internal"
+  AI_PROVIDER: "mock"
