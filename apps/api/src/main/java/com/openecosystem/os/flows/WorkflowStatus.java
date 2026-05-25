@@ -16,8 +16,7 @@ public enum WorkflowStatus {
   }
 
   public static WorkflowStatus fromValue(String value) {
-    for (WorkflowStatus status : values())
-      if (status.value.equals(value)) return status;
+    for (WorkflowStatus status : values()) if (status.value.equals(value)) return status;
     throw new IllegalArgumentException("Unknown workflow status: " + value);
   }
 }

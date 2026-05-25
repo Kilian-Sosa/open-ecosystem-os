@@ -42,8 +42,7 @@ public class WorkflowDefinitionValidator {
       throw validation("Workflow trigger must be a JSON object", "trigger");
 
     String type = requiredText(triggerNode, "type", "trigger.type");
-    if (TRIGGER_TYPE_MANUAL.equals(type))
-      return new WorkflowTriggerDefinition(type, null);
+    if (TRIGGER_TYPE_MANUAL.equals(type)) return new WorkflowTriggerDefinition(type, null);
     if (!TRIGGER_TYPE_EVENT.equals(type))
       throw validation("Workflow trigger type is not supported", "trigger.type");
 
@@ -60,11 +59,9 @@ public class WorkflowDefinitionValidator {
     Set<String> stepIds = new HashSet<>();
     List<WorkflowStepDefinition> steps = new ArrayList<>();
     for (JsonNode stepNode : stepsNode) {
-      if (!stepNode.isObject())
-        throw validation("Workflow steps must be JSON objects", "steps");
+      if (!stepNode.isObject()) throw validation("Workflow steps must be JSON objects", "steps");
       String stepId = requiredText(stepNode, "id", "steps.id");
-      if (!stepIds.add(stepId))
-        throw validation("Workflow step IDs must be unique", "steps.id");
+      if (!stepIds.add(stepId)) throw validation("Workflow step IDs must be unique", "steps.id");
       String name = requiredText(stepNode, "name", "steps.name");
       JsonNode action = stepNode.get("action");
       if (action == null || !action.isObject())
