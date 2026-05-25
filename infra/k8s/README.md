@@ -29,8 +29,10 @@ kubectl kustomize infra/k8s/overlays/prod
 make k8s-validate
 ```
 
-If `kubeconform` is installed, `make k8s-validate` runs stricter schema checks.
-If not, it still verifies that all Kustomize overlays render.
+`make k8s-validate` runs stricter schema checks with local `kubeconform` when
+installed. If it is not installed but Docker is available, it runs
+`ghcr.io/yannh/kubeconform:latest`. If neither is available, it still verifies
+that all Kustomize overlays render.
 
 ## Before applying
 
