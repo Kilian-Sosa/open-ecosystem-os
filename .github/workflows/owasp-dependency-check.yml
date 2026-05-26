@@ -1,0 +1,42 @@
+name: OWASP Dependency Check (Advisory)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  schedule:
+    - cron: "0 5 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-check-api:
+    name: OWASP Dependency-Check API
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-owasp-dependency-check.yml
+    with:
+      job-name: OWASP Dependency-Check API
+      java-version: "25"
+      working-directory: apps/api
+      report-artifact-name: api-dependency-check-report
+      report-path: apps/api/target/dependency-check-report.*
+    secrets:
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+
+  dependency-check-worker:
+    name: OWASP Dependency-Check Worker
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-owasp-dependency-check.yml
+    with:
+      job-name: OWASP Dependency-Check Worker
+      java-version: "25"
+      working-directory: apps/worker
+      report-artifact-name: worker-dependency-check-report
+      report-path: apps/worker/target/dependency-check-report.*
+    secrets:
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}

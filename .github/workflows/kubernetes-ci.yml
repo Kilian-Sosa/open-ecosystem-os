@@ -1,7 +1,9 @@
 name: Kubernetes CI
 
 on:
+  workflow_dispatch:
   pull_request:
+    branches: [main, develop]
   push:
     branches: [main, develop]
 
@@ -14,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
