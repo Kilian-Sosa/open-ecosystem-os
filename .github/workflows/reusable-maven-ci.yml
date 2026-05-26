@@ -1,0 +1,77 @@
+name: Reusable Maven CI
+
+on:
+  workflow_call:
+    inputs:
+      job-name:
+        required: false
+        type: string
+        default: Maven CI
+      java-version:
+        required: false
+        type: string
+        default: "25"
+      working-directory:
+        required: true
+        type: string
+      test-step-name:
+        required: false
+        type: string
+        default: Unit tests
+      test-command:
+        required: false
+        type: string
+        default: ./mvnw -B test
+      verify-command:
+        required: false
+        type: string
+        default: ./mvnw -B verify
+      report-artifact-name:
+        required: true
+        type: string
+      report-path:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  maven-ci:
+    name: ${{ inputs.job-name }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version }}
+          cache: maven
+
+      - name: Prepare Maven wrapper
+        working-directory: ${{ inputs.working-directory }}
+        run: chmod +x mvnw
+
+      - name: Verify toolchain
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          java -version
+          ./mvnw -B -version
+
+      - name: ${{ inputs.test-step-name }}
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.test-command }}
+
+      - name: Verify
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.verify-command }}
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.report-artifact-name }}
+          path: ${{ inputs.report-path }}

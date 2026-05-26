@@ -1,0 +1,61 @@
+name: Reusable OWASP Dependency Check
+
+on:
+  workflow_call:
+    inputs:
+      job-name:
+        required: false
+        type: string
+        default: OWASP Dependency-Check
+      java-version:
+        required: false
+        type: string
+        default: "25"
+      working-directory:
+        required: true
+        type: string
+      report-artifact-name:
+        required: true
+        type: string
+      report-path:
+        required: true
+        type: string
+    secrets:
+      NVD_API_KEY:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-check:
+    name: ${{ inputs.job-name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version }}
+          cache: maven
+
+      - name: Prepare Maven wrapper
+        working-directory: ${{ inputs.working-directory }}
+        run: chmod +x mvnw
+
+      - name: Dependency-Check
+        working-directory: ${{ inputs.working-directory }}
+        run: ./mvnw -B -DskipTests verify -P security-scan
+
+      - name: Upload Dependency-Check report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.report-artifact-name }}
+          path: ${{ inputs.report-path }}

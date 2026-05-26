@@ -12,72 +12,31 @@ on:
 permissions:
   contents: read
 
-env:
-  JAVA_VERSION: "25"
-
 jobs:
   dependency-check-api:
     name: OWASP Dependency-Check API
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    defaults:
-      run:
-        working-directory: apps/api
-    env:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-owasp-dependency-check.yml
+    with:
+      job-name: OWASP Dependency-Check API
+      java-version: "25"
+      working-directory: apps/api
+      report-artifact-name: api-dependency-check-report
+      report-path: apps/api/target/dependency-check-report.*
+    secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
-
-      - name: Prepare Maven wrapper
-        run: chmod +x mvnw
-
-      - name: Dependency-Check
-        run: ./mvnw -B -DskipTests verify -P security-scan
-
-      - name: Upload Dependency-Check report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: api-dependency-check-report
-          path: apps/api/target/dependency-check-report.*
 
   dependency-check-worker:
     name: OWASP Dependency-Check Worker
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    defaults:
-      run:
-        working-directory: apps/worker
-    env:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-owasp-dependency-check.yml
+    with:
+      job-name: OWASP Dependency-Check Worker
+      java-version: "25"
+      working-directory: apps/worker
+      report-artifact-name: worker-dependency-check-report
+      report-path: apps/worker/target/dependency-check-report.*
+    secrets:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
-
-      - name: Prepare Maven wrapper
-        run: chmod +x mvnw
-
-      - name: Dependency-Check
-        run: ./mvnw -B -DskipTests verify -P security-scan
-
-      - name: Upload Dependency-Check report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: worker-dependency-check-report
-          path: apps/worker/target/dependency-check-report.*
