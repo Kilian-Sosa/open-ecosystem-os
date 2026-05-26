@@ -3,36 +3,62 @@ kind: Deployment
 metadata:
   name: open-ecosystem-web
   namespace: open-ecosystem-os
+  labels:
+    app.kubernetes.io/name: open-ecosystem-web
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: open-ecosystem-os
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: open-ecosystem-web
+      app.kubernetes.io/name: open-ecosystem-web
+      app.kubernetes.io/component: web
   template:
     metadata:
       labels:
         app: open-ecosystem-web
+        app.kubernetes.io/name: open-ecosystem-web
+        app.kubernetes.io/component: web
+        app.kubernetes.io/part-of: open-ecosystem-os
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: web
           image: ghcr.io/your-org/open-ecosystem-web:dev
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 3000
+            - name: http
+              containerPort: 3000
           envFrom:
             - configMapRef:
                 name: open-ecosystem-config
           readinessProbe:
             httpGet:
               path: /
-              port: 3000
+              port: http
             initialDelaySeconds: 10
             periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 12
           livenessProbe:
             httpGet:
               path: /
-              port: 3000
-            initialDelaySeconds: 30
+              port: http
+            initialDelaySeconds: 120
             periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 6
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           resources:
             requests:
               cpu: "100m"
@@ -46,9 +72,15 @@ kind: Service
 metadata:
   name: open-ecosystem-web
   namespace: open-ecosystem-os
+  labels:
+    app.kubernetes.io/name: open-ecosystem-web
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: open-ecosystem-os
 spec:
   selector:
-    app: open-ecosystem-web
+    app.kubernetes.io/name: open-ecosystem-web
+    app.kubernetes.io/component: web
   ports:
-    - port: 3000
-      targetPort: 3000
+    - name: http
+      port: 3000
+      targetPort: http

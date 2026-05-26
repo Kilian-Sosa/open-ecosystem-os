@@ -3,24 +3,38 @@ kind: Deployment
 metadata:
   name: open-ecosystem-worker
   namespace: open-ecosystem-os
+  labels:
+    app.kubernetes.io/name: open-ecosystem-worker
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: open-ecosystem-os
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: open-ecosystem-worker
+      app.kubernetes.io/name: open-ecosystem-worker
+      app.kubernetes.io/component: worker
   template:
     metadata:
       labels:
         app: open-ecosystem-worker
+        app.kubernetes.io/name: open-ecosystem-worker
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/part-of: open-ecosystem-os
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: worker
           image: ghcr.io/your-org/open-ecosystem-worker:dev
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8081
-          env:
-            - name: WORKER_PORT
-              value: "8081"
+            - name: http
+              containerPort: 8081
           envFrom:
             - configMapRef:
                 name: open-ecosystem-config
@@ -29,15 +43,24 @@ spec:
           readinessProbe:
             httpGet:
               path: /ready
-              port: 8081
-            initialDelaySeconds: 10
+              port: http
+            initialDelaySeconds: 30
             periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 12
           livenessProbe:
             httpGet:
               path: /health
-              port: 8081
-            initialDelaySeconds: 30
+              port: http
+            initialDelaySeconds: 180
             periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 6
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           resources:
             requests:
               cpu: "250m"
@@ -51,9 +74,15 @@ kind: Service
 metadata:
   name: open-ecosystem-worker
   namespace: open-ecosystem-os
+  labels:
+    app.kubernetes.io/name: open-ecosystem-worker
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: open-ecosystem-os
 spec:
   selector:
-    app: open-ecosystem-worker
+    app.kubernetes.io/name: open-ecosystem-worker
+    app.kubernetes.io/component: worker
   ports:
-    - port: 8081
-      targetPort: 8081
+    - name: http
+      port: 8081
+      targetPort: http

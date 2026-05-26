@@ -113,6 +113,10 @@ make k8s-validate
 trivy config infra/k8s
 ```
 
+`make k8s-validate` uses local `kubeconform` when installed. If it is not
+installed but Docker is available, it runs `ghcr.io/yannh/kubeconform:latest`.
+If neither is available, it still renders all Kustomize overlays.
+
 ## Security commands
 
 ```bash
@@ -160,6 +164,9 @@ cd apps/api
 Example for an infrastructure change:
 
 ```bash
+kubectl kustomize infra/k8s/base | kubeconform -strict -summary
+kubectl kustomize infra/k8s/overlays/dev | kubeconform -strict -summary
+kubectl kustomize infra/k8s/overlays/prod | kubeconform -strict -summary
 make k8s-validate
 trivy config infra/k8s
 ```
