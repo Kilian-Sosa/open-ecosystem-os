@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Validate Docker Compose config
         run: docker compose -f infra/docker/docker-compose.yml config
@@ -42,7 +42,7 @@ jobs:
           kubectl kustomize infra/k8s/base | kubeconform -strict -summary
 
       - name: Trivy config scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: config
           scan-ref: infra
