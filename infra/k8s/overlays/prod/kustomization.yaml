@@ -1,0 +1,34 @@
+resources:
+  - ../../base
+
+images:
+  - name: ghcr.io/your-org/open-ecosystem-api
+    newName: ghcr.io/your-org/open-ecosystem-api
+    newTag: release-placeholder
+  - name: ghcr.io/your-org/open-ecosystem-web
+    newName: ghcr.io/your-org/open-ecosystem-web
+    newTag: release-placeholder
+  - name: ghcr.io/your-org/open-ecosystem-worker
+    newName: ghcr.io/your-org/open-ecosystem-worker
+    newTag: release-placeholder
+
+replicas:
+  - name: open-ecosystem-api
+    count: 2
+  - name: open-ecosystem-web
+    count: 2
+  - name: open-ecosystem-worker
+    count: 1
+
+patches:
+  - path: configmap-patch.yaml
+  - path: resources-patch.yaml
+  - target:
+      group: networking.k8s.io
+      version: v1
+      kind: Ingress
+      name: open-ecosystem-ingress
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: open-ecosystem.example.com

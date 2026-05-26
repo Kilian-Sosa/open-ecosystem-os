@@ -1,0 +1,44 @@
+name: Kubernetes CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Kubernetes manifests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Setup kubeconform
+        run: |
+          curl -L -o kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
+          tar -xzf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/kubeconform
+
+      - name: Render base manifests
+        run: kubectl kustomize infra/k8s/base > "$RUNNER_TEMP/open-ecosystem-k8s-base.yaml"
+
+      - name: Validate base manifests
+        run: kubeconform -strict -summary "$RUNNER_TEMP/open-ecosystem-k8s-base.yaml"
+
+      - name: Render dev overlay
+        run: kubectl kustomize infra/k8s/overlays/dev > "$RUNNER_TEMP/open-ecosystem-k8s-dev.yaml"
+
+      - name: Validate dev overlay
+        run: kubeconform -strict -summary "$RUNNER_TEMP/open-ecosystem-k8s-dev.yaml"
+
+      - name: Render prod overlay
+        run: kubectl kustomize infra/k8s/overlays/prod > "$RUNNER_TEMP/open-ecosystem-k8s-prod.yaml"
+
+      - name: Validate prod overlay
+        run: kubeconform -strict -summary "$RUNNER_TEMP/open-ecosystem-k8s-prod.yaml"

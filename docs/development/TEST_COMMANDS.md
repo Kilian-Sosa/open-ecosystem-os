@@ -106,7 +106,10 @@ docker compose -f docker-compose.yml -f docker-compose.observability.yml up --bu
 ## Kubernetes validation commands
 
 ```bash
-kustomize build infra/k8s/base | kubeconform -strict -summary
+kubectl kustomize infra/k8s/base | kubeconform -strict -summary
+kubectl kustomize infra/k8s/overlays/dev | kubeconform -strict -summary
+kubectl kustomize infra/k8s/overlays/prod | kubeconform -strict -summary
+make k8s-validate
 trivy config infra/k8s
 ```
 
@@ -157,6 +160,6 @@ cd apps/api
 Example for an infrastructure change:
 
 ```bash
-kustomize build infra/k8s/base | kubeconform -strict -summary
+make k8s-validate
 trivy config infra/k8s
 ```

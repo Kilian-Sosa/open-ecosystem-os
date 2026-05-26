@@ -1,0 +1,26 @@
+resources:
+  - ../../base
+  - secret.dev.yaml
+
+images:
+  - name: ghcr.io/your-org/open-ecosystem-api
+    newName: open-ecosystem-api
+    newTag: dev
+  - name: ghcr.io/your-org/open-ecosystem-web
+    newName: open-ecosystem-web
+    newTag: dev
+  - name: ghcr.io/your-org/open-ecosystem-worker
+    newName: open-ecosystem-worker
+    newTag: dev
+
+patches:
+  - path: configmap-patch.yaml
+  - target:
+      group: networking.k8s.io
+      version: v1
+      kind: Ingress
+      name: open-ecosystem-ingress
+    patch: |-
+      - op: add
+        path: /spec/ingressClassName
+        value: nginx

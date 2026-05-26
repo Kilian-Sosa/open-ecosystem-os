@@ -1,6 +1,7 @@
 PNPM ?= corepack pnpm
 COMPOSE_BASE = docker compose -f infra/docker/docker-compose.yml
 COMPOSE_OBS = docker compose -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.observability.yml
+KUBECONFORM_IMAGE ?= ghcr.io/yannh/kubeconform:latest
 
 ifeq ($(OS),Windows_NT)
 ENSURE_ENV = powershell -NoProfile -ExecutionPolicy Bypass -Command "if (-not (Test-Path -LiteralPath '.env')) { Copy-Item -LiteralPath '.env.example' -Destination '.env'; Write-Host 'Created .env from .env.example' }"
@@ -79,7 +80,11 @@ security-scan:
 	@if command -v trivy >/dev/null 2>&1; then trivy fs --severity HIGH,CRITICAL --exit-code 1 .; else echo "trivy not installed; security scan deferred."; fi
 
 k8s-validate:
-	@if command -v kubeconform >/dev/null 2>&1; then kubectl kustomize infra/k8s/base | kubeconform -strict -summary; else kubectl kustomize infra/k8s/base >/dev/null && echo "kubeconform not installed; rendered Kubernetes manifests only."; fi
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/k8s-validate.ps1 -KubeconformImage "$(KUBECONFORM_IMAGE)"
+else
+	@KUBECONFORM_IMAGE="$(KUBECONFORM_IMAGE)" bash scripts/k8s-validate.sh
+endif
 
 ci-local: format-check lint typecheck test-unit build smoke k8s-validate
 
