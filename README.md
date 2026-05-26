@@ -184,3 +184,17 @@ Must treat the mockups as visual references, not as pixel-perfect implementation
 Open Ledger is a planned post-MVP finance tracker for manual expenses/income, receipt OCR, AI-assisted categorization, budgets/rules, product-price intelligence, reports, and privacy-first household finance tracking.
 
 It intentionally avoids bank connections in the initial roadmap. See `docs/product/OPEN_LEDGER.md` for the detailed logic and `docs/design/mockups/apps/open-ledger/` for the mockups.
+
+## License
+
+Unless otherwise noted:
+
+- Software source code is licensed under the GNU Affero General Public License v3.0
+  only (`AGPL-3.0-only`). See [LICENSE](LICENSE).
+- Narrative documentation is licensed under Creative Commons Attribution 4.0
+  International (`CC-BY-4.0`). See [docs/LICENSE.md](docs/LICENSE.md).
+- Project notices and attributions are tracked in [NOTICE.md](NOTICE.md).
+- Project names and logos are governed by [TRADEMARKS.md](TRADEMARKS.md).
+- Authors and contributors are listed in [AUTHORS.md](AUTHORS.md).
+
+Copyright (C) 2026 Kilian Sosa Guillén.

@@ -17,6 +17,14 @@
   <name>Open Ecosystem OS API</name>
   <description>Spring Boot modular monolith API foundation for Open Ecosystem OS.</description>
 
+  <licenses>
+    <license>
+      <name>GNU Affero General Public License v3.0 only</name>
+      <url>https://www.gnu.org/licenses/agpl-3.0.html</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
   <properties>
     <aws.java.sdk.version>2.44.11</aws.java.sdk.version>
     <dependency-check-maven.version>12.2.2</dependency-check-maven.version>

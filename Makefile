@@ -6,13 +6,11 @@ KUBECONFORM_IMAGE ?= ghcr.io/yannh/kubeconform:latest
 ifeq ($(OS),Windows_NT)
 NULL_DEVICE = NUL
 ENSURE_ENV = powershell -NoProfile -ExecutionPolicy Bypass -Command "if (-not (Test-Path -LiteralPath '.env')) { Copy-Item -LiteralPath '.env.example' -Destination '.env'; Write-Host 'Created .env from .env.example' }"
-K8S_VALIDATE = powershell -NoProfile -ExecutionPolicy Bypass -Command "$$paths = @('infra/k8s/base','infra/k8s/overlays/dev','infra/k8s/overlays/prod'); $$kubeconform = Get-Command kubeconform -ErrorAction SilentlyContinue; $$docker = Get-Command docker -ErrorAction SilentlyContinue; foreach ($$path in $$paths) { if ($$kubeconform) { kubectl kustomize $$path | kubeconform -strict -summary } elseif ($$docker) { kubectl kustomize $$path | docker run --rm -i $(KUBECONFORM_IMAGE) -strict -summary } else { kubectl kustomize $$path > $$null } }; if (-not $$kubeconform -and -not $$docker) { Write-Host 'kubeconform and docker not installed; rendered base, dev, and prod Kubernetes manifests only.' }"
 SEED_DEMO = powershell -NoProfile -ExecutionPolicy Bypass -File scripts/seed-demo-data.ps1
 RESET_DEMO = powershell -NoProfile -ExecutionPolicy Bypass -File scripts/reset-demo-data.ps1
 else
 NULL_DEVICE = /dev/null
 ENSURE_ENV = if [ ! -f .env ]; then cp .env.example .env && echo "Created .env from .env.example"; fi
-K8S_VALIDATE = if command -v kubeconform >$(NULL_DEVICE) 2>&1; then for overlay in infra/k8s/base infra/k8s/overlays/dev infra/k8s/overlays/prod; do kubectl kustomize $$overlay | kubeconform -strict -summary; done; elif command -v docker >$(NULL_DEVICE) 2>&1; then for overlay in infra/k8s/base infra/k8s/overlays/dev infra/k8s/overlays/prod; do kubectl kustomize $$overlay | docker run --rm -i $(KUBECONFORM_IMAGE) -strict -summary; done; else kubectl kustomize infra/k8s/base >$(NULL_DEVICE) && kubectl kustomize infra/k8s/overlays/dev >$(NULL_DEVICE) && kubectl kustomize infra/k8s/overlays/prod >$(NULL_DEVICE) && echo "kubeconform and docker not installed; rendered base, dev, and prod Kubernetes manifests only."; fi
 SEED_DEMO = ./scripts/seed-demo-data.sh
 RESET_DEMO = ./scripts/reset-demo-data.sh
 endif
@@ -86,7 +84,11 @@ security-scan:
 	@if command -v trivy >/dev/null 2>&1; then trivy fs --severity HIGH,CRITICAL --exit-code 1 .; else echo "trivy not installed; security scan deferred."; fi
 
 k8s-validate:
-	@$(K8S_VALIDATE)
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/k8s-validate.ps1 -KubeconformImage "$(KUBECONFORM_IMAGE)"
+else
+	@KUBECONFORM_IMAGE="$(KUBECONFORM_IMAGE)" bash scripts/k8s-validate.sh
+endif
 
 ci-local: format-check lint typecheck test-unit build smoke k8s-validate
 
