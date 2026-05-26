@@ -17,6 +17,14 @@
   <name>Open Ecosystem OS Worker</name>
   <description>Spring Boot worker foundation for Open Ecosystem OS async jobs.</description>
 
+  <licenses>
+    <license>
+      <name>GNU Affero General Public License v3.0 only</name>
+      <url>https://www.gnu.org/licenses/agpl-3.0.html</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
   <properties>
     <dependency-check-maven.version>12.2.2</dependency-check-maven.version>
     <google-java-format.version>1.35.0</google-java-format.version>
