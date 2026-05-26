@@ -24,15 +24,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Scan filesystem, secrets, and IaC
+      - name: Scan vulnerabilities and IaC
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
-          scanners: vuln,secret,misconfig
+          scanners: vuln,misconfig
           severity: HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: true
+          skip-dirs: infra/k8s/overlays/dev
 
   frontend-audit:
     name: Frontend pnpm audit

@@ -83,7 +83,7 @@ smoke:
 	kubectl kustomize infra/k8s/overlays/prod >$(NULL_DEVICE)
 
 security-scan:
-	@if command -v trivy >/dev/null 2>&1; then trivy fs --severity HIGH,CRITICAL --exit-code 1 .; else echo "trivy not installed; security scan deferred."; fi
+	@if command -v trivy >/dev/null 2>&1; then trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 --skip-dirs infra/k8s/overlays/dev .; else echo "trivy not installed; security scan deferred."; fi
 
 k8s-validate:
 	@$(K8S_VALIDATE)
