@@ -57,7 +57,12 @@ Available foundation endpoints:
 
 - `GET /health`
 - `GET /ready`
-- Actuator endpoints remain under `/actuator`, with health, info, and metrics exposed.
+- `GET /metrics`
+- Actuator endpoints remain under `/actuator`, with health, info, metrics, and prometheus exposed.
+
+Logs include `service` and `correlationId` in the console pattern. HTTP requests
+echo `X-Correlation-Id`; RabbitMQ consumers copy event correlation IDs into MDC
+while processing.
 
 Local checks:
 
