@@ -3,31 +3,29 @@ services:
     environment:
       OTEL_SERVICE_NAME: ${API_OTEL_SERVICE_NAME:-open-ecosystem-api}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
-    depends_on:
-      otel-collector:
-        condition: service_started
 
   worker:
     environment:
       OTEL_SERVICE_NAME: ${WORKER_OTEL_SERVICE_NAME:-open-ecosystem-worker}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
-    depends_on:
-      otel-collector:
-        condition: service_started
 
   prometheus:
     image: prom/prometheus:latest
+    profiles: ["observability"]
     restart: unless-stopped
     ports:
       - "${LOCAL_BIND_ADDRESS:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
       - prometheus-data:/prometheus
     networks:
+      - openecosystem-public
       - openecosystem-internal
 
   grafana:
     image: grafana/grafana:latest
+    profiles: ["observability"]
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
@@ -36,20 +34,34 @@ services:
       - "${LOCAL_BIND_ADDRESS:-127.0.0.1}:${GRAFANA_PORT:-3001}:3000"
     volumes:
       - grafana-data:/var/lib/grafana
-      - ../grafana/dashboards:/var/lib/grafana/dashboards
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      prometheus:
+        condition: service_started
+      loki:
+        condition: service_started
     networks:
+      - openecosystem-public
       - openecosystem-internal
 
   loki:
     image: grafana/loki:latest
+    profiles: ["observability"]
     restart: unless-stopped
+    command: ["-config.file=/etc/loki/loki-config.yml"]
     ports:
       - "${LOCAL_BIND_ADDRESS:-127.0.0.1}:${LOKI_PORT:-3100}:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
     networks:
+      - openecosystem-public
       - openecosystem-internal
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
+    profiles: ["observability"]
     restart: unless-stopped
     command: ["--config=/etc/otel-collector-config.yml"]
     volumes:
@@ -59,8 +71,10 @@ services:
       - "${LOCAL_BIND_ADDRESS:-127.0.0.1}:${OTEL_HTTP_PORT:-4318}:4318"
       - "${LOCAL_BIND_ADDRESS:-127.0.0.1}:${OTEL_METRICS_PORT:-8889}:8889"
     networks:
+      - openecosystem-public
       - openecosystem-internal
 
 volumes:
   prometheus-data:
   grafana-data:
+  loki-data:
