@@ -85,6 +85,49 @@ API and workers should expose:
 - `/ready`
 - `/metrics`
 
+## Local MVP profile
+
+The Docker Compose observability stack is optional. Start the base app with:
+
+```bash
+make up
+```
+
+Start observability only when needed:
+
+```bash
+make obs-up
+make obs-ps
+```
+
+Direct equivalent:
+
+```bash
+docker compose --env-file .env -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.observability.yml --profile observability up -d --build
+```
+
+Local observability endpoints:
+
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3001`
+- Loki: `http://localhost:3100`
+- API metrics: `http://localhost:8080/metrics`
+- Worker metrics: `worker:8081/metrics` inside the Compose network
+
+Prometheus, Grafana, Loki, and the OpenTelemetry Collector are attached to both the public and internal Compose networks. Their browser/debug ports are published on `LOCAL_BIND_ADDRESS` from `.env`, which defaults to `127.0.0.1`.
+
+Provisioned dashboards:
+
+- `Open Ecosystem / Platform Overview`
+- `Open Ecosystem / Automation Pipeline`
+
+Current limitations:
+
+- Loki is available as a Grafana datasource, but Docker log shipping is deferred until Alloy/Promtail or OTLP log export is added.
+- The OpenTelemetry Collector is a placeholder receiver/exporter; no tracing is emitted yet.
+- RabbitMQ queue depth, DLQ, MinIO storage, and container host metrics require exporters before dashboards and alerts can display those signals.
+- `/metrics` is an operational endpoint and must be protected by network policy or equivalent controls in production-like deployments.
+
 ## Dashboards to create
 
 ### Platform Overview
