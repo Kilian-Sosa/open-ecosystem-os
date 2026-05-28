@@ -3,6 +3,7 @@ package com.openecosystem.os.worker.ocr;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.openecosystem.os.worker.OpenEcosystemWorkerApplication;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -24,6 +25,7 @@ class OcrJobProcessorTest {
 
   @Autowired private OcrJobProcessor processor;
   @Autowired private JdbcTemplate jdbcTemplate;
+  @Autowired private MeterRegistry meterRegistry;
   @Autowired private TestOcrProvider provider;
 
   @BeforeEach
@@ -111,6 +113,8 @@ class OcrJobProcessorTest {
   void completesQueuedJobAndSkipsDuplicateDelivery() {
     insertJob("ocr_success", "file_success", 2);
     OcrRequestedEvent event = requestedEvent("evt_requested", "ocr_success", "file_success");
+    double completedBefore = ocrCounter("completed");
+    double noOpBefore = ocrCounter("no-op");
 
     OcrProcessingResult firstResult = processor.process(event);
     OcrProcessingResult duplicateResult = processor.process(event);
@@ -137,6 +141,8 @@ class OcrJobProcessorTest {
     assertThat(started).isEqualTo(1);
     assertThat(completed).isEqualTo(1);
     assertThat(consumptions).isEqualTo(1);
+    assertThat(ocrCounter("completed")).isEqualTo(completedBefore + 1);
+    assertThat(ocrCounter("no-op")).isEqualTo(noOpBefore + 1);
   }
 
   @Test
@@ -144,6 +150,8 @@ class OcrJobProcessorTest {
     provider.fail.set(true);
     insertJob("ocr_fail", "file_fail", 2);
     OcrRequestedEvent event = requestedEvent("evt_requested_fail", "ocr_fail", "file_fail");
+    double retryBefore = ocrCounter("retry");
+    double deadLetterBefore = ocrCounter("dead-letter");
 
     OcrProcessingResult retryResult = processor.process(event);
     OcrProcessingResult finalResult = processor.process(event);
@@ -165,6 +173,8 @@ class OcrJobProcessorTest {
 
     assertThat(failed).isEqualTo(1);
     assertThat(consumptions).isEqualTo(1);
+    assertThat(ocrCounter("retry")).isEqualTo(retryBefore + 1);
+    assertThat(ocrCounter("dead-letter")).isEqualTo(deadLetterBefore + 1);
   }
 
   private void insertJob(String jobId, String fileId, int maxAttempts) {
@@ -231,6 +241,12 @@ class OcrJobProcessorTest {
         0,
         2,
         now);
+  }
+
+  private double ocrCounter(String outcome) {
+    var counter =
+        meterRegistry.find("openecosystem.worker.ocr.jobs").tag("outcome", outcome).counter();
+    return counter == null ? 0 : counter.count();
   }
 
   @TestConfiguration
