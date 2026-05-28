@@ -1,6 +1,7 @@
 package com.openecosystem.os.worker.ocr;
 
 import com.openecosystem.os.worker.common.events.EventMessagingProperties;
+import com.openecosystem.os.worker.common.observability.CorrelationMdcScope;
 import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -31,12 +32,10 @@ public class OcrRequestedEventConsumer {
   public void consume(String envelopeJson) {
     try {
       OcrRequestedEvent event = eventParser.parse(envelopeJson);
-      OcrProcessingResult result = processor.process(event);
-      if (result.retry()) {
-        throw new AmqpRejectAndDontRequeueException("OCR job will be retried");
-      }
-      if (result.deadLetter()) {
-        publishToDeadLetterQueue(envelopeJson);
+      try (CorrelationMdcScope ignored = CorrelationMdcScope.open(event.correlationId())) {
+        OcrProcessingResult result = processor.process(event);
+        if (result.retry()) throw new AmqpRejectAndDontRequeueException("OCR job will be retried");
+        if (result.deadLetter()) publishToDeadLetterQueue(envelopeJson);
       }
     } catch (AmqpRejectAndDontRequeueException exception) {
       throw exception;

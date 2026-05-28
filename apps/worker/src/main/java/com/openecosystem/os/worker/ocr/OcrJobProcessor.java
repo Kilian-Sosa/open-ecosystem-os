@@ -5,6 +5,8 @@ import com.openecosystem.os.worker.common.events.AuditRecordRepository;
 import com.openecosystem.os.worker.common.events.EventConsumptionRepository;
 import com.openecosystem.os.worker.common.events.EventEnvelope;
 import com.openecosystem.os.worker.common.events.JdbcEventOutboxRepository;
+import com.openecosystem.os.worker.metrics.WorkerMetrics;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
@@ -29,6 +31,7 @@ public class OcrJobProcessor {
   private final EventConsumptionRepository eventConsumptionRepository;
   private final AuditRecordRepository auditRecordRepository;
   private final TransactionTemplate transactionTemplate;
+  private final WorkerMetrics workerMetrics;
 
   public OcrJobProcessor(
       OcrProvider ocrProvider,
@@ -37,7 +40,8 @@ public class OcrJobProcessor {
       JdbcEventOutboxRepository eventOutboxRepository,
       EventConsumptionRepository eventConsumptionRepository,
       AuditRecordRepository auditRecordRepository,
-      TransactionTemplate transactionTemplate) {
+      TransactionTemplate transactionTemplate,
+      WorkerMetrics workerMetrics) {
     this.ocrProvider = ocrProvider;
     this.properties = properties;
     this.ocrJobRepository = ocrJobRepository;
@@ -45,18 +49,33 @@ public class OcrJobProcessor {
     this.eventConsumptionRepository = eventConsumptionRepository;
     this.auditRecordRepository = auditRecordRepository;
     this.transactionTemplate = transactionTemplate;
+    this.workerMetrics = workerMetrics;
   }
 
   public OcrProcessingResult process(OcrRequestedEvent event) {
-    if (event.version() != 1
-        || eventConsumptionRepository.exists(CONSUMER_NAME, event.idempotencyKey())) {
-      return new OcrProcessingResult(OcrProcessingOutcome.NO_OP, event.jobId());
+    long startedAtNanos = System.nanoTime();
+    OcrProcessingOutcome outcome = null;
+    try {
+      OcrProcessingResult result = processInternal(event);
+      outcome = result.outcome();
+      return result;
+    } catch (RuntimeException exception) {
+      workerMetrics.recordOcrJobError(Duration.ofNanos(System.nanoTime() - startedAtNanos));
+      throw exception;
+    } finally {
+      if (outcome != null)
+        workerMetrics.recordOcrJob(outcome, Duration.ofNanos(System.nanoTime() - startedAtNanos));
     }
+  }
+
+  private OcrProcessingResult processInternal(OcrRequestedEvent event) {
+    if (event.version() != 1
+        || eventConsumptionRepository.exists(CONSUMER_NAME, event.idempotencyKey()))
+      return new OcrProcessingResult(OcrProcessingOutcome.NO_OP, event.jobId());
 
     OcrJob claimedJob = claimJob(event);
-    if (claimedJob == null) {
+    if (claimedJob == null)
       return new OcrProcessingResult(OcrProcessingOutcome.NO_OP, event.jobId());
-    }
 
     try {
       OcrProviderResult providerResult = ocrProvider.extractText(claimedJob);
@@ -71,9 +90,7 @@ public class OcrJobProcessor {
     return transactionTemplate.execute(
         status -> {
           Optional<OcrJob> existing = ocrJobRepository.findById(event.jobId());
-          if (existing.isEmpty()) {
-            return null;
-          }
+          if (existing.isEmpty()) return null;
           if (existing.get().terminal()) {
             eventConsumptionRepository.save(
                 CONSUMER_NAME, event.idempotencyKey(), event.eventId(), Instant.now());
@@ -253,9 +270,7 @@ public class OcrJobProcessor {
 
   private String sanitizedMessage(RuntimeException exception) {
     String message = exception.getMessage();
-    if (message == null || message.isBlank()) {
-      return "OCR provider failed";
-    }
+    if (message == null || message.isBlank()) return "OCR provider failed";
     return message.length() > 256 ? message.substring(0, 256) : message;
   }
 }

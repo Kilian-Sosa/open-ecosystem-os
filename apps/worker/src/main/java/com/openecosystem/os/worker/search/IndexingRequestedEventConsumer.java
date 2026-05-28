@@ -1,6 +1,7 @@
 package com.openecosystem.os.worker.search;
 
 import com.openecosystem.os.worker.common.events.EventMessagingProperties;
+import com.openecosystem.os.worker.common.observability.CorrelationMdcScope;
 import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -32,10 +33,12 @@ public class IndexingRequestedEventConsumer {
   public void consume(String envelopeJson) {
     try {
       IndexingRequestedEvent event = eventParser.parse(envelopeJson);
-      SearchIndexingResult result = processor.process(event);
-      if (result.retry())
-        throw new AmqpRejectAndDontRequeueException("Search indexing will be retried");
-      if (result.deadLetter()) publishToDeadLetterQueue(envelopeJson);
+      try (CorrelationMdcScope ignored = CorrelationMdcScope.open(event.correlationId())) {
+        SearchIndexingResult result = processor.process(event);
+        if (result.retry())
+          throw new AmqpRejectAndDontRequeueException("Search indexing will be retried");
+        if (result.deadLetter()) publishToDeadLetterQueue(envelopeJson);
+      }
     } catch (AmqpRejectAndDontRequeueException exception) {
       throw exception;
     } catch (RuntimeException exception) {
