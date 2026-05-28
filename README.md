@@ -106,24 +106,37 @@ Start the optional observability stack only with the override file:
 
 ```bash
 make obs-up
+make obs-ps
 ```
 
 or:
 
 ```bash
-docker compose --env-file .env -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.observability.yml up -d --build
+docker compose --env-file .env -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.observability.yml --profile observability up -d --build
 ```
 
 Default local endpoints:
 
 - Web: `http://localhost:3000`
 - API health: `http://localhost:8080/health`
+- API metrics: `http://localhost:8080/metrics`
 - RabbitMQ management: `http://localhost:15672`
 - MinIO API: `http://localhost:9000`
 - MinIO console: `http://localhost:9001`
 - Grafana with observability override: `http://localhost:3001`
+- Prometheus with observability override: `http://localhost:9090`
+- Loki with observability override: `http://localhost:3100`
+
+These ports are published on `LOCAL_BIND_ADDRESS` from `.env`, which defaults to `127.0.0.1`.
 
 PostgreSQL, Redis, RabbitMQ AMQP, and Meilisearch are kept on the internal Compose network by default. Expose additional data-service ports only when a local debugging workflow needs them.
+
+The optional Grafana profile provisions two MVP dashboards:
+
+- `Open Ecosystem / Platform Overview`
+- `Open Ecosystem / Automation Pipeline`
+
+The observability profile is intentionally not required for core app startup. Loki is provisioned as a datasource, but Docker log shipping is deferred until Alloy/Promtail or OTLP log export is added. RabbitMQ queue depth, DLQ, MinIO storage, and host/container metrics need exporters before those panels and alerts can show real values.
 
 ### Flagship invoice automation demo
 

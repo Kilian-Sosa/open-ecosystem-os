@@ -3,6 +3,7 @@ package com.openecosystem.os.worker.search;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.openecosystem.os.worker.OpenEcosystemWorkerApplication;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -24,6 +25,7 @@ class SearchIndexingProcessorTest {
 
   @Autowired private SearchIndexingProcessor processor;
   @Autowired private JdbcTemplate jdbcTemplate;
+  @Autowired private MeterRegistry meterRegistry;
   @Autowired private TestSearchIndexClient indexClient;
 
   @BeforeEach
@@ -92,6 +94,8 @@ class SearchIndexingProcessorTest {
   void indexesPendingDocumentAndSkipsDuplicateDelivery() {
     insertDocument("srch_success", 3);
     IndexingRequestedEvent event = event("evt_index", "srch_success");
+    double indexedBefore = searchCounter("indexed");
+    double noOpBefore = searchCounter("no-op");
 
     SearchIndexingResult firstResult = processor.process(event);
     SearchIndexingResult duplicateResult = processor.process(event);
@@ -115,6 +119,8 @@ class SearchIndexingProcessorTest {
         jdbcTemplate.queryForObject("select count(*) from event_consumptions", Integer.class);
     assertThat(completed).isEqualTo(1);
     assertThat(consumptions).isEqualTo(1);
+    assertThat(searchCounter("indexed")).isEqualTo(indexedBefore + 1);
+    assertThat(searchCounter("no-op")).isEqualTo(noOpBefore + 1);
   }
 
   @Test
@@ -122,6 +128,8 @@ class SearchIndexingProcessorTest {
     indexClient.fail.set(true);
     insertDocument("srch_fail", 2);
     IndexingRequestedEvent event = event("evt_index_fail", "srch_fail");
+    double retryBefore = searchCounter("retry");
+    double deadLetterBefore = searchCounter("dead-letter");
 
     SearchIndexingResult retryResult = processor.process(event);
     SearchIndexingResult finalResult = processor.process(event);
@@ -143,6 +151,8 @@ class SearchIndexingProcessorTest {
         jdbcTemplate.queryForObject("select count(*) from event_consumptions", Integer.class);
     assertThat(failed).isEqualTo(1);
     assertThat(consumptions).isEqualTo(1);
+    assertThat(searchCounter("retry")).isEqualTo(retryBefore + 1);
+    assertThat(searchCounter("dead-letter")).isEqualTo(deadLetterBefore + 1);
   }
 
   private void insertDocument(String searchDocumentId, int maxAttempts) {
@@ -205,6 +215,15 @@ class SearchIndexingProcessorTest {
         0,
         2,
         now);
+  }
+
+  private double searchCounter(String outcome) {
+    var counter =
+        meterRegistry
+            .find("openecosystem.worker.search.indexing.jobs")
+            .tag("outcome", outcome)
+            .counter();
+    return counter == null ? 0 : counter.count();
   }
 
   @TestConfiguration

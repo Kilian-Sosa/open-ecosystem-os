@@ -4,6 +4,8 @@ import com.openecosystem.os.worker.common.Ids;
 import com.openecosystem.os.worker.common.events.EventConsumptionRepository;
 import com.openecosystem.os.worker.common.events.EventEnvelope;
 import com.openecosystem.os.worker.common.events.JdbcEventOutboxRepository;
+import com.openecosystem.os.worker.metrics.WorkerMetrics;
+import java.time.Duration;
 import java.time.Instant;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -20,21 +22,42 @@ public class SearchIndexingProcessor {
   private final JdbcEventOutboxRepository eventOutboxRepository;
   private final EventConsumptionRepository eventConsumptionRepository;
   private final TransactionTemplate transactionTemplate;
+  private final WorkerMetrics workerMetrics;
 
   public SearchIndexingProcessor(
       SearchIndexClient searchIndexClient,
       SearchDocumentRepository searchDocumentRepository,
       JdbcEventOutboxRepository eventOutboxRepository,
       EventConsumptionRepository eventConsumptionRepository,
-      TransactionTemplate transactionTemplate) {
+      TransactionTemplate transactionTemplate,
+      WorkerMetrics workerMetrics) {
     this.searchIndexClient = searchIndexClient;
     this.searchDocumentRepository = searchDocumentRepository;
     this.eventOutboxRepository = eventOutboxRepository;
     this.eventConsumptionRepository = eventConsumptionRepository;
     this.transactionTemplate = transactionTemplate;
+    this.workerMetrics = workerMetrics;
   }
 
   public SearchIndexingResult process(IndexingRequestedEvent event) {
+    long startedAtNanos = System.nanoTime();
+    SearchIndexingOutcome outcome = null;
+    try {
+      SearchIndexingResult result = processInternal(event);
+      outcome = result.outcome();
+      return result;
+    } catch (RuntimeException exception) {
+      workerMetrics.recordSearchIndexingJobError(
+          Duration.ofNanos(System.nanoTime() - startedAtNanos));
+      throw exception;
+    } finally {
+      if (outcome != null)
+        workerMetrics.recordSearchIndexingJob(
+            outcome, Duration.ofNanos(System.nanoTime() - startedAtNanos));
+    }
+  }
+
+  private SearchIndexingResult processInternal(IndexingRequestedEvent event) {
     if (event.version() != 1
         || eventConsumptionRepository.exists(CONSUMER_NAME, event.idempotencyKey()))
       return new SearchIndexingResult(SearchIndexingOutcome.NO_OP, event.searchDocumentId());

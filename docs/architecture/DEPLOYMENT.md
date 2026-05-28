@@ -30,6 +30,16 @@ make down
 make obs-up
 ```
 
+The optional observability profile is enabled through the Compose override and
+profile flag:
+
+```bash
+docker compose --env-file .env -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.observability.yml --profile observability up -d --build
+```
+
+Base startup must not depend on Prometheus, Grafana, Loki, or the
+OpenTelemetry Collector.
+
 ## Container strategy
 
 Each deployable gets its own image:
@@ -98,6 +108,11 @@ open-ecosystem-observability
 - Tempo later
 - Alertmanager
 - OpenTelemetry Collector or Grafana Alloy
+
+The local Compose profile includes Prometheus, Grafana, Loki, and an
+OpenTelemetry Collector placeholder. Production-like Kubernetes observability
+should add authentication, retention policy, storage sizing, log shipping, and
+exporters for RabbitMQ, object storage, and host/container metrics.
 
 ## Ingress/Gateway
 

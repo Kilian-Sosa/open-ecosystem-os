@@ -1,5 +1,6 @@
 package com.openecosystem.os.media;
 
+import com.openecosystem.os.common.observability.CorrelationMdcScope;
 import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
@@ -22,8 +23,8 @@ public class FileUploadedEventConsumer {
   public void consume(String envelopeJson) {
     try {
       FileUploadedEvent event = eventParser.parse(envelopeJson);
-      if (event.version() == 1) {
-        ocrJobService.queueOcrJobIfEligible(event);
+      try (CorrelationMdcScope ignored = CorrelationMdcScope.open(event.correlationId())) {
+        if (event.version() == 1) ocrJobService.queueOcrJobIfEligible(event);
       }
     } catch (RuntimeException exception) {
       throw new AmqpRejectAndDontRequeueException("FileUploaded OCR consumer failed", exception);

@@ -99,8 +99,17 @@ With observability profile/file:
 
 ```bash
 cd infra/docker
-docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
-docker compose -f docker-compose.yml -f docker-compose.observability.yml up --build --watch
+docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile observability up -d
+docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile observability up --build --watch
+```
+
+From the repository root, prefer:
+
+```bash
+make obs-up
+make obs-watch
+make obs-ps
+make obs-down
 ```
 
 ## Kubernetes validation commands
@@ -164,6 +173,8 @@ cd apps/api
 Example for an infrastructure change:
 
 ```bash
+docker compose --env-file .env -f infra/docker/docker-compose.yml config
+docker compose --env-file .env -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.observability.yml --profile observability config
 kubectl kustomize infra/k8s/base | kubeconform -strict -summary
 kubectl kustomize infra/k8s/overlays/dev | kubeconform -strict -summary
 kubectl kustomize infra/k8s/overlays/prod | kubeconform -strict -summary

@@ -51,6 +51,17 @@ class HealthControllerTest {
     assertThat(response.body()).contains("correlationId");
   }
 
+  @Test
+  void metricsReturnsPrometheusText() throws Exception {
+    HttpRequest request = HttpRequest.newBuilder(uri("/metrics")).GET().build();
+
+    HttpResponse<String> response = httpClient.send(request, BodyHandlers.ofString());
+
+    assertThat(response.statusCode()).isEqualTo(200);
+    assertThat(response.headers().firstValue("content-type").orElse("")).contains("text/plain");
+    assertThat(response.body()).contains("# HELP");
+  }
+
   private URI uri(String path) {
     return URI.create("http://localhost:" + port + path);
   }

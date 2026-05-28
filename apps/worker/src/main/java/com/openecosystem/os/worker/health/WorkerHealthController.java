@@ -1,5 +1,6 @@
 package com.openecosystem.os.worker.health;
 
+import com.openecosystem.os.worker.common.observability.CorrelationContext;
 import java.time.Instant;
 import java.util.Map;
 import org.springframework.boot.availability.ApplicationAvailability;
@@ -22,7 +23,8 @@ public class WorkerHealthController {
 
   @GetMapping("/health")
   public WorkerHealthResponse health() {
-    return new WorkerHealthResponse("UP", SERVICE_NAME, Instant.now());
+    return new WorkerHealthResponse(
+        "UP", SERVICE_NAME, Instant.now(), CorrelationContext.currentOrCreate());
   }
 
   @GetMapping("/ready")
@@ -34,7 +36,8 @@ public class WorkerHealthController {
             ready ? "READY" : "NOT_READY",
             readinessState.name(),
             Map.of("application", readinessState.name()),
-            Instant.now());
+            Instant.now(),
+            CorrelationContext.currentOrCreate());
 
     return ResponseEntity.status(ready ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
         .body(response);

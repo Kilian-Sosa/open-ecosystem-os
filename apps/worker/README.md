@@ -26,3 +26,14 @@ Local checks:
 `verify` runs Spotless with Google Java Format. The `security-scan` profile runs
 OWASP Dependency-Check and blocks high/critical dependency findings. It reads
 `NVD_API_KEY` from the repository root `.env` file when present.
+
+Available operational endpoints:
+
+- `GET /health`
+- `GET /ready`
+- `GET /metrics`
+
+Logs include `service` and `correlationId` in the console pattern. HTTP requests
+echo `X-Correlation-Id`; RabbitMQ consumers copy event correlation IDs into MDC
+while processing. Worker metrics currently cover OCR and search-indexing
+outcomes and durations.

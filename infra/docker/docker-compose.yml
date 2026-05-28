@@ -238,6 +238,7 @@ services:
       retries: 12
       start_period: 20s
     networks:
+      - openecosystem-public
       - openecosystem-internal
 
   minio:
@@ -263,6 +264,7 @@ services:
       retries: 12
       start_period: 20s
     networks:
+      - openecosystem-public
       - openecosystem-internal
 
   meilisearch:

@@ -1,5 +1,6 @@
 package com.openecosystem.os.flows;
 
+import com.openecosystem.os.common.observability.CorrelationMdcScope;
 import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
@@ -21,7 +22,10 @@ public class OcrCompletedEventConsumer {
           "${openecosystem.events.queues.flows-ocr-completed:openecosystem.flows.ocr-completed}")
   public void consume(String envelopeJson) {
     try {
-      triggerService.trigger(eventParser.parse(envelopeJson));
+      OcrCompletedEvent event = eventParser.parse(envelopeJson);
+      try (CorrelationMdcScope ignored = CorrelationMdcScope.open(event.correlationId())) {
+        triggerService.trigger(event);
+      }
     } catch (RuntimeException exception) {
       throw new AmqpRejectAndDontRequeueException(
           "OcrCompleted workflow trigger consumer failed", exception);

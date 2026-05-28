@@ -25,7 +25,11 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level service=${spring.application.name:-open-ecosystem-worker} correlationId=%X{correlationId:-none} [%thread] %logger{36} - %msg%n"
 
 openecosystem:
   events:

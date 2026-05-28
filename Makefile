@@ -1,6 +1,7 @@
 PNPM ?= corepack pnpm
 COMPOSE_BASE = docker compose -f infra/docker/docker-compose.yml
 COMPOSE_OBS = docker compose -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.observability.yml
+COMPOSE_OBS_PROFILE = $(COMPOSE_OBS) --profile observability
 KUBECONFORM_IMAGE ?= ghcr.io/yannh/kubeconform:latest
 
 ifeq ($(OS),Windows_NT)
@@ -15,7 +16,7 @@ SEED_DEMO = ./scripts/seed-demo-data.sh
 RESET_DEMO = ./scripts/reset-demo-data.sh
 endif
 
-.PHONY: install format format-check lint typecheck test test-unit test-integration test-e2e build docker-up docker-watch docker-watch-web docker-watch-api docker-watch-worker docker-down docker-logs smoke security-scan k8s-validate ci-local up watch down logs ps obs-up obs-watch obs-down seed reset ensure-env
+.PHONY: install format format-check lint typecheck test test-unit test-integration test-e2e build docker-up docker-watch docker-watch-web docker-watch-api docker-watch-worker docker-down docker-logs smoke security-scan k8s-validate ci-local up watch down logs ps obs-up obs-watch obs-down obs-ps seed reset ensure-env
 
 ensure-env:
 	@$(ENSURE_ENV)
@@ -76,6 +77,7 @@ docker-logs:
 
 smoke:
 	$(COMPOSE_BASE) config
+	$(COMPOSE_OBS_PROFILE) config
 	kubectl kustomize infra/k8s/base >$(NULL_DEVICE)
 	kubectl kustomize infra/k8s/overlays/dev >$(NULL_DEVICE)
 	kubectl kustomize infra/k8s/overlays/prod >$(NULL_DEVICE)
@@ -104,13 +106,16 @@ ps:
 	$(COMPOSE_BASE) ps
 
 obs-up: ensure-env
-	$(COMPOSE_OBS) --env-file .env up -d --build
+	$(COMPOSE_OBS_PROFILE) --env-file .env up -d --build
 
 obs-watch: ensure-env
-	$(COMPOSE_OBS) --env-file .env up --build --watch
+	$(COMPOSE_OBS_PROFILE) --env-file .env up --build --watch
 
 obs-down:
-	$(COMPOSE_OBS) down --remove-orphans
+	$(COMPOSE_OBS_PROFILE) down --remove-orphans
+
+obs-ps:
+	$(COMPOSE_OBS_PROFILE) --env-file .env ps
 
 seed:
 	$(SEED_DEMO)
