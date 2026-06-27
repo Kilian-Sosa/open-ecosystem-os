@@ -1,0 +1,6 @@
+interface:
+  display_name: "Migration Risk Analysis"
+  short_description: "Analyze database migration risk"
+  default_prompt: "Use $migration-risk-analysis to analyze this Open Ecosystem OS database change before implementation."
+policy:
+  allow_implicit_invocation: true

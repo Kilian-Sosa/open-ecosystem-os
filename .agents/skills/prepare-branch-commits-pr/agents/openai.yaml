@@ -1,0 +1,6 @@
+interface:
+  display_name: "Prepare Branch Commits PR"
+  short_description: "Plan branch, commits, and PR"
+  default_prompt: "Use $prepare-branch-commits-pr to prepare a branch, commit, and pull request plan for the current Open Ecosystem OS changes."
+policy:
+  allow_implicit_invocation: true
