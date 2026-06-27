@@ -17,7 +17,8 @@ open-ecosystem-os/
     architecture/
     adr/
     development/
-    prompts/
+  .agents/
+    skills/
   infra/
     docker/
     k8s/

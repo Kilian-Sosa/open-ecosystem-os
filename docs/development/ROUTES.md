@@ -1,6 +1,25 @@
 # Route Map
 
-This is the proposed Next.js route structure. It is a planning artifact until the frontend app is generated.
+This route map combines implemented MVP routes and planned routes. The
+frontend app already exists under `apps/web/src/app`; before adding or changing
+a route, check the current filesystem route and keep names aligned with this
+catalog.
+
+Currently implemented routes include:
+
+```txt
+/                              Public landing page
+/app/dashboard                  Workspace dashboard
+/app/demo/invoice-automation    Seeded flagship invoice automation demo
+/app/drive                      Drive / file manager
+/app/flows                      Open Ecosystem Flows
+/app/media                      Media / OCR
+/app/search                     Global search results
+/app/notifications              Notification center
+/app/settings                   User/workspace settings placeholder
+/admin/audit                    Activity / audit logs
+/admin/system-status            System status placeholder
+```
 
 ## Public product / portfolio routes
 
@@ -80,6 +99,9 @@ This is the proposed Next.js route structure. It is a planning artifact until th
 ```
 
 ## Next.js grouping recommendation
+
+The current implementation uses direct route folders. Route groups remain a
+recommended organization if route structure is refactored.
 
 ```txt
 apps/web/src/app/

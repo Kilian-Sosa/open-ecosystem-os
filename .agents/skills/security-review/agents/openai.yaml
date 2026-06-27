@@ -1,0 +1,6 @@
+interface:
+  display_name: "Security Review"
+  short_description: "Run security and privacy review"
+  default_prompt: "Use $security-review to perform a security and privacy review for this Open Ecosystem OS change."
+policy:
+  allow_implicit_invocation: true

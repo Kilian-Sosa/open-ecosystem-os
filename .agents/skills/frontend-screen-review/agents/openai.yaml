@@ -1,0 +1,6 @@
+interface:
+  display_name: "Frontend Screen Review"
+  short_description: "Review one frontend screen"
+  default_prompt: "Use $frontend-screen-review to review this Open Ecosystem OS frontend screen."
+policy:
+  allow_implicit_invocation: true

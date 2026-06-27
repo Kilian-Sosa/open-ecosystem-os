@@ -1,0 +1,6 @@
+interface:
+  display_name: "Refine Prompt"
+  short_description: "Refine rough requests into prompts"
+  default_prompt: "Use $refine-prompt to refine this rough Open Ecosystem OS request into an implementation-ready prompt."
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Issue Planner"
+  short_description: "Plan scoped implementation work"
+  default_prompt: "Use $issue-planner to turn this Open Ecosystem OS request into a scoped implementation plan."
+policy:
+  allow_implicit_invocation: true

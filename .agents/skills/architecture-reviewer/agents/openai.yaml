@@ -1,0 +1,6 @@
+interface:
+  display_name: "Architecture Reviewer"
+  short_description: "Review architecture and boundaries"
+  default_prompt: "Use $architecture-reviewer to review this Open Ecosystem OS plan or diff for architecture risks."
+policy:
+  allow_implicit_invocation: true

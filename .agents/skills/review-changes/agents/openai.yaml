@@ -1,0 +1,6 @@
+interface:
+  display_name: "Review Changes"
+  short_description: "Review current repository changes"
+  default_prompt: "Use $review-changes to review the current Open Ecosystem OS changes."
+policy:
+  allow_implicit_invocation: true

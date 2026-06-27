@@ -1,0 +1,6 @@
+interface:
+  display_name: "Backend Event Flow Review"
+  short_description: "Review async backend event flow"
+  default_prompt: "Use $backend-event-flow-review to review this Open Ecosystem OS async backend flow."
+policy:
+  allow_implicit_invocation: true
