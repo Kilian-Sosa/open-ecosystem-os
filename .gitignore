@@ -37,6 +37,8 @@ coverage/
 playwright-report/
 test-results/
 *.tsbuildinfo
+.codegraph/
 
 # Misc
 docs/prompts/
+artifacts

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Frontend Next Reviewer"
+  short_description: "Review Next.js UI changes"
+  default_prompt: "Use $frontend-next-reviewer to review this Open Ecosystem OS frontend change."
+policy:
+  allow_implicit_invocation: true

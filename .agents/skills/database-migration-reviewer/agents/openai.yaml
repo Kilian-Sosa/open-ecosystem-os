@@ -1,0 +1,6 @@
+interface:
+  display_name: "Database Migration Reviewer"
+  short_description: "Review schema and migration risk"
+  default_prompt: "Use $database-migration-reviewer to review this Open Ecosystem OS database migration or schema change."
+policy:
+  allow_implicit_invocation: true

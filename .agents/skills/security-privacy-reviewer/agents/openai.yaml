@@ -1,0 +1,6 @@
+interface:
+  display_name: "Security Privacy Reviewer"
+  short_description: "Review security and privacy risk"
+  default_prompt: "Use $security-privacy-reviewer to review this Open Ecosystem OS change for security and privacy risks."
+policy:
+  allow_implicit_invocation: true

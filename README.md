@@ -31,7 +31,8 @@ open-ecosystem-os/
     ui/       # Shared design system components
     shared/   # Shared event names, schemas, constants, API contracts
     config/   # Shared tooling configuration
-  docs/       # Product, architecture, ADRs, development docs, prompts
+  docs/       # Product, architecture, ADRs, development docs
+  .agents/    # Repo-scoped Codex skills for reusable agent workflows
   infra/      # Docker, Kubernetes, Grafana, observability
   scripts/    # Developer scripts and seed/reset commands
 ```
