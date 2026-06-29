@@ -5,31 +5,30 @@ description: Use when reviewing an Open Ecosystem OS frontend screen before or a
 
 # Frontend Screen Review
 
-Review a frontend screen against the Open Ecosystem OS design and state
-requirements. Work as a reviewer: produce findings, fixes, and frontend checks.
+Use the global repo-agnostic `frontend-screen-review` workflow first, then apply this repository context.
 
-## Inputs
+## Repo Context
 
-- Screen request, plan, diff, or implementation summary.
-- Changed screen, component, hook, data, and test files.
-- `AGENTS.md`, `docs/development/DESIGN.md`,
-  `docs/development/SCREEN_SPECS.md`, `docs/design/SCREEN_CATALOG.md`,
-  `docs/design/COMPONENT_INVENTORY.md`, `docs/development/ROUTES.md`, and the
-  relevant mockup path from the screen catalog.
+Inspect only what is relevant:
 
-## Review Checklist
+- `AGENTS.md`
+- `docs/development/DESIGN.md`
+- `docs/development/SCREEN_SPECS.md`
+- `docs/design/SCREEN_CATALOG.md`
+- `docs/design/COMPONENT_INVENTORY.md`
+- `docs/development/ROUTES.md`
+- relevant mockup path from the screen catalog
+- changed screen, component, hook, data, API helper, and test files
 
-- Route name and MVP priority are correct.
-- Existing shell/components are reused.
-- Semantic tokens are used instead of arbitrary colors.
-- Desktop and mobile behavior both work.
-- Loading, empty, error, normal, and permission-denied states exist where
-  relevant.
-- API helpers match existing backend contracts or remain typed mock data.
-- Accessible labels, semantic HTML, keyboard behavior, and focus states hold.
-- Component tests cover key states.
+## Repo Guardrails
+
+- Route name and MVP priority must match the catalog.
+- Reuse existing shell/components before proposing new layout patterns.
+- Use semantic tokens and existing visual language.
+- Verify desktop and mobile behavior.
+- Check loading, empty, error, normal, and permission-denied states where relevant.
+- API helpers must match existing backend contracts or remain typed mock data.
 
 ## Output
 
-Return findings ordered by severity, recommended fixes, and frontend checks to
-run.
+Return severity-ordered findings, recommended fixes, state/responsive/accessibility gaps, API boundary concerns, and frontend checks to run.

@@ -5,30 +5,27 @@ description: Use when reviewing Open Ecosystem OS backend async behavior, worker
 
 # Backend Event Flow Review
 
-Review backend event flow for the requested change, especially the flagship
-path: Drive upload -> OCR worker -> event -> workflow -> notification -> audit
-log. Work as a reviewer: produce findings, missing tests, and checks.
+Use the global `event-flow-review` workflow first, then apply this repository context.
 
-## Inputs
+## Repo Context
 
-- Requested change, plan, diff, or implementation summary.
-- Affected API, worker, repository, migration, and test files.
-- `AGENTS.md`, `docs/product/USER_JOURNEYS.md`,
-  `docs/architecture/ARCHITECTURE.md`, `docs/architecture/EVENTS.md`, and
-  `docs/architecture/PERMISSIONS.md`.
+Inspect only what is relevant:
 
-## Review Checklist
+- `AGENTS.md`
+- `docs/product/USER_JOURNEYS.md`
+- `docs/architecture/ARCHITECTURE.md`
+- `docs/architecture/EVENTS.md`
+- `docs/architecture/PERMISSIONS.md`
+- affected API, worker, repository, migration, config, and test files
 
-- Domain state and outbox writes happen reliably.
-- Correlation and causation IDs are preserved.
-- Consumers validate event type/version and are idempotent.
-- Retry and DLQ behavior are intentional.
-- Audit records are present where relevant.
-- Event payloads avoid raw OCR text, document content, file content, AI prompts,
-  and secrets.
-- Failure paths are tested or explicitly deferred.
+## Repo Guardrails
+
+- Prioritize the flagship path: Drive upload -> OCR worker -> event -> workflow -> notification -> audit log.
+- Check that domain state and outbox writes are reliable.
+- Preserve correlation and causation IDs.
+- Require idempotent consumers, intentional retry behavior, and DLQ handling.
+- Keep raw OCR text, document content, file content, AI prompts, and secrets out of events, logs, audit attributes, search documents, and notifications.
 
 ## Output
 
-Return a concise flow summary, findings ordered by severity, missing tests, and
-recommended Maven checks.
+Return a concise flow summary, severity-ordered findings, missing tests, and recommended Maven checks.

@@ -5,29 +5,28 @@ description: Use when analyzing risk before changing Open Ecosystem OS Flyway mi
 
 # Migration Risk Analysis
 
-Analyze migration risk for a requested database change before implementation or
-review. Work as an analyst: produce risks, recommended shape, tests, and reset
-guidance.
+Use the global repo-agnostic `migration-risk-analysis` workflow first, then apply this repository context.
 
-## Inputs
+## Repo Context
 
-- Requested database change, plan, diff, or migration summary.
-- Existing migrations in `apps/api/src/main/resources/db/migration`.
-- Affected repositories, services, and tests.
-- `AGENTS.md`, `docs/architecture/DATA_STRATEGY.md`,
-  `docs/architecture/EVENTS.md`, and `docs/development/TEST_COMMANDS.md`.
+Inspect only what is relevant:
 
-## Analysis Checklist
+- `AGENTS.md`
+- `docs/architecture/DATA_STRATEGY.md`
+- `docs/architecture/EVENTS.md`
+- `docs/development/TEST_COMMANDS.md`
+- existing migrations in `apps/api/src/main/resources/db/migration`
+- affected repositories, services, seed/reset scripts, and tests
 
-- Migration ordering and naming.
-- Backward compatibility with existing local data.
-- Constraints, defaults, indexes, and uniqueness.
-- Idempotency keys and event/audit relationships.
-- Seed/reset data safety.
-- PostgreSQL-specific behavior not covered by H2 tests.
-- Whether docs or `.env.example` need updates.
+## Repo Guardrails
+
+- Check Flyway ordering and naming.
+- Consider backward compatibility with existing local data.
+- Review constraints, defaults, indexes, uniqueness, idempotency keys, and event/audit relationships.
+- Keep seed/reset data safe and fake.
+- Note PostgreSQL behavior not covered by H2 tests.
+- Check whether docs or `.env.example` need updates.
 
 ## Output
 
-Return severity-ranked risks, recommended migration shape, tests to add or run,
-and any rollback or reset guidance.
+Return severity-ranked risks, recommended migration shape, tests to add or run, and rollback or reset guidance.
