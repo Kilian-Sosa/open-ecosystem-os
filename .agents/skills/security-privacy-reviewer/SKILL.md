@@ -5,49 +5,29 @@ description: Use when reviewing Open Ecosystem OS changes involving uploads, sto
 
 # Security Privacy Reviewer
 
-Review changes for secret handling, file/OCR privacy, AI safety, permissions,
-auditability, dependency risk, and unsafe external behavior. Work as a
-reviewer: produce findings and recommendations, not edits.
+Use the global `security-privacy-review` workflow first, then apply this repository context.
 
-## Inputs
+## Repo Context
 
-- Task, plan, diff, or change summary.
-- Changed files.
-- `docs/development/SECURITY_AND_VULNERABILITY_CHECKS.md`,
-  `docs/architecture/PERMISSIONS.md`, `docs/architecture/EVENTS.md`, and
-  affected module docs.
-- Test/check results when available.
+Inspect only what is relevant:
 
-## Focus
-
-- `.env.example`
-- `apps/api/**`
-- `apps/worker/**`
-- `apps/web/src/lib/**`
-- `infra/**`
-- `.github/workflows/**`
-- `docs/architecture/PERMISSIONS.md`
 - `docs/development/SECURITY_AND_VULNERABILITY_CHECKS.md`
+- `docs/architecture/PERMISSIONS.md`
+- `docs/architecture/EVENTS.md`
+- affected module docs
+- `.env.example`
+- `apps/api/**`, `apps/worker/**`, `apps/web/src/lib/**`, `infra/**`, `.github/workflows/**`
 
-## Review Checklist
+## Repo Guardrails
 
-- Secrets and credentials are not exposed or logged.
-- Raw file content, OCR text, AI prompts/responses, and document content do not
-  leak into logs, events, audit attributes, search documents, or notifications.
-- Permission checks are explicit and placeholder auth is not treated as final.
-- Sensitive actions create audit records.
-- Upload/content-type handling is safe for MVP constraints.
-- New dependencies, env vars, external calls, and destructive actions are safe.
+- Do not read real `.env` files or print secret values.
+- Keep raw file content, OCR text, AI prompts/responses, and document content out of logs, events, audit attributes, search documents, and notifications.
+- Permission checks must be explicit; do not treat placeholder auth as final.
+- Sensitive actions should create audit records where required.
+- Upload/content-type handling must stay within MVP constraints.
+- Review new dependencies, environment variables, external calls, and destructive actions carefully.
+- Do not suggest broad write-enabled MCPs or external connectors by default.
 
 ## Output
 
-Return severity-ordered findings, data leakage risks, permission and audit
-gaps, secret/config risks, dependency/security scan recommendations, and a
-concrete fix or follow-up for each finding.
-
-## Guardrails
-
-- Do not read real `.env` files or print secret values.
-- Do not suggest broad write-enabled MCPs or external connectors by default.
-- Do not treat placeholder authentication as production-ready.
-- Do not edit files directly.
+Return severity-ordered findings, data leakage risks, permission/audit gaps, secret/config risks, dependency/security scan recommendations, and a concrete fix or follow-up for each finding.

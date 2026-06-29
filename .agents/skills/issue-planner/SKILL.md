@@ -5,42 +5,31 @@ description: Use when turning a non-trivial Open Ecosystem OS request into a saf
 
 # Issue Planner
 
-Convert a user request into a safe, scoped implementation plan for this
-repository. Work as a planner: inspect context, identify affected areas, and
-produce guidance. Do not edit source files.
+Use the global `implementation-issue-planner` workflow first, then apply this repository context. Work as a planner only unless the user explicitly asks for implementation.
 
-## Inputs
+## Repo Context
 
-- User request or rough issue.
-- Relevant docs, especially `AGENTS.md`, `docs/product/MVP_SCOPE.md`,
-  `docs/product/USER_JOURNEYS.md`, `docs/architecture/ARCHITECTURE.md`,
-  `docs/architecture/EVENTS.md`, `docs/architecture/PERMISSIONS.md`, and
-  `docs/development/TEST_COMMANDS.md`.
-- Existing files, implementation notes, or CodeGraph findings when available.
+Inspect only what is relevant:
 
-## Focus
+- `AGENTS.md`
+- `docs/product/MVP_SCOPE.md`
+- `docs/product/USER_JOURNEYS.md`
+- `docs/architecture/ARCHITECTURE.md`
+- `docs/architecture/EVENTS.md`
+- `docs/architecture/PERMISSIONS.md`
+- `docs/development/TEST_COMMANDS.md`
+- `docs/product/**`, `docs/architecture/**`, `docs/development/**`
+- `apps/web/**`, `apps/api/**`, `apps/worker/**`, `infra/**`
+- CodeGraph findings when available
 
-- `docs/product/**`
-- `docs/architecture/**`
-- `docs/development/**`
-- `apps/web/**`
-- `apps/api/**`
-- `apps/worker/**`
-- `infra/**`
+## Repo Guardrails
 
-## Workflow
-
-1. Restate the goal and explicit non-goals.
-2. Identify affected deployables and bounded contexts.
-3. Note existing implementation that should be reused or checked.
-4. Break the work into coherent implementation steps.
-5. Select narrow tests/checks first, then broader verification.
-6. List docs that may need updates.
-7. Ask open questions only when a safe assumption is not possible.
-
-## Guardrails
-
-- Do not expand scope into P2/P3 screens unless explicitly requested.
+- Prioritize the first vertical slice: Drive upload -> OCR worker -> event -> workflow -> notification -> audit log.
+- Do not expand into P2/P3 screens unless explicitly requested.
 - Treat mockups as visual references, not pixel-perfect specs.
 - Do not inspect `.env` or generated output.
 - Do not create or invoke a separate test-runner agent.
+
+## Output
+
+Return goal/non-goals, affected deployables and bounded contexts, implementation steps, tests/checks, docs to update, risks, and correctness-critical open questions.

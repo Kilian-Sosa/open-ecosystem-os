@@ -5,31 +5,26 @@ description: Use when adding, changing, or reviewing Open Ecosystem OS events, p
 
 # Event Contract Review
 
-Review an event contract and implementation for correctness, privacy, and
-reliability. Work as a reviewer: produce findings, required docs/tests, and
-recommended checks.
+Use the global repo-agnostic `event-contract-review` workflow first, then apply this repository context.
 
-## Inputs
+## Repo Context
 
-- Requested change, plan, diff, or implementation summary.
-- Affected producer and consumer code.
-- Affected tests.
-- `AGENTS.md`, `docs/architecture/EVENTS.md`, and
-  `docs/development/QUALITY_GATES.md`.
+Inspect only what is relevant:
 
-## Review Checklist
+- `AGENTS.md`
+- `docs/architecture/EVENTS.md`
+- `docs/development/QUALITY_GATES.md`
+- affected producer, consumer, queue, outbox, migration, and test files
 
-- Event name is a past-tense business fact.
-- Envelope fields are correct: version, source, correlationId, causationId,
-  idempotencyKey, and payload.
-- Payload excludes raw OCR text, document content, file content, AI prompts,
-  and secrets.
-- Producer considers transaction and outbox reliability.
-- Consumers validate version/type and are idempotent.
-- Retry and DLQ behavior are defined and tested where relevant.
-- Audit records are created where required.
+## Repo Guardrails
+
+- Event names should be past-tense business facts unless the local event docs say otherwise.
+- Check envelope fields: version, source, correlationId, causationId, idempotencyKey, and payload.
+- Keep raw OCR text, document content, file content, AI prompts, and secrets out of payloads.
+- Producers must consider transaction and outbox reliability.
+- Consumers must validate version/type and remain idempotent.
+- Retry, DLQ, and audit behavior should be documented or tested where relevant.
 
 ## Output
 
-Return findings ordered by severity, required docs/tests, and recommended
-narrow checks.
+Return severity-ordered findings, required docs/tests, compatibility and privacy risks, and recommended narrow checks.
