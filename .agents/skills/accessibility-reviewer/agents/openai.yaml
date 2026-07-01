@@ -1,0 +1,6 @@
+interface:
+  display_name: "Accessibility Reviewer"
+  short_description: "Review UI accessibility risk"
+  default_prompt: "Use $accessibility-reviewer to review this Open Ecosystem OS UI change for accessibility issues."
+policy:
+  allow_implicit_invocation: true
