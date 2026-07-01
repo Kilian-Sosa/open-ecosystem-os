@@ -26,6 +26,7 @@
   </licenses>
 
   <properties>
+    <dependency-check.autoUpdate>true</dependency-check.autoUpdate>
     <dependency-check-maven.version>12.2.2</dependency-check-maven.version>
     <google-java-format.version>1.35.0</google-java-format.version>
     <java.version>25</java.version>
@@ -151,6 +152,7 @@
             <artifactId>dependency-check-maven</artifactId>
             <version>${dependency-check-maven.version}</version>
             <configuration>
+              <autoUpdate>${dependency-check.autoUpdate}</autoUpdate>
               <failBuildOnCVSS>7</failBuildOnCVSS>
               <skipProvidedScope>true</skipProvidedScope>
               <nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
