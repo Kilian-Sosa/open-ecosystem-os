@@ -2,11 +2,18 @@
 
 This project uses CI/CD as a design constraint. Code should be easy to test, scan, build, package, and deploy from the beginning.
 
-GitHub Actions is the default CI/CD system. Workflow templates live under `docs/templates/github-workflows/` until the corresponding app skeletons are implemented. When a template becomes valid, copy it into `.github/workflows/`.
+GitHub Actions is the default CI/CD system. Active workflows live under
+`.github/workflows/` for web, API, worker, docs, Kubernetes validation, and
+security checks. Deferred workflow templates live under
+`docs/templates/github-workflows/`; copy a template into `.github/workflows/`
+only after the commands it calls exist and pass locally.
 
 ## Why templates first?
 
-The starter repository intentionally contains placeholder app directories. Installing workflows too early would create failing GitHub checks before the actual Next.js/Spring Boot projects exist.
+The repository originally started with placeholder app directories. Some
+workflows are now active because the Next.js app and Spring Boot API/worker
+exist. Keep future templates deferred when they depend on tooling that is still
+missing, such as Playwright E2E smoke tests.
 
 Activation rule:
 
@@ -111,14 +118,17 @@ Responsibilities:
 Recommended:
 
 ```txt
-main        → stable integration branch
-feature/*   → feature branches
-fix/*       → bugfix branches
-chore/*     → CI/docs/maintenance branches
-tag vX.Y.Z  → releases
+main        -> stable integration branch
+develop     -> optional integration branch if active workflows keep using it
+feature/*   -> feature branches
+fix/*       -> bugfix branches
+chore/*     -> CI/docs/maintenance branches
+tag vX.Y.Z  -> releases
 ```
 
-No long-lived develop branch is needed at the beginning.
+Current active workflows trigger on `main` and `develop`. If the project stops
+using a long-lived `develop` branch, remove it from the workflow triggers and
+this document in the same change.
 
 ## Path filters
 

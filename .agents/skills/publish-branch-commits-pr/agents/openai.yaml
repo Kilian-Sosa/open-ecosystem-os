@@ -1,0 +1,6 @@
+interface:
+  display_name: "Publish Branch Commits PR"
+  short_description: "Commit, push, and open PR"
+  default_prompt: "Use $publish-branch-commits-pr to publish the current Open Ecosystem OS changes to a branch and open a pull request against develop."
+policy:
+  allow_implicit_invocation: true

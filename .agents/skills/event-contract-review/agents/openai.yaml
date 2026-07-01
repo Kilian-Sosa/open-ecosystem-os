@@ -1,0 +1,6 @@
+interface:
+  display_name: "Event Contract Review"
+  short_description: "Review event contracts"
+  default_prompt: "Use $event-contract-review to review this Open Ecosystem OS event contract change."
+policy:
+  allow_implicit_invocation: true

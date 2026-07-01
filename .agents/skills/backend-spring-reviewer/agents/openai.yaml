@@ -1,0 +1,6 @@
+interface:
+  display_name: "Backend Spring Reviewer"
+  short_description: "Review Java and Spring backend changes"
+  default_prompt: "Use $backend-spring-reviewer to review this Open Ecosystem OS backend change."
+policy:
+  allow_implicit_invocation: true

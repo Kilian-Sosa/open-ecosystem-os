@@ -1,4 +1,4 @@
-# Agent Instructions — Open Ecosystem OS
+# Agent Instructions - Open Ecosystem OS
 
 These instructions are for Codex or any coding agent working in this repository.
 
@@ -21,21 +21,24 @@ Prioritize the first vertical slice:
 Drive upload -> OCR worker -> event -> workflow -> notification -> audit log
 ```
 
-## Stack assumptions
+## Current stack
 
 Frontend:
 
-- Next.js
+- Next.js App Router
 - React
 - TypeScript
 - Tailwind CSS
-- shadcn/ui / Radix primitives
+- shadcn/ui / Radix primitives as the design-system target; verify packages are installed before use
 - Lucide icons
 - TanStack Query
+- Vitest and Testing Library
 
 Backend:
 
-- Spring Boot modular monolith
+- Spring Boot modular monolith API
+- Spring Boot worker
+- Java 25
 - PostgreSQL
 - Redis
 - RabbitMQ
@@ -47,6 +50,19 @@ Infrastructure:
 - Docker Compose for local development
 - Kubernetes manifests/Helm later
 - optional external observability stack
+- active GitHub Actions for web, API, worker, docs, Kubernetes, and security checks
+
+## Repository status
+
+This is no longer only a scaffold. `apps/web`, `apps/api`, and `apps/worker`
+exist and have local checks. Some docs were written earlier as planning docs,
+so verify implementation-sensitive claims against code, package scripts,
+Maven POMs, Compose files, Kubernetes manifests, and active workflows before
+acting on them.
+
+Use the tracked repo skills in `.agents/skills/` for planning and review.
+They are workflow guides, not independent edit permission. Use them to produce
+findings, risks, test selections, and implementation guidance.
 
 ## Code rules
 
@@ -59,6 +75,45 @@ Infrastructure:
 - Do not introduce backend calls in frontend unless the API contract exists.
 - Do not use `any` unless unavoidable and justified.
 - Do not add comments unless the logic is non-obvious.
+
+## File and tool hygiene
+
+- Do not inspect real secret files such as `.env`; use `.env.example` for
+  variable names and fake values.
+- Do not manually edit generated or local output such as `node_modules/`,
+  `.next/`, `target/`, `coverage/`, `playwright-report/`, `test-results/`,
+  `*.tsbuildinfo`, local Docker volumes, local logs, or `.codegraph/`.
+- Keep fake/test data clearly labelled. Never commit real personal documents,
+  real OCR text, real AI prompts/responses, private keys, or production tokens.
+- Prefer `rg`/`rg --files` for repository search. Exclude generated output
+  when searching broadly.
+- If CodeGraph is initialized, consult it before manual symbol tracing for
+  architecture, flow, impact, or "where is this" questions. If it is not
+  initialized, propose `codegraph init -i` as a local setup step and do not
+  commit the generated `.codegraph/` directory.
+
+## Specialist skill use
+
+Use the repo skills under `.agents/skills/` when a task needs focused review:
+
+- `$issue-planner` before non-trivial implementation.
+- `$architecture-reviewer` for modules, routes, events, workflows, storage,
+  infrastructure, and deployment boundaries.
+- `$security-privacy-reviewer` for files, OCR, AI, secrets, auth/RBAC,
+  audit, plugins, external calls, and destructive actions.
+- `$accessibility-reviewer` for UI/UX, frontend, and PR reviews that need
+  keyboard, semantics, focus, ARIA, contrast, forms/errors, screen-reader
+  states, and WCAG-oriented accessibility risk checks.
+- `$backend-spring-reviewer` for API, worker, Java, Spring, outbox,
+  repository, and event-consumer changes.
+- `$frontend-next-reviewer` for Next.js, React, design-system, responsive,
+  TanStack Query, and state-handling changes.
+- `$database-migration-reviewer` for Flyway, schema, seed data, constraints,
+  indexes, and idempotency changes.
+
+Do not create or invoke a separate test-runner agent. Select tests from
+`docs/development/TEST_COMMANDS.md` and run the narrowest relevant checks first.
+Defer an E2E validator role until Playwright/Compose E2E exists.
 
 ## Design rules
 
@@ -137,7 +192,9 @@ For any implementation task, also follow:
 - `docs/development/TEST_COMMANDS.md`
 - `docs/development/LOCAL_DEVELOPMENT_CHECKLIST.md`
 
-Do not activate GitHub Actions workflows from `docs/templates/github-workflows/` until the commands they call exist and pass locally.
+Active workflows already exist under `.github/workflows/`. Keep templates in
+`docs/templates/github-workflows/` deferred until their commands exist and pass
+locally, especially E2E/Playwright workflows.
 
 ---
 
