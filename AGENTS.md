@@ -101,6 +101,9 @@ Use the repo skills under `.agents/skills/` when a task needs focused review:
   infrastructure, and deployment boundaries.
 - `$security-privacy-reviewer` for files, OCR, AI, secrets, auth/RBAC,
   audit, plugins, external calls, and destructive actions.
+- `$accessibility-reviewer` for UI/UX, frontend, and PR reviews that need
+  keyboard, semantics, focus, ARIA, contrast, forms/errors, screen-reader
+  states, and WCAG-oriented accessibility risk checks.
 - `$backend-spring-reviewer` for API, worker, Java, Spring, outbox,
   repository, and event-consumer changes.
 - `$frontend-next-reviewer` for Next.js, React, design-system, responsive,
