@@ -13,8 +13,51 @@ permissions:
   contents: read
 
 jobs:
+  dependency-check-data:
+    name: OWASP Dependency-Check data
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DEPENDENCY_CHECK_DATA_PATH: ~/.m2/repository/org/owasp/dependency-check-data
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Prepare Maven wrapper
+        working-directory: apps/api
+        run: chmod +x mvnw
+
+      - name: Restore Dependency-Check data
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.DEPENDENCY_CHECK_DATA_PATH }}
+          key: dependency-check-data-${{ runner.os }}-${{ hashFiles('apps/api/pom.xml', 'apps/worker/pom.xml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            dependency-check-data-${{ runner.os }}-${{ hashFiles('apps/api/pom.xml', 'apps/worker/pom.xml') }}-
+            dependency-check-data-${{ runner.os }}-
+
+      - name: Update Dependency-Check data
+        working-directory: apps/api
+        run: ./mvnw -B -DskipTests -P security-scan org.owasp:dependency-check-maven:update-only
+
+      - name: Save Dependency-Check data
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.DEPENDENCY_CHECK_DATA_PATH }}
+          key: dependency-check-data-${{ runner.os }}-${{ hashFiles('apps/api/pom.xml', 'apps/worker/pom.xml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+
   dependency-check-api:
     name: OWASP Dependency-Check API
+    needs: dependency-check-data
     permissions:
       contents: read
     uses: ./.github/workflows/reusable-owasp-dependency-check.yml
@@ -29,6 +72,7 @@ jobs:
 
   dependency-check-worker:
     name: OWASP Dependency-Check Worker
+    needs: dependency-check-data
     permissions:
       contents: read
     uses: ./.github/workflows/reusable-owasp-dependency-check.yml

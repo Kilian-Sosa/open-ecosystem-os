@@ -33,6 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
+      DEPENDENCY_CHECK_DATA_PATH: ~/.m2/repository/org/owasp/dependency-check-data
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
     steps:
       - name: Checkout
@@ -49,9 +50,18 @@ jobs:
         working-directory: ${{ inputs.working-directory }}
         run: chmod +x mvnw
 
+      - name: Restore Dependency-Check data
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.DEPENDENCY_CHECK_DATA_PATH }}
+          key: dependency-check-data-${{ runner.os }}-${{ hashFiles('apps/api/pom.xml', 'apps/worker/pom.xml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            dependency-check-data-${{ runner.os }}-${{ hashFiles('apps/api/pom.xml', 'apps/worker/pom.xml') }}-
+            dependency-check-data-${{ runner.os }}-
+
       - name: Dependency-Check
         working-directory: ${{ inputs.working-directory }}
-        run: ./mvnw -B -DskipTests verify -P security-scan
+        run: ./mvnw -B -DskipTests -Ddependency-check.autoUpdate=false verify -P security-scan
 
       - name: Upload Dependency-Check report
         if: always()
