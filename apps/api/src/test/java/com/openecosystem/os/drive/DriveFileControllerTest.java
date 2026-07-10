@@ -114,6 +114,9 @@ class DriveFileControllerTest {
 
   @Test
   void listsOnlyFilesFromRequestedWorkspaceAfterUploads() throws Exception {
+    seedWorkspaceMembership("usr_workspace_a", "wrk_workspace_a");
+    seedWorkspaceMembership("usr_workspace_b", "wrk_workspace_b");
+
     HttpResponse<String> workspaceAUpload =
         httpClient.send(
             uploadRequest(
@@ -151,6 +154,36 @@ class DriveFileControllerTest {
     assertThat(listResponse.body())
         .contains("\"name\":\"workspace-a.pdf\"")
         .doesNotContain("\"name\":\"workspace-b.pdf\"");
+  }
+
+  private void seedWorkspaceMembership(String actorId, String workspaceId) {
+    jdbcTemplate.update(
+        """
+        insert into identity_users (
+          user_id, display_name, email, avatar_initials, status, is_seeded, created_at, updated_at
+        ) values (?, ?, ?, ?, 'active', false, current_timestamp, current_timestamp)
+        """,
+        actorId,
+        actorId,
+        actorId + "@example.test",
+        "TS");
+    jdbcTemplate.update(
+        """
+        insert into workspaces (
+          workspace_id, name, slug, status, is_seeded, created_at, updated_at
+        ) values (?, ?, ?, 'active', false, current_timestamp, current_timestamp)
+        """,
+        workspaceId,
+        workspaceId,
+        workspaceId);
+    jdbcTemplate.update(
+        """
+        insert into workspace_memberships (
+          workspace_id, user_id, role, is_default, created_at, updated_at
+        ) values (?, ?, 'WORKSPACE_ADMIN', false, current_timestamp, current_timestamp)
+        """,
+        workspaceId,
+        actorId);
   }
 
   @Test
