@@ -60,8 +60,12 @@ class DemoInvoiceControllerTest {
     HttpResponse<String> startResponse =
         httpClient.send(
             request("/api/demo/invoice-automation/runs")
-                .header(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_123")
-                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, "wrk_123")
+                .header(
+                    PlaceholderAuthenticationContext.ACTOR_HEADER,
+                    PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID)
+                .header(
+                    PlaceholderAuthenticationContext.WORKSPACE_HEADER,
+                    PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID)
                 .header(CorrelationIds.HEADER_NAME, "corr_demo_invoice")
                 .POST(HttpRequest.BodyPublishers.noBody())
                 .build(),
@@ -82,7 +86,9 @@ class DemoInvoiceControllerTest {
     HttpResponse<String> resetResponse =
         httpClient.send(
             request("/api/demo/invoice-automation/reset")
-                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, "wrk_123")
+                .header(
+                    PlaceholderAuthenticationContext.WORKSPACE_HEADER,
+                    PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID)
                 .POST(HttpRequest.BodyPublishers.noBody())
                 .build(),
             BodyHandlers.ofString());

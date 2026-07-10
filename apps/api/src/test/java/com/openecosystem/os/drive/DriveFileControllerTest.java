@@ -58,8 +58,12 @@ class DriveFileControllerTest {
     HttpResponse<String> response =
         httpClient.send(
             uploadRequest("invoice.pdf", "application/pdf", plaintext)
-                .header(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_123")
-                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, "wrk_123")
+                .header(
+                    PlaceholderAuthenticationContext.ACTOR_HEADER,
+                    PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID)
+                .header(
+                    PlaceholderAuthenticationContext.WORKSPACE_HEADER,
+                    PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID)
                 .header(CorrelationIds.HEADER_NAME, "corr_drive_upload")
                 .build(),
             BodyHandlers.ofString());
@@ -71,11 +75,18 @@ class DriveFileControllerTest {
     assertThat(response.body()).contains("\"encrypted\":true");
 
     Map<String, Object> metadata =
-        jdbcTemplate.queryForMap("select * from drive_files where workspace_id = ?", "wrk_123");
+        jdbcTemplate.queryForMap(
+            "select * from drive_files where workspace_id = ?",
+            PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID);
     String fileId = (String) metadata.get("file_id");
     assertThat(metadata.get("encrypted_name")).asString().doesNotContain("invoice.pdf");
     assertThat(metadata.get("storage_key"))
-        .isEqualTo("workspaces/wrk_123/drive/" + fileId + "/original");
+        .isEqualTo(
+            "workspaces/"
+                + PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID
+                + "/drive/"
+                + fileId
+                + "/original");
 
     byte[] storedContent = objectStorage.objectBytes((String) metadata.get("storage_key"));
     assertThat(storedContent).isNotEmpty();
@@ -84,15 +95,19 @@ class DriveFileControllerTest {
     Map<String, Object> audit =
         jdbcTemplate.queryForMap("select * from audit_records where resource_id = ?", fileId);
     assertThat(audit.get("action")).isEqualTo("drive.file.uploaded");
-    assertThat(audit.get("actor_id")).isEqualTo("usr_123");
+    assertThat(audit.get("actor_id"))
+        .isEqualTo(PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID);
     assertThat(audit.get("correlation_id")).isEqualTo("corr_drive_upload");
     assertThat(audit.get("attributes_json")).asString().doesNotContain("invoice.pdf");
 
     Map<String, Object> event =
-        jdbcTemplate.queryForMap("select * from event_outbox where workspace_id = ?", "wrk_123");
+        jdbcTemplate.queryForMap(
+            "select * from event_outbox where workspace_id = ?",
+            PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID);
     assertThat(event.get("event_type")).isEqualTo("FileUploaded");
     assertThat(event.get("source")).isEqualTo("drive");
-    assertThat(event.get("actor_id")).isEqualTo("usr_123");
+    assertThat(event.get("actor_id"))
+        .isEqualTo(PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID);
     assertThat(event.get("correlation_id")).isEqualTo("corr_drive_upload");
     assertThat(event.get("idempotency_key")).isEqualTo("drive:" + fileId + ":uploaded:v1");
     assertThat(event.get("payload_json")).asString().contains("\"encryptionAlgorithm\"");

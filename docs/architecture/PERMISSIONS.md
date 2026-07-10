@@ -16,6 +16,27 @@ Initial roles:
 - Guest
 - Auditor
 
+## MVP seeded session
+
+The MVP uses a seeded development session, not production authentication.
+
+- Auth mode: `seeded_dev`
+- Seeded actor: `usr_dev_placeholder`
+- Seeded workspace: `wrk_dev_placeholder`
+- Bootstrap endpoint: `GET /api/session/bootstrap`
+- Request headers preserved for MVP API calls: `X-Actor-Id` and
+  `X-Workspace-Id`
+
+`identity_users`, `workspaces`, and `workspace_memberships` persist the seeded
+actor, workspace, and roles. The API validates supplied actor/workspace headers
+against active workspace membership. Missing headers fall back to the seeded
+demo actor/workspace so the local MVP and invoice automation flow remain easy
+to run.
+
+This is explicitly non-production behavior. Full authentication should replace
+the seeded header flow with real session/token handling while preserving the
+workspace membership and permission model.
+
 ## Resources
 
 - workspace
