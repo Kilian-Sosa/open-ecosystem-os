@@ -185,3 +185,8 @@ map OCR job access to the source file permission:
 - viewing extracted OCR text requires `file:view` on the source file
 - re-running or deleting OCR jobs later should require `file:edit` or `file:manage`
 - auditors may view OCR audit metadata but not extracted text by default
+- the OCR lifecycle projection inherits the same source-file and OCR-detail
+  visibility; it does not grant a separate event or operations permission
+- lifecycle rows expose sanitized diagnostic metadata only and never expose
+  event payloads, storage keys, OCR text, workflow step input/output, or audit
+  attributes

@@ -22,6 +22,7 @@ import type {
   OcrJobDetail,
   OcrJobStatus,
   OcrJobSummary,
+  OcrLifecycleState,
 } from "@/lib/media-api";
 import { mediaMockJobs, type MediaState } from "@/lib/media-mock-data";
 import {
@@ -29,6 +30,7 @@ import {
   useOcrJobs,
   useUploadOcrSourceFile,
 } from "./use-ocr-jobs";
+import { OcrLifecycleTrace } from "./ocr-lifecycle-trace";
 
 type MediaScreenProps = {
   initialFileId?: string;
@@ -130,7 +132,15 @@ export function MediaScreen({
   const selectedDetailQuery = useOcrJobDetail(
     selectedSummary?.jobId ?? null,
     stateOverride === undefined && selectedSummary !== null,
-    selectedSummaryActive ? OCR_JOB_POLL_INTERVAL_MS : false,
+    (detailQuery) => {
+      const detail = detailQuery.state.data;
+      return shouldPollOcrJobDetail(
+        selectedSummaryActive,
+        detail?.lifecycle.state ?? null,
+      )
+        ? OCR_JOB_POLL_INTERVAL_MS
+        : false;
+    },
   );
   const selectedJob =
     stateOverride === "normal"
@@ -141,6 +151,10 @@ export function MediaScreen({
     stateOverride === undefined &&
     selectedSummary !== null &&
     selectedDetailQuery.isPending;
+  const detailError =
+    stateOverride === undefined &&
+    selectedSummary !== null &&
+    selectedDetailQuery.isError;
   const state = resolveState(
     stateOverride,
     jobsQuery.isPending,
@@ -149,7 +163,11 @@ export function MediaScreen({
   );
   const inspector =
     state === "normal" && selectedJob ? (
-      <MediaJobInspector job={selectedJob} detailLoading={detailLoading} />
+      <MediaJobInspector
+        job={selectedJob}
+        detailLoading={detailLoading}
+        detailError={detailError}
+      />
     ) : undefined;
   const pendingOcrJob = useMemo(() => {
     if (!pendingUpload) {
@@ -341,7 +359,11 @@ export function MediaScreen({
         onClose={() => setMobileSheetOpen(false)}
       >
         {selectedJob ? (
-          <MediaJobDetails job={selectedJob} detailLoading={detailLoading} />
+          <MediaJobDetails
+            job={selectedJob}
+            detailLoading={detailLoading}
+            detailError={detailError}
+          />
         ) : null}
       </MobileBottomSheet>
     </AppShell>
@@ -578,16 +600,22 @@ function MediaMetric({
 function MediaJobInspector({
   job,
   detailLoading,
+  detailError,
 }: {
   job: OcrJobSummary | OcrJobDetail;
   detailLoading: boolean;
+  detailError: boolean;
 }) {
   return (
     <RightInspectorPanel
       title="OCR job detail"
-      description="Selected job status and extracted text."
+      description="Selected job status, lifecycle, and extracted text."
     >
-      <MediaJobDetails job={job} detailLoading={detailLoading} />
+      <MediaJobDetails
+        job={job}
+        detailLoading={detailLoading}
+        detailError={detailError}
+      />
     </RightInspectorPanel>
   );
 }
@@ -595,11 +623,14 @@ function MediaJobInspector({
 function MediaJobDetails({
   job,
   detailLoading,
+  detailError,
 }: {
   job: OcrJobSummary | OcrJobDetail;
   detailLoading: boolean;
+  detailError: boolean;
 }) {
   const extractedText = "extractedText" in job ? job.extractedText : null;
+  const lifecycle = "lifecycle" in job ? job.lifecycle : null;
 
   return (
     <div className="space-y-5">
@@ -631,6 +662,13 @@ function MediaJobDetails({
         <DetailRow label="Updated" value={formatDate(job.updatedAt)} />
         <DetailRow label="Correlation" value={job.correlationId} />
       </dl>
+
+      <OcrLifecycleTrace
+        lifecycle={lifecycle}
+        correlationId={job.correlationId || null}
+        loading={detailLoading}
+        error={detailError}
+      />
 
       {job.failureCode ? (
         <div className="rounded-card border border-danger-soft bg-danger-soft p-4">
@@ -709,6 +747,15 @@ function statusChip(status: OcrJobStatus) {
 
 function statusLabel(status: OcrJobStatus) {
   return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+export function shouldPollOcrJobDetail(
+  summaryActive: boolean,
+  lifecycleState: OcrLifecycleState | null,
+) {
+  return (
+    summaryActive || lifecycleState === "active" || lifecycleState === "partial"
+  );
 }
 
 function isActiveOcrJob(job: OcrJobSummary | OcrJobDetail) {

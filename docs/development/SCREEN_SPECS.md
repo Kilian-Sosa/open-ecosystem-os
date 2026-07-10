@@ -159,6 +159,7 @@ Desktop:
 - processing pipeline
 - asset grid
 - selected asset details
+- read-only lifecycle trace after selected job metadata
 - extracted text panel
 
 Mobile:
@@ -166,7 +167,19 @@ Mobile:
 - upload-first flow
 - job cards
 - processing status
+- stacked lifecycle cards in the selected-job bottom sheet
 - extracted text bottom sheet
+
+Lifecycle behavior:
+
+- show upload, OCR queue/attempt/outcome, correlated workflow/extraction, and
+  downstream notification/search facts when durable evidence exists
+- show explicit awaiting state for active jobs, scheduled retries, running
+  workflows, and pending outbox publication
+- distinguish unavailable evidence from pending work and never infer broker
+  delivery, retry, dead-letter, consumption, or completion
+- keep extracted text separate from diagnostics and link to the
+  correlation-filtered audit route when a correlation ID exists
 
 ### Open Pages
 

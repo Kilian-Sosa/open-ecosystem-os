@@ -404,6 +404,44 @@ Audit records are user/security traceability records.
 
 Do not rely only on broker messages as audit history. Persist audit records in PostgreSQL.
 
+## Media/OCR lifecycle read projection
+
+`GET /api/media/ocr-jobs/{jobId}` includes a read-only `lifecycle` projection
+for the authorized OCR job. This is an additive REST read model over existing
+durable records; it does not introduce a new domain event, event store, replay
+API, or broker-management surface.
+
+The projection is anchored to the workspace-scoped OCR job and its causal
+event graph:
+
+```txt
+FileUploaded
+  -> OcrRequested
+  -> OcrStarted (one row per recorded attempt)
+  -> OcrCompleted or OcrFailed
+  -> correlated workflow executions and steps, when persisted
+  -> NotificationCreated and IndexingRequested, when causally related
+  -> IndexingCompleted or IndexingFailed, when causally related
+```
+
+Lifecycle entries expose only diagnostic metadata such as safe IDs, event
+type/version, timestamps, source, correlation/causation IDs, workflow and step
+status, retry context, and generic failure summaries. They never expose event
+payload/envelope JSON, idempotency keys, storage keys, OCR text, workflow step
+input/output JSON, audit attributes, document content, or credentials.
+
+Evidence terminology is intentionally narrow:
+
+- `outbox_pending` means an outbox row exists without `published_at`.
+- `publish_recorded` means the publisher send call returned and
+  `published_at` was recorded. It does not prove broker receipt, routing, or
+  delivery.
+- `consumption_recorded` means the application persisted its idempotent
+  processing record. It is not a durable RabbitMQ acknowledgement.
+- `active` is used only when durable state proves work is pending or running.
+- `partial` means expected durable evidence is unavailable; missing evidence
+  is never inferred as consumed, retried, dead-lettered, failed, or completed.
+
 ## Open Ledger events
 
 Finance events should follow the standard event envelope and be emitted through the outbox pattern.
