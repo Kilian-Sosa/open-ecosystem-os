@@ -113,6 +113,80 @@ class DriveFileControllerTest {
   }
 
   @Test
+  void listsOnlyFilesFromRequestedWorkspaceAfterUploads() throws Exception {
+    seedWorkspaceMembership("usr_workspace_a", "wrk_workspace_a");
+    seedWorkspaceMembership("usr_workspace_b", "wrk_workspace_b");
+
+    HttpResponse<String> workspaceAUpload =
+        httpClient.send(
+            uploadRequest(
+                    "workspace-a.pdf",
+                    "application/pdf",
+                    "%PDF-1.7 workspace A".getBytes(StandardCharsets.UTF_8))
+                .header(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_workspace_a")
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, "wrk_workspace_a")
+                .build(),
+            BodyHandlers.ofString());
+    HttpResponse<String> workspaceBUpload =
+        httpClient.send(
+            uploadRequest(
+                    "workspace-b.pdf",
+                    "application/pdf",
+                    "%PDF-1.7 workspace B".getBytes(StandardCharsets.UTF_8))
+                .header(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_workspace_b")
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, "wrk_workspace_b")
+                .build(),
+            BodyHandlers.ofString());
+
+    assertThat(workspaceAUpload.statusCode()).isEqualTo(201);
+    assertThat(workspaceBUpload.statusCode()).isEqualTo(201);
+
+    HttpResponse<String> listResponse =
+        httpClient.send(
+            HttpRequest.newBuilder(uri("/api/drive/files"))
+                .header(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_workspace_a")
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, "wrk_workspace_a")
+                .GET()
+                .build(),
+            BodyHandlers.ofString());
+
+    assertThat(listResponse.statusCode()).isEqualTo(200);
+    assertThat(listResponse.body())
+        .contains("\"name\":\"workspace-a.pdf\"")
+        .doesNotContain("\"name\":\"workspace-b.pdf\"");
+  }
+
+  private void seedWorkspaceMembership(String actorId, String workspaceId) {
+    jdbcTemplate.update(
+        """
+        insert into identity_users (
+          user_id, display_name, email, avatar_initials, status, is_seeded, created_at, updated_at
+        ) values (?, ?, ?, ?, 'active', false, current_timestamp, current_timestamp)
+        """,
+        actorId,
+        actorId,
+        actorId + "@example.test",
+        "TS");
+    jdbcTemplate.update(
+        """
+        insert into workspaces (
+          workspace_id, name, slug, status, is_seeded, created_at, updated_at
+        ) values (?, ?, ?, 'active', false, current_timestamp, current_timestamp)
+        """,
+        workspaceId,
+        workspaceId,
+        workspaceId);
+    jdbcTemplate.update(
+        """
+        insert into workspace_memberships (
+          workspace_id, user_id, role, is_default, created_at, updated_at
+        ) values (?, ?, 'WORKSPACE_ADMIN', false, current_timestamp, current_timestamp)
+        """,
+        workspaceId,
+        actorId);
+  }
+
+  @Test
   void rejectsEmptyUpload() throws Exception {
     HttpResponse<String> response =
         httpClient.send(
