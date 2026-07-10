@@ -107,6 +107,7 @@ class DriveFileControllerTest {
                     "workspace-a.pdf",
                     "application/pdf",
                     "%PDF-1.7 workspace A".getBytes(StandardCharsets.UTF_8))
+                .header(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_workspace_a")
                 .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, "wrk_workspace_a")
                 .build(),
             BodyHandlers.ofString());
@@ -116,6 +117,7 @@ class DriveFileControllerTest {
                     "workspace-b.pdf",
                     "application/pdf",
                     "%PDF-1.7 workspace B".getBytes(StandardCharsets.UTF_8))
+                .header(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_workspace_b")
                 .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, "wrk_workspace_b")
                 .build(),
             BodyHandlers.ofString());
@@ -126,6 +128,7 @@ class DriveFileControllerTest {
     HttpResponse<String> listResponse =
         httpClient.send(
             HttpRequest.newBuilder(uri("/api/drive/files"))
+                .header(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_workspace_a")
                 .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, "wrk_workspace_a")
                 .GET()
                 .build(),
