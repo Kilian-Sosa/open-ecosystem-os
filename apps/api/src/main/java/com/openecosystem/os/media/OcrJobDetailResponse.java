@@ -20,4 +20,6 @@ public record OcrJobDetailResponse(
     Instant processingStartedAt,
     Instant completedAt,
     Instant failedAt,
-    Instant updatedAt) {}
+    Instant nextAttemptAt,
+    Instant updatedAt,
+    OcrJobLifecycleResponse lifecycle) {}

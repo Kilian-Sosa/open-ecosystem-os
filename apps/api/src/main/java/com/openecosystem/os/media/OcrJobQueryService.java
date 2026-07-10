@@ -18,16 +18,19 @@ public class OcrJobQueryService {
   private final OcrJobRepository ocrJobRepository;
   private final DriveFileRepository driveFileRepository;
   private final FileEncryptionService encryptionService;
+  private final OcrJobLifecycleProjectionService lifecycleProjectionService;
 
   public OcrJobQueryService(
       AuthenticationContext authenticationContext,
       OcrJobRepository ocrJobRepository,
       DriveFileRepository driveFileRepository,
-      FileEncryptionService encryptionService) {
+      FileEncryptionService encryptionService,
+      OcrJobLifecycleProjectionService lifecycleProjectionService) {
     this.authenticationContext = authenticationContext;
     this.ocrJobRepository = ocrJobRepository;
     this.driveFileRepository = driveFileRepository;
     this.encryptionService = encryptionService;
+    this.lifecycleProjectionService = lifecycleProjectionService;
   }
 
   public OcrJobListResponse listJobs() {
@@ -60,8 +63,8 @@ public class OcrJobQueryService {
         job.attemptCount(),
         job.maxAttempts(),
         job.extractedTextLength(),
-        job.failureCode(),
-        job.failureMessage(),
+        DiagnosticFailureSanitizer.code(job.failureCode()),
+        DiagnosticFailureSanitizer.ocrReason(job),
         job.correlationId(),
         job.queuedAt(),
         job.processingStartedAt(),
@@ -82,14 +85,16 @@ public class OcrJobQueryService {
         job.maxAttempts(),
         job.extractedText(),
         job.extractedTextLength(),
-        job.failureCode(),
-        job.failureMessage(),
+        DiagnosticFailureSanitizer.code(job.failureCode()),
+        DiagnosticFailureSanitizer.ocrReason(job),
         job.correlationId(),
         job.queuedAt(),
         job.processingStartedAt(),
         job.completedAt(),
         job.failedAt(),
-        job.updatedAt());
+        job.nextAttemptAt(),
+        job.updatedAt(),
+        lifecycleProjectionService.project(job));
   }
 
   private String fileName(OcrJob job) {

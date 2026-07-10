@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "@/components/providers/app-providers";
 import type { MediaState } from "@/lib/media-mock-data";
-import { MediaScreen } from "./media-screen";
+import { MediaScreen, shouldPollOcrJobDetail } from "./media-screen";
 
 describe("MediaScreen", () => {
   afterEach(() => {
@@ -27,6 +27,14 @@ describe("MediaScreen", () => {
     } as unknown as FileList;
   }
 
+  it("polls active jobs and incomplete lifecycle projections", () => {
+    expect(shouldPollOcrJobDetail(true, "complete")).toBe(true);
+    expect(shouldPollOcrJobDetail(false, "active")).toBe(true);
+    expect(shouldPollOcrJobDetail(false, "partial")).toBe(true);
+    expect(shouldPollOcrJobDetail(false, "complete")).toBe(false);
+    expect(shouldPollOcrJobDetail(false, null)).toBe(false);
+  });
+
   it("renders the normal Media/OCR page with jobs and selected details", () => {
     renderMedia("normal");
 
@@ -38,6 +46,76 @@ describe("MediaScreen", () => {
     expect(
       screen.getByText(/Invoice number: TEST-INV-2026-0001/i),
     ).toBeInTheDocument();
+  });
+
+  it("renders the completed OCR, extraction workflow, and downstream lifecycle", () => {
+    renderMedia("normal");
+
+    const inspector = screen.getByLabelText("OCR job detail");
+    expect(within(inspector).getByText("Lifecycle")).toBeInTheDocument();
+    expect(within(inspector).getByText("File uploaded")).toBeInTheDocument();
+    expect(within(inspector).getByText("OCR queued")).toBeInTheDocument();
+    expect(within(inspector).getByText("OCR completed")).toBeInTheDocument();
+    expect(
+      within(inspector).getByText("Extract invoice fields"),
+    ).toBeInTheDocument();
+    expect(
+      within(inspector).getByText("Notification created"),
+    ).toBeInTheDocument();
+    expect(
+      within(inspector).getByText("Search indexing completed"),
+    ).toBeInTheDocument();
+    expect(
+      within(inspector).getByRole("link", {
+        name: "View correlated audit log",
+      }),
+    ).toHaveAttribute("href", "/admin/audit?correlationId=corr_invoice_demo");
+  });
+
+  it("shows an explicit awaiting state for an OCR job in progress", () => {
+    renderMedia("normal");
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /Receipt_scan\.png/i })[0],
+    );
+
+    const inspector = screen.getByLabelText("OCR job detail");
+    expect(within(inspector).getByText("Lifecycle")).toBeInTheDocument();
+    expect(
+      within(inspector).getByText("Awaiting OCR outcome"),
+    ).toBeInTheDocument();
+    expect(within(inspector).getByText("Awaiting")).toBeInTheDocument();
+  });
+
+  it("shows retry context and the next scheduled attempt", () => {
+    renderMedia("normal");
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /Signed_contract\.pdf/i })[0],
+    );
+
+    const inspector = screen.getByLabelText("OCR job detail");
+    expect(
+      within(inspector).getByText("Awaiting scheduled OCR retry"),
+    ).toBeInTheDocument();
+    expect(within(inspector).getByText("Attempt 1 of 3")).toBeInTheDocument();
+    expect(
+      within(inspector).getByText(/Next attempt May 22/i),
+    ).toBeInTheDocument();
+  });
+
+  it("renders a failed terminal lifecycle without exposing event payloads", () => {
+    renderMedia("normal");
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /Damaged_scan\.jpeg/i })[0],
+    );
+
+    const inspector = screen.getByLabelText("OCR job detail");
+    expect(within(inspector).getByText("OCR failed")).toBeInTheDocument();
+    expect(within(inspector).getAllByText("Failed").length).toBeGreaterThan(0);
+    expect(inspector).not.toHaveTextContent("payload_json");
+    expect(inspector).not.toHaveTextContent("envelope_json");
   });
 
   it("renders the loading state", () => {
