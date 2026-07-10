@@ -46,17 +46,27 @@ class OcrJobControllerTest {
 
   @Test
   void listsWorkspaceJobsWithoutFullExtractedTextAndShowsDetailText() throws Exception {
-    saveDriveFile("file_invoice", "wrk_123", "Invoice_2026_05.pdf", "application/pdf");
+    saveDriveFile(
+        "file_invoice",
+        PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID,
+        "Invoice_2026_05.pdf",
+        "application/pdf");
     saveDriveFile("file_other", "wrk_other", "Other.pdf", "application/pdf");
     ocrJobRepository.saveQueued(
-        job("ocr_invoice", "file_invoice", "wrk_123", OcrJobStatus.COMPLETED));
+        job(
+            "ocr_invoice",
+            "file_invoice",
+            PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID,
+            OcrJobStatus.COMPLETED));
     ocrJobRepository.saveQueued(
         job("ocr_other", "file_other", "wrk_other", OcrJobStatus.COMPLETED));
 
     HttpResponse<String> listResponse =
         httpClient.send(
             request("/api/media/ocr-jobs")
-                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, "wrk_123")
+                .header(
+                    PlaceholderAuthenticationContext.WORKSPACE_HEADER,
+                    PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID)
                 .build(),
             BodyHandlers.ofString());
 
@@ -69,7 +79,9 @@ class OcrJobControllerTest {
     HttpResponse<String> detailResponse =
         httpClient.send(
             request("/api/media/ocr-jobs/ocr_invoice")
-                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, "wrk_123")
+                .header(
+                    PlaceholderAuthenticationContext.WORKSPACE_HEADER,
+                    PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID)
                 .build(),
             BodyHandlers.ofString());
 
@@ -89,7 +101,7 @@ class OcrJobControllerTest {
         new DriveFileMetadata(
             fileId,
             workspaceId,
-            "usr_123",
+            PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID,
             encryptedName.ciphertextBase64(),
             contentType,
             1024,
@@ -110,7 +122,7 @@ class OcrJobControllerTest {
         jobId,
         fileId,
         workspaceId,
-        "usr_123",
+        PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID,
         "evt_uploaded",
         "corr_123",
         "application/pdf",
