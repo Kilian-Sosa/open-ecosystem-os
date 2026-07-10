@@ -14,10 +14,7 @@ public record SessionBootstrapResponse(
         session.authMode(),
         authenticated,
         new SessionActorResponse(
-            session.actorId(),
-            session.displayName(),
-            session.email(),
-            session.avatarInitials()),
+            session.actorId(), session.displayName(), session.email(), session.avatarInitials()),
         new SessionWorkspaceResponse(
             session.workspaceId(), session.workspaceName(), session.workspaceSlug()),
         session.roles().stream().sorted().toList());

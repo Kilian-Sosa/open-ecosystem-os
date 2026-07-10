@@ -95,8 +95,7 @@ class DriveFileControllerTest {
     Map<String, Object> audit =
         jdbcTemplate.queryForMap("select * from audit_records where resource_id = ?", fileId);
     assertThat(audit.get("action")).isEqualTo("drive.file.uploaded");
-    assertThat(audit.get("actor_id"))
-        .isEqualTo(PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID);
+    assertThat(audit.get("actor_id")).isEqualTo(PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID);
     assertThat(audit.get("correlation_id")).isEqualTo("corr_drive_upload");
     assertThat(audit.get("attributes_json")).asString().doesNotContain("invoice.pdf");
 
@@ -106,8 +105,7 @@ class DriveFileControllerTest {
             PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID);
     assertThat(event.get("event_type")).isEqualTo("FileUploaded");
     assertThat(event.get("source")).isEqualTo("drive");
-    assertThat(event.get("actor_id"))
-        .isEqualTo(PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID);
+    assertThat(event.get("actor_id")).isEqualTo(PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID);
     assertThat(event.get("correlation_id")).isEqualTo("corr_drive_upload");
     assertThat(event.get("idempotency_key")).isEqualTo("drive:" + fileId + ":uploaded:v1");
     assertThat(event.get("payload_json")).asString().contains("\"encryptionAlgorithm\"");
