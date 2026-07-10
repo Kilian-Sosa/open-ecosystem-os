@@ -6,6 +6,7 @@ import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -39,7 +40,7 @@ public class JdbcSeededSessionRepository implements SeededSessionRepository {
           and w.status = 'active'
         order by wm.role
         """,
-        resultSet -> mapSession(resultSet),
+        (ResultSetExtractor<Optional<SeededSession>>) this::mapSession,
         actorId,
         workspaceId);
   }
