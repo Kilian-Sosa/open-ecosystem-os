@@ -21,6 +21,11 @@ import type { ReactNode } from "react";
 import { SearchInput } from "@/components/ui/search-input";
 import { ThemeSwitcher } from "@/components/theme";
 import { cn } from "@/lib/cn";
+import {
+  defaultSessionBootstrap,
+  primaryRoleLabel,
+  type SessionBootstrap,
+} from "@/lib/session-api";
 
 type NavigationItem = {
   label: string;
@@ -56,15 +61,21 @@ type AppShellProps = {
   activeHref: string;
   children: ReactNode;
   inspector?: ReactNode;
+  session?: SessionBootstrap;
 };
 
-export function AppShell({ activeHref, children, inspector }: AppShellProps) {
+export function AppShell({
+  activeHref,
+  children,
+  inspector,
+  session = defaultSessionBootstrap,
+}: AppShellProps) {
   return (
     <div className="min-h-screen bg-background text-text-primary">
       <div className="hidden min-h-screen md:flex">
-        <DesktopSidebar activeHref={activeHref} />
+        <DesktopSidebar activeHref={activeHref} session={session} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <TopCommandBar />
+          <TopCommandBar session={session} />
           <div className="flex min-w-0 flex-1">
             <main className="min-w-0 flex-1 px-6 py-6 lg:px-7">
               <div className="mx-auto max-w-app">{children}</div>
@@ -77,7 +88,7 @@ export function AppShell({ activeHref, children, inspector }: AppShellProps) {
       </div>
 
       <div className="min-h-screen pb-20 md:hidden">
-        <MobileTopBar />
+        <MobileTopBar session={session} />
         <main className="px-4 py-5">{children}</main>
         <MobileBottomNav activeHref={activeHref} />
       </div>
@@ -85,7 +96,13 @@ export function AppShell({ activeHref, children, inspector }: AppShellProps) {
   );
 }
 
-function DesktopSidebar({ activeHref }: { activeHref: string }) {
+function DesktopSidebar({
+  activeHref,
+  session,
+}: {
+  activeHref: string;
+  session: SessionBootstrap;
+}) {
   return (
     <aside className="flex w-[var(--layout-sidebar-width)] shrink-0 flex-col border-r border-border bg-surface">
       <div className="flex h-20 items-center gap-3 border-b border-border px-5">
@@ -96,7 +113,9 @@ function DesktopSidebar({ activeHref }: { activeHref: string }) {
           <p className="text-sm font-semibold text-text-primary">
             Open Ecosystem OS
           </p>
-          <p className="text-xs text-text-secondary">Workspace</p>
+          <p className="max-w-[180px] truncate text-xs text-text-secondary">
+            {session.workspace.name}
+          </p>
         </div>
       </div>
 
@@ -181,7 +200,9 @@ function NavigationLink({
   );
 }
 
-function TopCommandBar() {
+function TopCommandBar({ session }: { session: SessionBootstrap }) {
+  const roleLabel = primaryRoleLabel(session.roles);
+
   return (
     <header className="sticky top-0 z-20 flex h-20 items-center justify-between gap-4 border-b border-border bg-surface/95 px-6 backdrop-blur lg:px-7">
       <SearchInput
@@ -196,11 +217,13 @@ function TopCommandBar() {
         <IconButton label="Open help" icon={HelpCircle} />
         <div className="ml-2 flex items-center gap-3 border-l border-border pl-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
-            AD
+            {session.actor.avatarInitials}
           </div>
           <div className="hidden text-sm lg:block">
-            <p className="font-medium text-text-primary">Admin</p>
-            <p className="text-xs text-text-secondary">Workspace Admin</p>
+            <p className="font-medium text-text-primary">
+              {session.actor.displayName}
+            </p>
+            <p className="text-xs text-text-secondary">{roleLabel}</p>
           </div>
         </div>
       </div>
@@ -208,7 +231,7 @@ function TopCommandBar() {
   );
 }
 
-function MobileTopBar() {
+function MobileTopBar({ session }: { session: SessionBootstrap }) {
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-surface/95 backdrop-blur">
       <div className="flex h-16 items-center justify-between px-4">
@@ -218,7 +241,7 @@ function MobileTopBar() {
             <Boxes className="h-4 w-4" aria-hidden="true" />
           </div>
           <span className="truncate text-sm font-semibold text-text-primary">
-            Open Ecosystem OS
+            {session.workspace.name}
           </span>
         </div>
         <IconButton label="Open notifications" icon={Bell} />
