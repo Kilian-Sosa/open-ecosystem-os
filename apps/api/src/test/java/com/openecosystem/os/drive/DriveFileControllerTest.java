@@ -100,6 +100,44 @@ class DriveFileControllerTest {
   }
 
   @Test
+  void listsOnlyFilesFromRequestedWorkspaceAfterUploads() throws Exception {
+    HttpResponse<String> workspaceAUpload =
+        httpClient.send(
+            uploadRequest(
+                    "workspace-a.pdf",
+                    "application/pdf",
+                    "%PDF-1.7 workspace A".getBytes(StandardCharsets.UTF_8))
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, "wrk_workspace_a")
+                .build(),
+            BodyHandlers.ofString());
+    HttpResponse<String> workspaceBUpload =
+        httpClient.send(
+            uploadRequest(
+                    "workspace-b.pdf",
+                    "application/pdf",
+                    "%PDF-1.7 workspace B".getBytes(StandardCharsets.UTF_8))
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, "wrk_workspace_b")
+                .build(),
+            BodyHandlers.ofString());
+
+    assertThat(workspaceAUpload.statusCode()).isEqualTo(201);
+    assertThat(workspaceBUpload.statusCode()).isEqualTo(201);
+
+    HttpResponse<String> listResponse =
+        httpClient.send(
+            HttpRequest.newBuilder(uri("/api/drive/files"))
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, "wrk_workspace_a")
+                .GET()
+                .build(),
+            BodyHandlers.ofString());
+
+    assertThat(listResponse.statusCode()).isEqualTo(200);
+    assertThat(listResponse.body())
+        .contains("\"name\":\"workspace-a.pdf\"")
+        .doesNotContain("\"name\":\"workspace-b.pdf\"");
+  }
+
+  @Test
   void rejectsEmptyUpload() throws Exception {
     HttpResponse<String> response =
         httpClient.send(

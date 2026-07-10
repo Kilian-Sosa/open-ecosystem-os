@@ -25,6 +25,17 @@ export function useUploadDriveFile(onUploaded?: (file: DriveFile) => void) {
   return useMutation({
     mutationFn: uploadDriveFile,
     onSuccess: (file) => {
+      queryClient.setQueryData<DriveFileListResponse>(
+        driveFilesQueryKey,
+        (current) => ({
+          files: [
+            file,
+            ...(current?.files ?? []).filter(
+              (currentFile) => currentFile.fileId !== file.fileId,
+            ),
+          ],
+        }),
+      );
       queryClient.invalidateQueries({ queryKey: driveFilesQueryKey });
       onUploaded?.(file);
     },

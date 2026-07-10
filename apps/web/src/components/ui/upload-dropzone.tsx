@@ -51,7 +51,7 @@ export function UploadDropzone({
 
   if (compact) {
     return (
-      <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-card bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary-hover">
+      <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-card bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary-hover focus-within:outline-none focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 focus-within:ring-offset-background">
         <UploadCloud className="h-4 w-4" aria-hidden="true" />
         {busy ? "Uploading..." : label}
         <input
@@ -96,7 +96,7 @@ export function UploadDropzone({
       <p className="mt-1 text-sm text-text-secondary">{description}</p>
       <button
         type="button"
-        className="mt-4 inline-flex min-h-10 items-center rounded-card border border-border bg-surface px-4 text-sm font-medium text-text-primary hover:bg-surface-muted"
+        className="mt-4 inline-flex min-h-10 items-center rounded-card border border-border bg-surface px-4 text-sm font-medium text-text-primary hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
         disabled={busy}
         onClick={() => inputRef.current?.click()}
       >
