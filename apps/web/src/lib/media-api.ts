@@ -1,6 +1,17 @@
 import { API_BASE_URL, workspaceHeaders } from "@/lib/api";
 
 export type OcrJobStatus = "queued" | "processing" | "completed" | "failed";
+export type OcrExtractionStatus = "completed" | "review_required";
+
+export class OcrApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "OcrApiError";
+  }
+}
 
 export type OcrLifecycleState = "active" | "complete" | "partial";
 export type OcrLifecycleOutcome = "in_progress" | "completed" | "failed";
@@ -103,12 +114,57 @@ export type OcrJobSummary = {
   completedAt: string | null;
   failedAt: string | null;
   updatedAt: string;
+  ocrResultPresent: boolean;
+  extractionPresent: boolean;
+  extractionStatus: OcrExtractionStatus | null;
+  reviewRequired: boolean;
 };
 
 export type OcrJobDetail = OcrJobSummary & {
   extractedText: string | null;
   nextAttemptAt: string | null;
   lifecycle: OcrJobLifecycle;
+  ocrResult: {
+    ocrResultId: string;
+    provider: string;
+    providerVersion: string;
+    pageCount: number;
+    wordCount: number;
+  } | null;
+  extraction: {
+    extractionId: string;
+    extractor: string;
+    extractorVersion: string;
+    status: OcrExtractionStatus;
+    reviewRequired: boolean;
+    confidence: number | null;
+    fieldCount: number;
+    warningCount: number;
+    warnings: Array<{
+      code: string;
+      fieldKey: string | null;
+      message: string;
+    }>;
+    fields: Array<{
+      fieldKey: string;
+      label: string;
+      displayValue: string;
+      normalizedValue: string;
+      status: "extracted" | "low_confidence";
+      confidence: number | null;
+      provenance: Array<{
+        sourceRole: "label" | "value";
+        ocrWordId: string;
+        pageNumber: number;
+        blockNumber: number;
+        paragraphNumber: number;
+        lineNumber: number;
+        wordNumber: number;
+        readingOrder: number;
+        sourceKind: "pdf_text_layer" | "tesseract_tsv";
+      }>;
+    }>;
+  } | null;
 };
 
 export type OcrJobListResponse = {
@@ -121,7 +177,7 @@ export async function fetchOcrJobs(): Promise<OcrJobListResponse> {
   });
 
   if (!response.ok) {
-    throw new Error("OCR jobs could not be loaded");
+    throw new OcrApiError("OCR jobs could not be loaded", response.status);
   }
 
   return response.json() as Promise<OcrJobListResponse>;
@@ -133,8 +189,40 @@ export async function fetchOcrJob(jobId: string): Promise<OcrJobDetail> {
   });
 
   if (!response.ok) {
-    throw new Error("OCR job could not be loaded");
+    throw new OcrApiError("OCR job could not be loaded", response.status);
   }
 
   return response.json() as Promise<OcrJobDetail>;
+}
+
+export function isActiveOcrJob(job: OcrJobSummary | OcrJobDetail) {
+  return job.status === "queued" || job.status === "processing";
+}
+
+export function shouldPollOcrJobs(jobs: OcrJobSummary[]) {
+  return jobs.some(isActiveOcrJob);
+}
+
+export function shouldPollOcrJobDetail(
+  job: OcrJobSummary | OcrJobDetail | null,
+  now = new Date(),
+) {
+  if (!job || isTerminalExtraction(job.extractionStatus)) {
+    return false;
+  }
+
+  if (isActiveOcrJob(job)) {
+    return true;
+  }
+
+  if (job.status !== "completed" || job.extractionPresent || !job.completedAt) {
+    return false;
+  }
+
+  const completedAt = Date.parse(job.completedAt);
+  return Number.isFinite(completedAt) && now.getTime() - completedAt < 30_000;
+}
+
+function isTerminalExtraction(status: OcrExtractionStatus | null) {
+  return status === "completed" || status === "review_required";
 }

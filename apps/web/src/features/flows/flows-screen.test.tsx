@@ -38,7 +38,7 @@ describe("FlowsScreen", () => {
       0,
     );
     expect(
-      screen.getAllByText("Invoice Processing Automation").length,
+      screen.getAllByText("Invoice extraction workflow").length,
     ).toBeGreaterThan(0);
     expect(
       screen.getAllByText("Create review notification").length,
@@ -99,14 +99,14 @@ describe("FlowsScreen", () => {
         if (url.endsWith("/api/flows/executions")) {
           return jsonResponse({ executions: flowsMockExecutions });
         }
-        if (url.endsWith("/api/flows/workflows/flow_invoice_automation")) {
+        if (url.endsWith("/api/flows/workflows/flow_invoice_extraction")) {
           return jsonResponse(flowsMockWorkflowDetails[0]);
         }
         if (url.endsWith("/api/flows/executions/wfe_success")) {
           return jsonResponse(flowsMockExecutionDetails[0]);
         }
         if (
-          url.endsWith("/api/flows/workflows/flow_invoice_automation/runs") &&
+          url.endsWith("/api/flows/workflows/flow_invoice_extraction/runs") &&
           init?.method === "POST"
         ) {
           return jsonResponse(runExecution);
@@ -125,7 +125,7 @@ describe("FlowsScreen", () => {
       </AppProviders>,
     );
 
-    await screen.findAllByText("Invoice Processing Automation");
+    await screen.findAllByText("Invoice extraction workflow");
     await waitFor(() => {
       expect(
         screen
@@ -142,7 +142,7 @@ describe("FlowsScreen", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining(
-          "/api/flows/workflows/flow_invoice_automation/runs",
+          "/api/flows/workflows/flow_invoice_extraction/runs",
         ),
         expect.objectContaining({ method: "POST" }),
       );

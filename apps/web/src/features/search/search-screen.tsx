@@ -33,22 +33,20 @@ type SearchScreenProps = {
 };
 
 const mockSearchResponse: SearchResponse = {
-  query: "TEST-INV-2026-0001",
+  query: "workspace document",
   backend: "meilisearch",
   results: [
     {
-      id: "srch_demo_invoice_mock",
-      sourceType: "demo_invoice_extraction",
-      sourceId: "dinv_demo_invoice_mock",
-      title: "Fake/test invoice TEST-INV-2026-0001",
-      summary:
-        "Demo Supplies S.L. fake/test invoice, total EUR 124.00, due 2026-06-15.",
-      resourceHref: "/app/demo/invoice-automation",
-      correlationId: "corr_demo_invoice_mock",
+      id: "srch_document_extraction",
+      sourceType: "document_extraction",
+      sourceId: "extraction_document",
+      title: "Indexed document extraction",
+      summary: "A document extraction is ready for workspace review.",
+      resourceHref: "/app/media?jobId=job-document",
+      correlationId: "corr_document_extraction",
       status: "indexed",
       metadata: {
-        invoiceNumber: "TEST-INV-2026-0001",
-        isTestData: true,
+        extractionStatus: "completed",
       },
       createdAt: "2026-05-25T09:00:13Z",
     },
@@ -106,7 +104,7 @@ export function SearchScreen({
             <SearchInput
               aria-label="Search indexed documents"
               className="min-w-0 flex-1"
-              placeholder="Search invoices, files, OCR text..."
+              placeholder="Search files, documents, and OCR text..."
               value={query}
               onChange={(event) => setQuery(event.currentTarget.value)}
             />
@@ -131,8 +129,8 @@ export function SearchScreen({
             }
             description={
               submittedQuery.length === 0
-                ? "Indexed demo invoice results appear here after automation runs."
-                : "Try the seeded invoice number or wait for indexing to complete."
+                ? "Indexed workspace documents appear here after automation runs."
+                : "Try another keyword or wait for indexing to complete."
             }
           />
         ) : state === "error" ? (

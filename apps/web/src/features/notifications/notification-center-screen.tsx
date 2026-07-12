@@ -31,14 +31,14 @@ type NotificationCenterScreenProps = {
 
 const mockNotifications: NotificationRecord[] = [
   {
-    notificationId: "ntf_demo_invoice_mock",
-    title: "Fake/test invoice ready for review",
-    body: "The seeded invoice automation extracted fake/test fields and requested search indexing.",
+    notificationId: "ntf_document_extraction",
+    title: "Document extraction ready for review",
+    body: "A workflow completed structured extraction and requested search indexing.",
     severity: "info",
     status: "unread",
     sourceType: "workflow_execution",
-    sourceId: "wfe_demo_invoice_mock",
-    correlationId: "corr_demo_invoice_mock",
+    sourceId: "wfe_document_extraction",
+    correlationId: "corr_document_extraction",
     createdAt: "2026-05-25T09:00:10Z",
     readAt: null,
   },

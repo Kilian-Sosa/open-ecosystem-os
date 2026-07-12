@@ -19,5 +19,9 @@ describe("AppShell", () => {
       screen.getAllByText("Open Ecosystem Demo Workspace").length,
     ).toBeGreaterThan(0);
     expect(screen.getAllByText("Workspace Admin").length).toBeGreaterThan(0);
+    expect(
+      screen.queryAllByRole("link", { name: "Invoice demo" }),
+    ).toHaveLength(0);
+    expect(screen.queryAllByRole("link", { name: "Demo" })).toHaveLength(0);
   });
 });

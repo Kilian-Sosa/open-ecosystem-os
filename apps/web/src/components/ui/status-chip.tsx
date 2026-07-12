@@ -1,4 +1,10 @@
-import { CheckCircle2, CircleDashed, Clock3, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  CircleDashed,
+  Clock3,
+  XCircle,
+} from "lucide-react";
 
 import { cn } from "@/lib/cn";
 
@@ -19,7 +25,8 @@ export type StatusKind =
   | "retrying"
   | "scheduled"
   | "healthy"
-  | "running";
+  | "running"
+  | "review-required";
 
 const statusStyles: Record<StatusKind, string> = {
   active: "border-success-soft bg-success-soft text-success",
@@ -39,6 +46,7 @@ const statusStyles: Record<StatusKind, string> = {
   scheduled: "border-info-soft bg-info-soft text-info",
   healthy: "border-success-soft bg-success-soft text-success",
   running: "border-success-soft bg-success-soft text-success",
+  "review-required": "border-warning-soft bg-warning-soft text-warning",
 };
 
 const statusIcons: Partial<Record<StatusKind, typeof CheckCircle2>> = {
@@ -54,6 +62,7 @@ const statusIcons: Partial<Record<StatusKind, typeof CheckCircle2>> = {
   failed: XCircle,
   rejected: XCircle,
   incompatible: XCircle,
+  "review-required": AlertTriangle,
 };
 
 type StatusChipProps = {

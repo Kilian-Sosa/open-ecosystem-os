@@ -30,10 +30,10 @@ export function parseFlowsState(
 
 export const flowsMockWorkflows: WorkflowSummary[] = [
   {
-    workflowId: "flow_invoice_automation",
-    name: "Invoice Processing Automation",
+    workflowId: "flow_invoice_extraction",
+    name: "Invoice extraction workflow",
     description:
-      "Runs when OCR completes and creates fake/test invoice extraction, notification, audit, and search indexing records.",
+      "Runs when OCR completes, persists structured invoice extraction, and creates notification, audit, and search indexing records.",
     status: "active",
     currentVersionNumber: 2,
     triggerType: "event",
@@ -43,7 +43,7 @@ export const flowsMockWorkflows: WorkflowSummary[] = [
   },
   {
     workflowId: "flow_manual_review",
-    name: "Manual Review Smoke Test",
+    name: "Manual review workflow",
     description: "Runs the same vertical action chain from the Run button.",
     status: "draft",
     currentVersionNumber: 2,
@@ -56,12 +56,12 @@ export const flowsMockWorkflows: WorkflowSummary[] = [
 
 export const flowsMockWorkflowDetails: WorkflowDetail[] = [
   {
-    workflowId: "flow_invoice_automation",
-    name: "Invoice Processing Automation",
+    workflowId: "flow_invoice_extraction",
+    name: "Invoice extraction workflow",
     description:
-      "Runs when OCR completes and creates fake/test invoice extraction, notification, audit, and search indexing records.",
+      "Runs when OCR completes, persists structured invoice extraction, and creates notification, audit, and search indexing records.",
     status: "active",
-    currentVersionId: "wfv_invoice_automation_v2",
+    currentVersionId: "wfv_invoice_extraction_v2",
     currentVersionNumber: 2,
     createdAt: "2026-05-23T08:00:00Z",
     updatedAt: "2026-05-23T08:00:00Z",
@@ -70,7 +70,7 @@ export const flowsMockWorkflowDetails: WorkflowDetail[] = [
       steps: [
         {
           id: "extract-invoice-fields",
-          name: "Extract fake/test invoice fields",
+          name: "Extract invoice fields",
           action: {
             type: "extract_invoice_fields",
           },
@@ -80,7 +80,7 @@ export const flowsMockWorkflowDetails: WorkflowDetail[] = [
           name: "Create review notification",
           action: {
             type: "create_notification",
-            title: "OCR completed for invoice file",
+            title: "OCR completed for document",
             body: "A document finished OCR and is ready for review.",
             severity: "info",
           },
@@ -90,9 +90,9 @@ export const flowsMockWorkflowDetails: WorkflowDetail[] = [
           name: "Record automation audit",
           action: {
             type: "create_audit_entry",
-            action: "flows.invoice_automation.completed",
+            action: "flows.invoice_extraction.completed",
             resourceType: "workflow_execution",
-            attributes: { workflow: "invoice_automation" },
+            attributes: { workflow: "invoice_extraction" },
           },
         },
         {
@@ -117,10 +117,10 @@ export const flowsMockWorkflowDetails: WorkflowDetail[] = [
   },
   {
     workflowId: "flow_manual_review",
-    name: "Manual Review Smoke Test",
+    name: "Manual review workflow",
     description: "Runs the same vertical action chain from the Run button.",
     status: "draft",
-    currentVersionId: "wfv_manual_review_v2",
+    currentVersionId: "wfv_manual_review_v1",
     currentVersionNumber: 2,
     createdAt: "2026-05-21T08:00:00Z",
     updatedAt: "2026-05-22T12:30:00Z",
@@ -133,7 +133,7 @@ export const flowsMockWorkflowDetails: WorkflowDetail[] = [
           action: {
             type: "create_notification",
             title: "Manual workflow completed",
-            body: "The manual smoke test completed.",
+            body: "The manual review workflow completed.",
             severity: "info",
           },
         },
@@ -153,8 +153,8 @@ export const flowsMockWorkflowDetails: WorkflowDetail[] = [
 export const flowsMockExecutions: WorkflowExecutionSummary[] = [
   {
     executionId: "wfe_success",
-    workflowId: "flow_invoice_automation",
-    workflowName: "Invoice Processing Automation",
+    workflowId: "flow_invoice_extraction",
+    workflowName: "Invoice extraction workflow",
     workflowVersionNumber: 2,
     triggerType: "event",
     sourceEventType: "OcrCompleted",
@@ -162,7 +162,7 @@ export const flowsMockExecutions: WorkflowExecutionSummary[] = [
     status: "completed",
     retryCount: 0,
     failureReason: null,
-    correlationId: "corr_invoice_001",
+    correlationId: "corr_ocr_001",
     startedAt: "2026-05-23T08:02:00Z",
     completedAt: "2026-05-23T08:02:05Z",
     failedAt: null,
@@ -170,8 +170,8 @@ export const flowsMockExecutions: WorkflowExecutionSummary[] = [
   },
   {
     executionId: "wfe_failed",
-    workflowId: "flow_invoice_automation",
-    workflowName: "Invoice Processing Automation",
+    workflowId: "flow_invoice_extraction",
+    workflowName: "Invoice extraction workflow",
     workflowVersionNumber: 1,
     triggerType: "event",
     sourceEventType: "OcrCompleted",
@@ -179,7 +179,7 @@ export const flowsMockExecutions: WorkflowExecutionSummary[] = [
     status: "failed",
     retryCount: 1,
     failureReason: "Notification title is required",
-    correlationId: "corr_invoice_002",
+    correlationId: "corr_ocr_002",
     startedAt: "2026-05-23T07:45:00Z",
     completedAt: null,
     failedAt: "2026-05-23T07:45:01Z",
@@ -192,9 +192,9 @@ export const flowsMockExecutionDetails: WorkflowExecutionDetail[] = [
     ...flowsMockExecutions[0],
     steps: [
       {
-        stepExecutionId: "wfs_extract_invoice",
+        stepExecutionId: "wfs_extract_invoice_fields",
         stepKey: "extract-invoice-fields",
-        stepName: "Extract fake/test invoice fields",
+        stepName: "Extract invoice fields",
         actionType: "extract_invoice_fields",
         status: "completed",
         retryCount: 0,
@@ -208,9 +208,9 @@ export const flowsMockExecutionDetails: WorkflowExecutionDetail[] = [
           extractedTextLength: 2048,
         },
         output: {
-          extractionId: "dinv_123",
-          invoiceNumber: "TEST-INV-2026-0001",
-          isTestData: true,
+          extractionId: "extraction_123",
+          status: "review_required",
+          fieldCount: 0,
         },
         startedAt: "2026-05-23T08:02:00Z",
         completedAt: "2026-05-23T08:02:01Z",
@@ -250,7 +250,7 @@ export const flowsMockExecutionDetails: WorkflowExecutionDetail[] = [
         input: { triggerType: "event", sourceEventId: "evt_ocr_completed" },
         output: {
           auditId: "aud_123",
-          action: "flows.invoice_automation.completed",
+          action: "flows.invoice_extraction.completed",
         },
         startedAt: "2026-05-23T08:02:02Z",
         completedAt: "2026-05-23T08:02:03Z",
