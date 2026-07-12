@@ -1,8 +1,7 @@
 package com.openecosystem.os.media;
 
-import java.math.BigDecimal;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Instant;
-import java.util.List;
 
 public record OcrJobDetailResponse(
     String jobId,
@@ -25,9 +24,5 @@ public record OcrJobDetailResponse(
     Instant nextAttemptAt,
     Instant updatedAt,
     OcrJobLifecycleResponse lifecycle,
-    String extractorName,
-    String extractorVersion,
-    String extractionStatus,
-    BigDecimal extractionAggregateConfidence,
-    List<OcrExtractionWarningResponse> extractionWarnings,
-    List<OcrExtractionFieldResponse> extractionFields) {}
+    @JsonInclude(JsonInclude.Include.ALWAYS) OcrResultResponse ocrResult,
+    @JsonInclude(JsonInclude.Include.ALWAYS) OcrExtractionResponse extraction) {}
