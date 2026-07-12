@@ -4,7 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openecosystem.os.OpenEcosystemApiApplication;
+import com.openecosystem.os.media.JdbcOcrResultRepository;
+import com.openecosystem.os.media.OcrDocumentResult;
+import com.openecosystem.os.media.OcrPageResult;
+import com.openecosystem.os.media.OcrWord;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,8 +22,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @SpringBootTest(classes = OpenEcosystemApiApplication.class)
 class WorkflowExecutionServiceTest {
 
+  private static final Instant NOW = Instant.parse("2026-07-11T12:00:00Z");
+  private static final String PRIVATE_OCR_TEXT = "PRIVATE_OCR_TEXT";
+  private static final String PRIVATE_IBAN = "ES9121000418450200051332";
+  private static final String PRIVATE_TAX_ID = "B12345678";
+  private static final String PRIVATE_FILE_NAME = "private-invoice.pdf";
+
   @Autowired private WorkflowService workflowService;
   @Autowired private OcrCompletedWorkflowTriggerService triggerService;
+  @Autowired private JdbcOcrResultRepository ocrResultRepository;
   @Autowired private ObjectMapper objectMapper;
   @Autowired private JdbcTemplate jdbcTemplate;
 
@@ -24,8 +38,9 @@ class WorkflowExecutionServiceTest {
   void cleanDatabase() {
     jdbcTemplate.update("delete from event_consumptions");
     jdbcTemplate.update("delete from search_documents");
-    jdbcTemplate.update("delete from demo_invoice_extractions");
-    jdbcTemplate.update("delete from demo_invoice_runs");
+    jdbcTemplate.update("delete from invoice_extraction_field_sources");
+    jdbcTemplate.update("delete from invoice_extraction_fields");
+    jdbcTemplate.update("delete from invoice_extractions");
     jdbcTemplate.update("delete from knowledge_items");
     jdbcTemplate.update("delete from notifications");
     jdbcTemplate.update("delete from workflow_step_executions");
@@ -35,100 +50,67 @@ class WorkflowExecutionServiceTest {
     jdbcTemplate.update("delete from workflows");
     jdbcTemplate.update("delete from event_outbox");
     jdbcTemplate.update("delete from audit_records");
+    jdbcTemplate.update("delete from ocr_result_words");
+    jdbcTemplate.update("delete from ocr_result_pages");
+    jdbcTemplate.update("delete from ocr_results");
     jdbcTemplate.update("delete from ocr_jobs");
     jdbcTemplate.update("delete from drive_files");
   }
 
   @Test
-  void manualRunCreatesExecutionStepsNotificationAuditKnowledgeAndOutboxEvents() throws Exception {
-    String workflowId = createWorkflow("manual", fullDefinition("manual", null));
-
-    WorkflowExecutionDetailResponse execution = workflowService.runWorkflowManually(workflowId);
-
-    assertThat(execution.status()).isEqualTo("completed");
-    assertThat(execution.triggerType()).isEqualTo("manual");
-    assertThat(execution.steps()).hasSize(3);
-    assertThat(execution.steps()).allMatch(step -> step.status().equals("completed"));
-
-    assertThat(count("notifications")).isEqualTo(1);
-    assertThat(count("knowledge_items")).isEqualTo(1);
-    assertThat(
-            jdbcTemplate.queryForObject(
-                "select count(*) from audit_records where action = 'flows.test.audit'",
-                Integer.class))
-        .isEqualTo(1);
-    assertThat(outboxCount("WorkflowTriggered")).isEqualTo(1);
-    assertThat(outboxCount("WorkflowExecutionStarted")).isEqualTo(1);
-    assertThat(outboxCount("WorkflowStepCompleted")).isEqualTo(3);
-    assertThat(outboxCount("WorkflowExecutionCompleted")).isEqualTo(1);
-    assertThat(outboxCount("NotificationCreated")).isEqualTo(1);
-  }
-
-  @Test
-  void ocrCompletedTriggerRunsActiveWorkflowOnceForDuplicateDelivery() throws Exception {
-    createWorkflow("event", fullDefinition("event", "OcrCompleted"));
-    OcrCompletedEvent event = ocrCompletedEvent("evt_ocr_completed", "ocr_123", "file_123");
+  void duplicateOcrDeliveryPersistsOneRealExtractionAndOnlySafeDownstreamData() throws Exception {
+    createWorkflow(invoiceDefinition());
+    insertCompletedStructuredOcr("ocr_invoice", "file_invoice");
+    OcrCompletedEvent event = ocrCompletedEvent("evt_invoice", "ocr_invoice", "file_invoice");
 
     triggerService.trigger(event);
     triggerService.trigger(event);
 
     assertThat(count("workflow_executions")).isEqualTo(1);
-    assertThat(count("workflow_step_executions")).isEqualTo(3);
+    assertThat(count("invoice_extractions")).isEqualTo(1);
+    assertThat(count("invoice_extraction_fields")).isEqualTo(10);
+    assertThat(count("invoice_extraction_field_sources")).isGreaterThan(10);
     assertThat(count("notifications")).isEqualTo(1);
-    assertThat(count("knowledge_items")).isEqualTo(1);
-    assertThat(count("event_consumptions")).isEqualTo(1);
-
-    Map<String, Object> knowledgeItem =
-        jdbcTemplate.queryForMap("select * from knowledge_items limit 1");
-    assertThat(knowledgeItem.get("source_file_id")).isEqualTo("file_123");
-    assertThat(knowledgeItem.get("source_ocr_job_id")).isEqualTo("ocr_123");
-    assertThat(knowledgeItem.get("metadata_json"))
-        .asString()
-        .contains("\"extractedTextLength\":2048");
-    assertThat(knowledgeItem.get("metadata_json")).asString().doesNotContain("Test OCR text");
-  }
-
-  @Test
-  void ocrCompletedTriggerExtractsFakeInvoiceFieldsAndRequestsSearchIndexing() throws Exception {
-    createWorkflow("event", invoiceDemoDefinition());
-    insertCompletedOcrJob("ocr_invoice_demo", "file_invoice_demo");
-    OcrCompletedEvent event =
-        ocrCompletedEvent("evt_ocr_invoice_demo", "ocr_invoice_demo", "file_invoice_demo");
-
-    triggerService.trigger(event);
-
-    assertThat(count("workflow_executions")).isEqualTo(1);
-    assertThat(count("demo_invoice_extractions")).isEqualTo(1);
+    assertThat(count("audit_records")).isEqualTo(1);
     assertThat(count("search_documents")).isEqualTo(1);
+    assertThat(count("event_consumptions")).isEqualTo(1);
     assertThat(outboxCount("IndexingRequested")).isEqualTo(1);
+    assertThat(jdbcTemplate.queryForObject("select status from invoice_extractions", String.class))
+        .isEqualTo("completed");
 
-    Map<String, Object> extraction =
-        jdbcTemplate.queryForMap("select * from demo_invoice_extractions limit 1");
-    assertThat(extraction.get("invoice_number")).isEqualTo("TEST-INV-2026-0001");
-    assertThat(extraction.get("is_test_data")).isEqualTo(true);
+    String extractionOutput =
+        jdbcTemplate.queryForObject(
+            "select output_json from workflow_step_executions where action_type ="
+                + " 'extract_invoice_fields'",
+            String.class);
+    assertThat(extractionOutput)
+        .contains("extractionId", "fieldCount", "warningCount", "completed")
+        .doesNotContain("TEST-INV", PRIVATE_IBAN, PRIVATE_TAX_ID, PRIVATE_OCR_TEXT);
 
-    Map<String, Object> indexingEvent =
-        jdbcTemplate.queryForMap(
-            "select * from event_outbox where event_type = 'IndexingRequested'");
-    assertThat(indexingEvent.get("payload_json")).asString().contains("searchDocumentId");
-    assertThat(indexingEvent.get("payload_json")).asString().doesNotContain("ES00 0000");
-    assertThat(indexingEvent.get("payload_json")).asString().doesNotContain("B00000000");
+    allStrings("select payload_json from event_outbox").forEach(this::assertSafeDownstreamText);
+    allStrings("select envelope_json from event_outbox").forEach(this::assertSafeDownstreamText);
+    allStrings("select attributes_json from audit_records").forEach(this::assertSafeDownstreamText);
+    allStrings("select title from notifications").forEach(this::assertSafeDownstreamText);
+    allStrings("select body from notifications").forEach(this::assertSafeDownstreamText);
+
+    Map<String, Object> searchDocument =
+        jdbcTemplate.queryForMap("select * from search_documents limit 1");
+    assertThat(searchDocument.get("source_type")).isEqualTo("invoice_extraction");
+    assertThat(searchDocument.get("resource_href")).isEqualTo("/app/media?jobId=ocr_invoice");
+    assertThat(searchDocument.get("content").toString())
+        .contains("TEST-INV-2026-42", "Example Supplies", "121.00", "EUR")
+        .doesNotContain(PRIVATE_IBAN, PRIVATE_TAX_ID, PRIVATE_OCR_TEXT);
   }
 
   @Test
-  void actionFailureRecordsStepAndExecutionFailureReason() throws Exception {
+  void persistsAFixedSafeFailureSummaryInsteadOfTheActionExceptionMessage() throws Exception {
     String workflowId =
         createWorkflow(
-            "failing",
             """
             {
               "trigger": { "type": "manual" },
               "steps": [
-                {
-                  "id": "notify",
-                  "name": "Notify",
-                  "action": { "type": "create_notification" }
-                }
+                { "id": "notify", "name": "Notify", "action": { "type": "create_notification" } }
               ]
             }
             """);
@@ -136,184 +118,206 @@ class WorkflowExecutionServiceTest {
     WorkflowExecutionDetailResponse execution = workflowService.runWorkflowManually(workflowId);
 
     assertThat(execution.status()).isEqualTo("failed");
-    assertThat(execution.retryCount()).isEqualTo(1);
-    assertThat(execution.failureReason()).contains("Notification title is required");
-    assertThat(execution.steps()).hasSize(1);
-    assertThat(execution.steps().getFirst().status()).isEqualTo("failed");
-    assertThat(execution.steps().getFirst().retryCount()).isEqualTo(1);
-    assertThat(count("notifications")).isZero();
-    assertThat(outboxCount("WorkflowStepFailed")).isEqualTo(1);
-    assertThat(outboxCount("WorkflowExecutionFailed")).isEqualTo(1);
+    assertThat(execution.failureReason()).isEqualTo("Workflow action failed.");
+    assertThat(allStrings("select payload_json from event_outbox"))
+        .allSatisfy(this::assertSafeDownstreamText);
+    assertThat(allStrings("select envelope_json from event_outbox"))
+        .allSatisfy(this::assertSafeDownstreamText);
   }
 
-  private String createWorkflow(String name, String definitionJson) throws Exception {
-    WorkflowService.CreatedWorkflowResponse response =
-        workflowService.createWorkflow(
+  @Test
+  void createsOneReviewRequiredExtractionWhenStructuredWordsCannotSupportFields() throws Exception {
+    createWorkflow(invoiceDefinition());
+    insertCompletedStructuredOcr("ocr_review", "file_review");
+    jdbcTemplate.update("delete from ocr_result_words where ocr_result_id = 'ocrr_invoice'");
+    OcrCompletedEvent event = ocrCompletedEvent("evt_review", "ocr_review", "file_review");
+
+    triggerService.trigger(event);
+    triggerService.trigger(event);
+
+    assertThat(jdbcTemplate.queryForObject("select status from invoice_extractions", String.class))
+        .isEqualTo("review_required");
+    assertThat(count("invoice_extraction_fields")).isZero();
+    assertThat(count("invoice_extraction_field_sources")).isZero();
+    assertThat(count("notifications")).isEqualTo(1);
+    assertThat(count("search_documents")).isEqualTo(1);
+    assertThat(count("event_consumptions")).isEqualTo(1);
+  }
+
+  private String createWorkflow(String definitionJson) throws Exception {
+    return workflowService
+        .createWorkflow(
             new WorkflowSaveRequest(
-                name, "Test workflow", "active", objectMapper.readTree(definitionJson)));
-    return response.workflow().workflowId();
+                "Invoice workflow",
+                "Test workflow",
+                "active",
+                objectMapper.readTree(definitionJson)))
+        .workflow()
+        .workflowId();
   }
 
-  private String fullDefinition(String triggerType, String eventType) {
-    String trigger =
-        eventType == null
-            ? """
-            { "type": "%s" }
-            """
-                .formatted(triggerType)
-            : """
-            { "type": "%s", "eventType": "%s" }
-            """
-                .formatted(triggerType, eventType);
-    return """
-    {
-      "trigger": %s,
-      "steps": [
-        {
-          "id": "notify",
-          "name": "Create notification",
-          "action": {
-            "type": "create_notification",
-            "title": "OCR completed",
-            "body": "Ready for review",
-            "severity": "info"
-          }
-        },
-        {
-          "id": "audit",
-          "name": "Create audit entry",
-          "action": {
-            "type": "create_audit_entry",
-            "action": "flows.test.audit",
-            "resourceType": "workflow_execution",
-            "attributes": { "test": "true" }
-          }
-        },
-        {
-          "id": "knowledge",
-          "name": "Create Knowledge item",
-          "action": {
-            "type": "create_knowledge_item_placeholder",
-            "title": "Knowledge placeholder",
-            "summary": "Created from workflow"
-          }
-        }
-      ]
-    }
-    """
-        .formatted(trigger);
-  }
-
-  private String invoiceDemoDefinition() {
+  private String invoiceDefinition() {
     return """
     {
       "trigger": { "type": "event", "eventType": "OcrCompleted" },
       "steps": [
-        {
-          "id": "extract",
-          "name": "Extract fake/test invoice fields",
-          "action": { "type": "extract_invoice_fields" }
-        },
-        {
-          "id": "index",
-          "name": "Request search indexing",
-          "action": { "type": "request_search_indexing" }
-        }
+        { "id": "extract", "name": "Extract invoice fields", "action": { "type": "extract_invoice_fields" } },
+        { "id": "notify", "name": "Notify", "action": { "type": "create_notification", "title": "Invoice extraction completed", "body": "An invoice extraction is ready for review.", "severity": "info" } },
+        { "id": "audit", "name": "Audit", "action": { "type": "create_audit_entry", "action": "flows.invoice_automation.completed", "resourceType": "workflow_execution", "attributes": { "workflow": "invoice_automation" } } },
+        { "id": "knowledge", "name": "Knowledge", "action": { "type": "create_knowledge_item_placeholder", "title": "Invoice knowledge placeholder", "summary": "A Knowledge placeholder was created from an invoice automation event." } },
+        { "id": "index", "name": "Index", "action": { "type": "request_search_indexing" } }
       ]
     }
     """;
   }
 
   private OcrCompletedEvent ocrCompletedEvent(String eventId, String jobId, String fileId) {
-    Instant now = Instant.parse("2026-05-22T10:00:00Z");
     return new OcrCompletedEvent(
         eventId,
         1,
-        now,
+        NOW,
         "wrk_dev_placeholder",
         "usr_dev_placeholder",
-        "corr_123",
-        "evt_ocr_requested",
+        "corr_test",
+        "evt_requested",
         "media:ocr:" + jobId + ":completed:v1",
         jobId,
         fileId,
-        "mock",
+        "tesseract",
         1,
-        2048,
-        now);
+        PRIVATE_OCR_TEXT.length(),
+        NOW);
   }
 
-  private void insertCompletedOcrJob(String jobId, String fileId) {
-    Instant now = Instant.parse("2026-05-22T10:00:00Z");
-    String extractedText =
+  private void insertCompletedStructuredOcr(String jobId, String fileId) {
+    jdbcTemplate.update(
         """
-        Mock OCR result - fake/test data only
-        Invoice number: TEST-INV-2026-0001
-        Supplier: Demo Supplies S.L. (fake/test data)
-        Test NIF: B00000000 (test data)
-        Test IBAN: ES00 0000 0000 0000 0000 0000 (test data)
-        Total: 124.00 EUR
-        Due date: 2026-06-15
-        """
-            .trim();
+        insert into drive_files (
+          file_id, workspace_id, owner_id, encrypted_name, content_type, size_bytes,
+          checksum_sha256, storage_key, encryption_algorithm, encryption_key_id,
+          content_iv, name_iv, created_at, updated_at
+        ) values (?, 'wrk_dev_placeholder', 'usr_dev_placeholder', ?, 'application/pdf', 10,
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', ?,
+          'AES-256-GCM', 'test-key', 'content-iv', 'name-iv', ?, ?)
+        """,
+        fileId,
+        PRIVATE_FILE_NAME,
+        "workspaces/wrk_dev_placeholder/drive/" + fileId + "/original",
+        NOW,
+        NOW);
     jdbcTemplate.update(
         """
         insert into ocr_jobs (
-          job_id,
-          file_id,
-          workspace_id,
-          actor_id,
-          source_event_id,
-          correlation_id,
-          content_type,
-          storage_key,
-          status,
-          provider,
-          attempt_count,
-          max_attempts,
-          extracted_text,
-          extracted_text_length,
-          failure_code,
-          failure_message,
-          queued_at,
-          processing_started_at,
-          completed_at,
-          failed_at,
-          next_attempt_at,
-          created_at,
-          updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null, null, ?, ?, ?, null, null, ?, ?)
+          job_id, file_id, workspace_id, actor_id, source_event_id, correlation_id,
+          content_type, storage_key, status, provider, attempt_count, max_attempts,
+          extracted_text, extracted_text_length, failure_code, failure_message, queued_at,
+          processing_started_at, completed_at, failed_at, next_attempt_at, created_at, updated_at
+        ) values (?, ?, 'wrk_dev_placeholder', 'usr_dev_placeholder', 'evt_uploaded', 'corr_test',
+          'application/pdf', ?, 'completed', 'tesseract', 1, 3, ?, ?, null, null, ?, ?, ?, null, null, ?, ?)
         """,
         jobId,
         fileId,
-        "wrk_dev_placeholder",
-        "usr_dev_placeholder",
-        "evt_uploaded",
-        "corr_123",
-        "application/pdf",
         "workspaces/wrk_dev_placeholder/drive/" + fileId + "/original",
-        "completed",
-        "mock",
+        PRIVATE_OCR_TEXT,
+        PRIVATE_OCR_TEXT.length(),
+        NOW,
+        NOW,
+        NOW,
+        NOW,
+        NOW);
+    ocrResultRepository.save(structuredResult(jobId, fileId));
+  }
+
+  private OcrDocumentResult structuredResult(String jobId, String fileId) {
+    String[][] lines = {
+      {"Invoice", "TEST-INV-2026-42"},
+      {"Supplier", "Example", "Supplies"},
+      {"Tax", "ID", PRIVATE_TAX_ID},
+      {"IBAN", PRIVATE_IBAN},
+      {"Subtotal", "100.00"},
+      {"Tax", "21.00"},
+      {"Total", "121.00"},
+      {"Currency", "EUR"},
+      {"Issue", "date", "2026-07-01"},
+      {"Due", "date", "2026-07-31"}
+    };
+    List<OcrWord> words = new ArrayList<>();
+    int readingOrder = 1;
+    for (int lineNumber = 0; lineNumber < lines.length; lineNumber++) {
+      for (int wordNumber = 0; wordNumber < lines[lineNumber].length; wordNumber++) {
+        words.add(
+            new OcrWord(
+                "ocrw_" + lineNumber + "_" + wordNumber,
+                "ocrp_invoice",
+                "ocrr_invoice",
+                "wrk_dev_placeholder",
+                readingOrder++,
+                1,
+                wordNumber,
+                0,
+                0,
+                lineNumber + 1,
+                wordNumber,
+                lines[lineNumber][wordNumber],
+                new BigDecimal("92.00"),
+                wordNumber * 120,
+                lineNumber * 24,
+                100,
+                18,
+                "tesseract_tsv",
+                NOW));
+      }
+    }
+    OcrPageResult page =
+        new OcrPageResult(
+            "ocrp_invoice",
+            "ocrr_invoice",
+            "wrk_dev_placeholder",
+            1,
+            "tesseract_tsv",
+            PRIVATE_OCR_TEXT,
+            words.size(),
+            NOW,
+            words);
+    return new OcrDocumentResult(
+        "ocrr_invoice",
+        jobId,
+        fileId,
+        "wrk_dev_placeholder",
+        "tesseract",
+        "5.5.0",
+        PRIVATE_OCR_TEXT,
         1,
-        3,
-        extractedText,
-        extractedText.length(),
-        now,
-        now,
-        now,
-        now,
-        now);
+        words.size(),
+        NOW,
+        NOW,
+        List.of(page));
+  }
+
+  private void assertSafeDownstreamText(String value) {
+    assertThat(value)
+        .doesNotContain(
+            PRIVATE_OCR_TEXT,
+            "TEST-INV-2026-42",
+            PRIVATE_IBAN,
+            PRIVATE_TAX_ID,
+            PRIVATE_FILE_NAME,
+            "private invoice");
+  }
+
+  private List<String> allStrings(String sql) {
+    return jdbcTemplate.query(sql, (resultSet, rowNumber) -> resultSet.getString(1));
   }
 
   private int count(String table) {
-    Integer count = jdbcTemplate.queryForObject("select count(*) from " + table, Integer.class);
-    return count == null ? 0 : count;
+    Integer value = jdbcTemplate.queryForObject("select count(*) from " + table, Integer.class);
+    return value == null ? 0 : value;
   }
 
   private int outboxCount(String eventType) {
-    Integer count =
+    Integer value =
         jdbcTemplate.queryForObject(
             "select count(*) from event_outbox where event_type = ?", Integer.class, eventType);
-    return count == null ? 0 : count;
+    return value == null ? 0 : value;
   }
 }

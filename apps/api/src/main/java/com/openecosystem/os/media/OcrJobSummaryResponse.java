@@ -19,4 +19,7 @@ public record OcrJobSummaryResponse(
     Instant processingStartedAt,
     Instant completedAt,
     Instant failedAt,
-    Instant updatedAt) {}
+    Instant updatedAt,
+    boolean hasExtraction,
+    String extractionStatus,
+    boolean reviewRequired) {}

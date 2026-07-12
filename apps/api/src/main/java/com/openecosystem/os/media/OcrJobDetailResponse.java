@@ -1,6 +1,8 @@
 package com.openecosystem.os.media;
 
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 public record OcrJobDetailResponse(
     String jobId,
@@ -22,4 +24,10 @@ public record OcrJobDetailResponse(
     Instant failedAt,
     Instant nextAttemptAt,
     Instant updatedAt,
-    OcrJobLifecycleResponse lifecycle) {}
+    OcrJobLifecycleResponse lifecycle,
+    String extractorName,
+    String extractorVersion,
+    String extractionStatus,
+    BigDecimal extractionAggregateConfidence,
+    List<OcrExtractionWarningResponse> extractionWarnings,
+    List<OcrExtractionFieldResponse> extractionFields) {}

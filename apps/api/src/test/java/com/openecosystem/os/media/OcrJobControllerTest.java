@@ -10,6 +10,14 @@ import com.openecosystem.os.drive.DriveFileMetadata;
 import com.openecosystem.os.drive.DriveFileRepository;
 import com.openecosystem.os.drive.crypto.EncryptedText;
 import com.openecosystem.os.drive.crypto.FileEncryptionService;
+import com.openecosystem.os.invoice.InvoiceExtraction;
+import com.openecosystem.os.invoice.InvoiceExtractionField;
+import com.openecosystem.os.invoice.InvoiceExtractionFieldSource;
+import com.openecosystem.os.invoice.InvoiceExtractionStatus;
+import com.openecosystem.os.invoice.InvoiceExtractionWarning;
+import com.openecosystem.os.invoice.InvoiceFieldStatus;
+import com.openecosystem.os.invoice.JdbcInvoiceExtractionRepository;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -38,17 +46,27 @@ class OcrJobControllerTest {
   @Autowired private DriveFileRepository driveFileRepository;
   @Autowired private FileEncryptionService encryptionService;
   @Autowired private OcrJobRepository ocrJobRepository;
+  @Autowired private JdbcOcrResultRepository ocrResultRepository;
+  @Autowired private JdbcInvoiceExtractionRepository invoiceExtractionRepository;
   @Autowired private ObjectMapper objectMapper;
 
   @BeforeEach
   void cleanDatabase() {
     jdbcTemplate.update("delete from event_consumptions");
-    jdbcTemplate.update("delete from demo_invoice_extractions");
+    jdbcTemplate.update("delete from invoice_extraction_field_sources");
+    jdbcTemplate.update("delete from invoice_extraction_fields");
+    jdbcTemplate.update("delete from invoice_extractions");
     jdbcTemplate.update("delete from search_documents");
     jdbcTemplate.update("delete from knowledge_items");
     jdbcTemplate.update("delete from notifications");
     jdbcTemplate.update("delete from workflow_step_executions");
     jdbcTemplate.update("delete from workflow_executions");
+    jdbcTemplate.update("update workflows set current_version_id = null");
+    jdbcTemplate.update("delete from workflow_versions");
+    jdbcTemplate.update("delete from workflows");
+    jdbcTemplate.update("delete from ocr_result_words");
+    jdbcTemplate.update("delete from ocr_result_pages");
+    jdbcTemplate.update("delete from ocr_results");
     jdbcTemplate.update("delete from ocr_jobs");
     jdbcTemplate.update("delete from event_outbox");
     jdbcTemplate.update("delete from audit_records");
@@ -330,6 +348,169 @@ class OcrJobControllerTest {
 
     assertThat(response.statusCode()).isEqualTo(404);
     assertThat(response.body()).doesNotContain("corr_trace");
+  }
+
+  @Test
+  void returnsStructuredExtractionDetailsAndOnlyMetadataInTheJobList() throws Exception {
+    String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
+    saveDriveFile("file_structured", workspaceId, "Structured.pdf", "application/pdf");
+    ocrJobRepository.saveQueued(completedJob("ocr_structured", "file_structured", workspaceId));
+    saveWorkflowDefinition(workspaceId);
+    saveWorkflowExecution(workspaceId);
+    saveStructuredResultAndExtraction("ocr_structured", "file_structured", workspaceId);
+
+    JsonNode detail = getJobDetail("ocr_structured", workspaceId);
+    HttpResponse<String> listResponse =
+        httpClient.send(
+            request("/api/media/ocr-jobs")
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+                .build(),
+            BodyHandlers.ofString());
+
+    assertThat(detail.path("provider").asText()).isEqualTo("tesseract");
+    assertThat(detail.path("extractedText").asText()).isEqualTo("STRUCTURED_OCR_TEXT");
+    assertThat(detail.path("extractorName").asText()).isEqualTo("heuristic_invoice");
+    assertThat(detail.path("extractorVersion").asText()).isEqualTo("1");
+    assertThat(detail.path("extractionStatus").asText()).isEqualTo("review_required");
+    assertThat(detail.path("extractionWarnings").get(0).path("code").asText())
+        .isEqualTo("missing_due_date");
+    assertThat(detail.path("extractionFields").get(0).path("displayValue").asText())
+        .isEqualTo("INV-42");
+    assertThat(detail.path("extractionFields").get(0).path("sourcePageNumber").asInt())
+        .isEqualTo(1);
+    assertThat(
+            detail
+                .path("extractionFields")
+                .get(0)
+                .path("sources")
+                .get(0)
+                .path("ocrWordId")
+                .asText())
+        .isEqualTo("ocrw_invoice_number");
+    assertThat(listResponse.statusCode()).isEqualTo(200);
+    assertThat(listResponse.body())
+        .contains("\"hasExtraction\":true", "\"extractionStatus\":\"review_required\"")
+        .doesNotContain("INV-42", "STRUCTURED_OCR_TEXT", "missing_due_date");
+  }
+
+  @Test
+  void doesNotExposeAWorkspaceJobWhoseSourceDriveFileIsMissing() throws Exception {
+    String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
+    saveDriveFile("file_missing", workspaceId, "Deleted.pdf", "application/pdf");
+    ocrJobRepository.saveQueued(completedJob("ocr_orphaned", "file_missing", workspaceId));
+    jdbcTemplate.execute("set referential_integrity false");
+    jdbcTemplate.update("delete from drive_files where file_id = 'file_missing'");
+    jdbcTemplate.execute("set referential_integrity true");
+
+    HttpResponse<String> detailResponse =
+        httpClient.send(
+            request("/api/media/ocr-jobs/ocr_orphaned")
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+                .build(),
+            BodyHandlers.ofString());
+    HttpResponse<String> listResponse =
+        httpClient.send(
+            request("/api/media/ocr-jobs")
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+                .build(),
+            BodyHandlers.ofString());
+
+    assertThat(detailResponse.statusCode()).isEqualTo(404);
+    assertThat(listResponse.statusCode()).isEqualTo(200);
+    assertThat(listResponse.body()).doesNotContain("ocr_orphaned");
+  }
+
+  private void saveStructuredResultAndExtraction(String jobId, String fileId, String workspaceId) {
+    Instant now = Instant.parse("2026-07-11T12:00:00Z");
+    OcrWord invoiceNumberWord =
+        new OcrWord(
+            "ocrw_invoice_number",
+            "ocrp_structured",
+            "ocrr_structured",
+            workspaceId,
+            1,
+            1,
+            1,
+            0,
+            0,
+            1,
+            1,
+            "INV-42",
+            new BigDecimal("94.00"),
+            120,
+            10,
+            80,
+            18,
+            "tesseract_tsv",
+            now);
+    OcrPageResult page =
+        new OcrPageResult(
+            "ocrp_structured",
+            "ocrr_structured",
+            workspaceId,
+            1,
+            "tesseract_tsv",
+            "STRUCTURED_OCR_TEXT",
+            1,
+            now,
+            List.of(invoiceNumberWord));
+    ocrResultRepository.save(
+        new OcrDocumentResult(
+            "ocrr_structured",
+            jobId,
+            fileId,
+            workspaceId,
+            "tesseract",
+            "5.5.0",
+            "STRUCTURED_OCR_TEXT",
+            1,
+            1,
+            now,
+            now,
+            List.of(page)));
+
+    InvoiceExtractionField field =
+        new InvoiceExtractionField(
+            "invf_invoice_number",
+            "invx_structured",
+            "ocrr_structured",
+            workspaceId,
+            "invoice_number",
+            "INV-42",
+            "INV-42",
+            InvoiceFieldStatus.EXTRACTED,
+            new BigDecimal("94.00"),
+            1,
+            0,
+            0,
+            1,
+            now,
+            List.of(
+                new InvoiceExtractionFieldSource(
+                    "invf_invoice_number",
+                    "ocrr_structured",
+                    workspaceId,
+                    invoiceNumberWord.ocrWordId(),
+                    "value",
+                    0)));
+    invoiceExtractionRepository.save(
+        new InvoiceExtraction(
+            "invx_structured",
+            "wfe_trace",
+            "ocrr_structured",
+            jobId,
+            fileId,
+            workspaceId,
+            "heuristic_invoice",
+            "1",
+            InvoiceExtractionStatus.REVIEW_REQUIRED,
+            List.of(
+                new InvoiceExtractionWarning(
+                    "missing_due_date", "A required invoice field is missing.")),
+            new BigDecimal("94.00"),
+            List.of(field),
+            now,
+            now));
   }
 
   private HttpRequest.Builder request(String path) {

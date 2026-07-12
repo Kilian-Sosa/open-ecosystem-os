@@ -87,18 +87,18 @@ class SearchServiceTest {
 
   private SearchDocument searchDocument(SearchDocumentStatus status) {
     ObjectNode metadata = objectMapper.createObjectNode();
-    metadata.put("invoiceNumber", "TEST-INV-2026-0001");
+    metadata.put("invoice_number", "TEST-INV-2026-0001");
     metadata.put("isTestData", true);
     Instant now = Instant.parse("2026-05-25T10:00:00Z");
     return new SearchDocument(
         "srch_test_invoice",
         "wrk_test",
-        "demo_invoice_extraction",
-        "dinv_test_invoice",
-        "Fake/test invoice TEST-INV-2026-0001",
-        "Seeded fake/test invoice search document.",
-        "TEST-INV-2026-0001 Demo Supplies fake/test invoice",
-        "/app/demo/invoice-automation",
+        "invoice_extraction",
+        "invx_test_invoice",
+        "Test invoice TEST-INV-2026-0001",
+        "Test-only invoice extraction fixture.",
+        "TEST-INV-2026-0001 Test-only Supplier",
+        "/app/media?jobId=ocr_test_invoice",
         "corr_test_invoice",
         status,
         1,
