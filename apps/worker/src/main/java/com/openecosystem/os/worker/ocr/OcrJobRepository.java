@@ -34,7 +34,8 @@ public class OcrJobRepository {
     return results.stream().findFirst();
   }
 
-  public Optional<OcrJob> claimForProcessing(String jobId, String provider, Instant startedAt) {
+  public Optional<OcrJob> claimForProcessing(
+      String jobId, String provider, Instant startedAt, Instant staleBefore) {
     int updated =
         jdbcTemplate.update(
             """
@@ -47,7 +48,7 @@ public class OcrJobRepository {
                 failure_message = null,
                 updated_at = ?
             where job_id = ?
-              and status = ?
+              and (status = ? or (status = ? and processing_started_at < ?))
               and attempt_count < max_attempts
             """,
             OcrJobStatus.PROCESSING.value(),
@@ -55,73 +56,97 @@ public class OcrJobRepository {
             timestamp(startedAt),
             timestamp(startedAt),
             jobId,
-            OcrJobStatus.QUEUED.value());
+            OcrJobStatus.QUEUED.value(),
+            OcrJobStatus.PROCESSING.value(),
+            timestamp(staleBefore));
     return updated == 0 ? Optional.empty() : findById(jobId);
   }
 
-  public void complete(String jobId, String extractedText, Instant completedAt) {
-    jdbcTemplate.update(
-        """
-        update ocr_jobs
-        set status = ?,
-            extracted_text = ?,
-            extracted_text_length = ?,
-            completed_at = ?,
-            failed_at = null,
-            next_attempt_at = null,
-            updated_at = ?
-        where job_id = ?
-        """,
-        OcrJobStatus.COMPLETED.value(),
-        extractedText,
-        extractedText.length(),
-        timestamp(completedAt),
-        timestamp(completedAt),
-        jobId);
+  public boolean complete(
+      String jobId, Instant claimStartedAt, String extractedText, Instant completedAt) {
+    return jdbcTemplate.update(
+            """
+            update ocr_jobs
+            set status = ?,
+                extracted_text = ?,
+                extracted_text_length = ?,
+                completed_at = ?,
+                failed_at = null,
+                next_attempt_at = null,
+                updated_at = ?
+            where job_id = ?
+              and status = ?
+              and processing_started_at = ?
+            """,
+            OcrJobStatus.COMPLETED.value(),
+            extractedText,
+            extractedText.length(),
+            timestamp(completedAt),
+            timestamp(completedAt),
+            jobId,
+            OcrJobStatus.PROCESSING.value(),
+            timestamp(claimStartedAt))
+        == 1;
   }
 
-  public void queueRetry(
+  public boolean queueRetry(
       String jobId,
+      Instant claimStartedAt,
       String errorCode,
       String errorMessage,
       Instant nextAttemptAt,
       Instant updatedAt) {
-    jdbcTemplate.update(
-        """
-        update ocr_jobs
-        set status = ?,
-            failure_code = ?,
-            failure_message = ?,
-            next_attempt_at = ?,
-            updated_at = ?
-        where job_id = ?
-        """,
-        OcrJobStatus.QUEUED.value(),
-        errorCode,
-        trimMessage(errorMessage),
-        timestamp(nextAttemptAt),
-        timestamp(updatedAt),
-        jobId);
+    return jdbcTemplate.update(
+            """
+            update ocr_jobs
+            set status = ?,
+                failure_code = ?,
+                failure_message = ?,
+                next_attempt_at = ?,
+                updated_at = ?
+            where job_id = ?
+              and status = ?
+              and processing_started_at = ?
+            """,
+            OcrJobStatus.QUEUED.value(),
+            errorCode,
+            trimMessage(errorMessage),
+            timestamp(nextAttemptAt),
+            timestamp(updatedAt),
+            jobId,
+            OcrJobStatus.PROCESSING.value(),
+            timestamp(claimStartedAt))
+        == 1;
   }
 
-  public void fail(String jobId, String errorCode, String errorMessage, Instant failedAt) {
-    jdbcTemplate.update(
-        """
-        update ocr_jobs
-        set status = ?,
-            failure_code = ?,
-            failure_message = ?,
-            failed_at = ?,
-            next_attempt_at = null,
-            updated_at = ?
-        where job_id = ?
-        """,
-        OcrJobStatus.FAILED.value(),
-        errorCode,
-        trimMessage(errorMessage),
-        timestamp(failedAt),
-        timestamp(failedAt),
-        jobId);
+  public boolean fail(
+      String jobId,
+      Instant claimStartedAt,
+      String errorCode,
+      String errorMessage,
+      Instant failedAt) {
+    return jdbcTemplate.update(
+            """
+            update ocr_jobs
+            set status = ?,
+                failure_code = ?,
+                failure_message = ?,
+                failed_at = ?,
+                next_attempt_at = null,
+                updated_at = ?
+            where job_id = ?
+              and status = ?
+              and processing_started_at = ?
+            """,
+            OcrJobStatus.FAILED.value(),
+            errorCode,
+            trimMessage(errorMessage),
+            timestamp(failedAt),
+            timestamp(failedAt),
+            jobId,
+            OcrJobStatus.PROCESSING.value(),
+            timestamp(claimStartedAt))
+        == 1;
   }
 
   private static OcrJob mapRow(ResultSet resultSet, int rowNumber) throws SQLException {

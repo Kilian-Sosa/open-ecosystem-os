@@ -19,6 +19,18 @@ openecosystem:
       retry-delay: 1s
   media:
     ocr:
-      provider: mock
+      provider: tesseract
       max-attempts: 2
       retry-delay: 1s
+  drive:
+    encryption:
+      key-id: key-test
+      key-base64: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+  storage:
+    s3:
+      endpoint: ${S3_ENDPOINT:http://localhost:9000}
+      region: ${S3_REGION:local}
+      bucket: ${S3_BUCKET:openecosystem}
+      access-key: ${S3_ACCESS_KEY:openecosystem}
+      secret-key: ${S3_SECRET_KEY:openecosystem_dev_password}
+      path-style-access-enabled: ${S3_PATH_STYLE_ACCESS:true}

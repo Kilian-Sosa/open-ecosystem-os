@@ -4,5 +4,5 @@ public interface OcrProvider {
 
   String name();
 
-  OcrProviderResult extractText(OcrJob job);
+  OcrDocumentResult extract(OcrJob job);
 }

@@ -27,6 +27,7 @@ public class OcrJobProcessor {
   private final OcrProvider ocrProvider;
   private final WorkerOcrProperties properties;
   private final OcrJobRepository ocrJobRepository;
+  private final OcrResultRepository ocrResultRepository;
   private final JdbcEventOutboxRepository eventOutboxRepository;
   private final EventConsumptionRepository eventConsumptionRepository;
   private final AuditRecordRepository auditRecordRepository;
@@ -37,6 +38,7 @@ public class OcrJobProcessor {
       OcrProvider ocrProvider,
       WorkerOcrProperties properties,
       OcrJobRepository ocrJobRepository,
+      OcrResultRepository ocrResultRepository,
       JdbcEventOutboxRepository eventOutboxRepository,
       EventConsumptionRepository eventConsumptionRepository,
       AuditRecordRepository auditRecordRepository,
@@ -45,6 +47,7 @@ public class OcrJobProcessor {
     this.ocrProvider = ocrProvider;
     this.properties = properties;
     this.ocrJobRepository = ocrJobRepository;
+    this.ocrResultRepository = ocrResultRepository;
     this.eventOutboxRepository = eventOutboxRepository;
     this.eventConsumptionRepository = eventConsumptionRepository;
     this.auditRecordRepository = auditRecordRepository;
@@ -74,12 +77,15 @@ public class OcrJobProcessor {
       return new OcrProcessingResult(OcrProcessingOutcome.NO_OP, event.jobId());
 
     OcrJob claimedJob = claimJob(event);
-    if (claimedJob == null)
-      return new OcrProcessingResult(OcrProcessingOutcome.NO_OP, event.jobId());
+    if (claimedJob == null) {
+      return ocrJobRepository.findById(event.jobId()).map(OcrJob::terminal).orElse(true)
+          ? new OcrProcessingResult(OcrProcessingOutcome.NO_OP, event.jobId())
+          : new OcrProcessingResult(OcrProcessingOutcome.RETRY, event.jobId());
+    }
 
     try {
-      OcrProviderResult providerResult = ocrProvider.extractText(claimedJob);
-      completeJob(event, claimedJob, providerResult.extractedText());
+      OcrDocumentResult providerResult = ocrProvider.extract(claimedJob);
+      completeJob(event, claimedJob, providerResult);
       return new OcrProcessingResult(OcrProcessingOutcome.COMPLETED, event.jobId());
     } catch (RuntimeException exception) {
       return handleProviderFailure(event, claimedJob, exception);
@@ -91,6 +97,7 @@ public class OcrJobProcessor {
         status -> {
           Optional<OcrJob> existing = ocrJobRepository.findById(event.jobId());
           if (existing.isEmpty()) return null;
+          if (!matches(existing.get(), event)) return null;
           if (existing.get().terminal()) {
             eventConsumptionRepository.save(
                 CONSUMER_NAME, event.idempotencyKey(), event.eventId(), Instant.now());
@@ -99,7 +106,11 @@ public class OcrJobProcessor {
 
           Instant now = Instant.now();
           Optional<OcrJob> claimed =
-              ocrJobRepository.claimForProcessing(event.jobId(), ocrProvider.name(), now);
+              ocrJobRepository.claimForProcessing(
+                  event.jobId(),
+                  ocrProvider.name(),
+                  now,
+                  now.minus(properties.staleProcessingTimeout()));
           claimed.ifPresent(
               job -> {
                 eventOutboxRepository.save(ocrStartedEnvelope(event, job, now));
@@ -125,12 +136,18 @@ public class OcrJobProcessor {
         });
   }
 
-  private void completeJob(OcrRequestedEvent event, OcrJob job, String extractedText) {
+  private void completeJob(OcrRequestedEvent event, OcrJob job, OcrDocumentResult result) {
     transactionTemplate.executeWithoutResult(
         status -> {
           Instant now = Instant.now();
-          ocrJobRepository.complete(job.jobId(), extractedText, now);
-          eventOutboxRepository.save(ocrCompletedEnvelope(event, job, extractedText.length(), now));
+          ocrResultRepository.save(Ids.newId("ocrres"), job, result, now);
+          if (!ocrJobRepository.complete(
+              job.jobId(), job.processingStartedAt(), result.documentText(), now)) {
+            throw new OcrProviderException(
+                "OCR_CLAIM_STALE", "OCR processing claim was no longer active");
+          }
+          eventOutboxRepository.save(
+              ocrCompletedEnvelope(event, job, result.documentText().length(), now));
           auditRecordRepository.save(
               Ids.newId("aud"),
               "media.ocr.job.completed",
@@ -145,11 +162,9 @@ public class OcrJobProcessor {
                   "fileId",
                   job.fileId(),
                   "provider",
-                  ocrProvider.name(),
+                  result.provider(),
                   "attemptCount",
-                  Integer.toString(job.attemptCount()),
-                  "extractedTextLength",
-                  Integer.toString(extractedText.length())));
+                  Integer.toString(job.attemptCount())));
           eventConsumptionRepository.save(
               CONSUMER_NAME, event.idempotencyKey(), event.eventId(), now);
         });
@@ -166,37 +181,59 @@ public class OcrJobProcessor {
     Instant now = Instant.now();
 
     if (!finalAttempt) {
-      ocrJobRepository.queueRetry(
-          job.jobId(), errorCode, errorMessage, now.plus(properties.retryDelay()), now);
+      boolean requeued =
+          Boolean.TRUE.equals(
+              transactionTemplate.execute(
+                  status ->
+                      ocrJobRepository.queueRetry(
+                          job.jobId(),
+                          job.processingStartedAt(),
+                          errorCode,
+                          errorMessage,
+                          now.plus(properties.retryDelay()),
+                          now)));
+      if (!requeued) {
+        return new OcrProcessingResult(OcrProcessingOutcome.RETRY, job.jobId());
+      }
       return new OcrProcessingResult(OcrProcessingOutcome.RETRY, job.jobId());
     }
 
-    transactionTemplate.executeWithoutResult(
-        status -> {
-          ocrJobRepository.fail(job.jobId(), errorCode, errorMessage, now);
-          eventOutboxRepository.save(ocrFailedEnvelope(event, job, errorCode, errorMessage, now));
-          auditRecordRepository.save(
-              Ids.newId("aud"),
-              "media.ocr.job.failed",
-              RESOURCE_TYPE_OCR_JOB,
-              job.jobId(),
-              job.workspaceId(),
-              job.actorId(),
-              job.correlationId(),
-              now,
-              OUTCOME_FAILURE,
-              Map.of(
-                  "fileId",
-                  job.fileId(),
-                  "provider",
-                  ocrProvider.name(),
-                  "attemptCount",
-                  Integer.toString(job.attemptCount()),
-                  "errorCode",
-                  errorCode));
-          eventConsumptionRepository.save(
-              CONSUMER_NAME, event.idempotencyKey(), event.eventId(), now);
-        });
+    boolean failed =
+        Boolean.TRUE.equals(
+            transactionTemplate.execute(
+                status -> {
+                  if (!ocrJobRepository.fail(
+                      job.jobId(), job.processingStartedAt(), errorCode, errorMessage, now)) {
+                    return false;
+                  }
+                  eventOutboxRepository.save(
+                      ocrFailedEnvelope(event, job, errorCode, errorMessage, now));
+                  auditRecordRepository.save(
+                      Ids.newId("aud"),
+                      "media.ocr.job.failed",
+                      RESOURCE_TYPE_OCR_JOB,
+                      job.jobId(),
+                      job.workspaceId(),
+                      job.actorId(),
+                      job.correlationId(),
+                      now,
+                      OUTCOME_FAILURE,
+                      Map.of(
+                          "fileId",
+                          job.fileId(),
+                          "provider",
+                          ocrProvider.name(),
+                          "attemptCount",
+                          Integer.toString(job.attemptCount()),
+                          "errorCode",
+                          errorCode));
+                  eventConsumptionRepository.save(
+                      CONSUMER_NAME, event.idempotencyKey(), event.eventId(), now);
+                  return true;
+                }));
+    if (!failed) {
+      return new OcrProcessingResult(OcrProcessingOutcome.RETRY, job.jobId());
+    }
     return new OcrProcessingResult(OcrProcessingOutcome.DEAD_LETTER, job.jobId());
   }
 
@@ -269,8 +306,15 @@ public class OcrJobProcessor {
   }
 
   private String sanitizedMessage(RuntimeException exception) {
-    String message = exception.getMessage();
-    if (message == null || message.isBlank()) return "OCR provider failed";
-    return message.length() > 256 ? message.substring(0, 256) : message;
+    return exception instanceof OcrProviderException
+        ? exception.getMessage()
+        : "OCR processing failed";
+  }
+
+  private boolean matches(OcrJob job, OcrRequestedEvent event) {
+    return job.workspaceId().equals(event.workspaceId())
+        && job.fileId().equals(event.fileId())
+        && job.contentType().equals(event.contentType())
+        && job.storageKey().equals(event.storageKey());
   }
 }
