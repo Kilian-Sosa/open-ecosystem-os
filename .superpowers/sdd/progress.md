@@ -1,5 +1,12 @@
 # Real OCR extraction progress
 
+## 2026-07-13 Remediation Task 4 — bounded Media/OCR polling and feedback
+
+- Detached worktree: `C:\Users\kilia\AppData\Local\Temp\open-ecosystem-os-task4-media-polling-20260713` at source HEAD `f9c3c8f`.
+- Added explicit discovery, active-job, and extraction-wait polling windows with the approved Task 4 intervals and bounds.
+- Added a singleton polite/atomic live region and assertive alert region for asynchronous Media/OCR feedback, with recoverable manual refresh controls.
+- Verification passed: focused Media tests, format, lint, typecheck, full web test suite, and production build.
+
 Source branch: `feat/real-ocr-extraction`
 Source HEAD: `cdba8aa0cec0638b2609e91dbe0556200db95040`
 Plan: `docs/superpowers/plans/2026-07-10-real-ocr-invoice-extraction.md`

@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -141,6 +142,7 @@ function stubJobsAndDetail(
 describe("MediaScreen", () => {
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -407,5 +409,168 @@ describe("MediaScreen", () => {
         input.toString().endsWith("/api/drive/files"),
       ),
     ).toBe(true);
+  });
+
+  it("continues polling empty job lists after upload until the matching source job appears", async () => {
+    vi.useFakeTimers();
+    let listRequests = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = input.toString();
+      if (url.endsWith("/api/media/ocr-jobs")) {
+        listRequests += 1;
+        return Promise.resolve(
+          jsonResponse({
+            jobs:
+              listRequests < 3
+                ? []
+                : [
+                    summary({
+                      fileId: "file-uploaded",
+                      fileName: "new-document.pdf",
+                      status: "queued",
+                    }),
+                  ],
+          }),
+        );
+      }
+      if (url.endsWith("/api/media/ocr-jobs/job-1")) {
+        return Promise.resolve(jsonResponse(detail()));
+      }
+      if (url.endsWith("/api/drive/files")) {
+        return Promise.resolve(
+          jsonResponse({
+            fileId: "file-uploaded",
+            name: "new-document.pdf",
+            contentType: "application/pdf",
+            sizeBytes: 512,
+            checksumSha256: "checksum",
+            encrypted: true,
+            uploadedAt: "2026-07-11T12:00:00Z",
+            updatedAt: "2026-07-11T12:00:00Z",
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}, 404));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderMedia();
+
+    const input =
+      document.querySelector<HTMLInputElement>("input[type='file']");
+    expect(input).not.toBeNull();
+    fireEvent.change(input!, {
+      target: {
+        files: files(
+          new File(["pdf"], "new-document.pdf", {
+            type: "application/pdf",
+          }),
+        ),
+      },
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(
+      screen.getAllByText(
+        "Upload complete. Waiting for the OCR job for new-document.pdf...",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Upload complete. Waiting for the OCR job for new-document.pdf...",
+    );
+    expect(screen.getByRole("status")).toHaveAttribute("aria-atomic", "true");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(listRequests).toBeGreaterThanOrEqual(3);
+    expect(
+      screen
+        .getAllByRole("status")
+        .filter((region) => region.textContent?.includes("Upload complete")),
+    ).toHaveLength(1);
+  });
+
+  it("stops upload discovery at thirty seconds and offers an accessible manual refresh", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = input.toString();
+      if (url.endsWith("/api/media/ocr-jobs")) {
+        return Promise.resolve(jsonResponse({ jobs: [] }));
+      }
+      if (url.endsWith("/api/drive/files")) {
+        return Promise.resolve(
+          jsonResponse({
+            fileId: "file-uploaded",
+            name: "new-document.pdf",
+            contentType: "application/pdf",
+            sizeBytes: 512,
+            checksumSha256: "checksum",
+            encrypted: true,
+            uploadedAt: "2026-07-11T12:00:00Z",
+            updatedAt: "2026-07-11T12:00:00Z",
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}, 404));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderMedia();
+
+    const input =
+      document.querySelector<HTMLInputElement>("input[type='file']");
+    fireEvent.change(input!, {
+      target: {
+        files: files(
+          new File(["pdf"], "new-document.pdf", {
+            type: "application/pdf",
+          }),
+        ),
+      },
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(
+      screen.getAllByText(
+        "Upload complete. Waiting for the OCR job for new-document.pdf...",
+      ).length,
+    ).toBeGreaterThan(0);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /OCR job has not appeared yet/i,
+    );
+    expect(
+      screen.getAllByRole("button", { name: "Refresh OCR job status" }).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("uses alerts for upload rejection and request failures without duplicating announcements", async () => {
+    stubJobsAndDetail();
+    renderMedia();
+
+    const input =
+      document.querySelector<HTMLInputElement>("input[type='file']");
+    fireEvent.change(input!, {
+      target: {
+        files: files(new File(["plain"], "notes.txt", { type: "text/plain" })),
+      },
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "notes.txt was not uploaded. OCR accepts PDF, PNG, and JPEG files only.",
+    );
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
   });
 });
