@@ -23,7 +23,11 @@ public record WorkerOcrProperties(
     @DurationUnit(ChronoUnit.SECONDS) Duration documentTimeout,
     @DurationUnit(ChronoUnit.SECONDS) Duration persistenceCleanupMargin,
     String pdfHelperCommand,
-    String pdfHelperJar) {
+    String pdfHelperJar,
+    int maxWordsPerPage,
+    int maxWordsPerDocument,
+    @DurationUnit(ChronoUnit.SECONDS) Duration versionProbeTimeout,
+    int versionProbeMaxOutputBytes) {
 
   public WorkerOcrProperties {
     provider = provider == null || provider.isBlank() ? "tesseract" : provider;
@@ -62,5 +66,15 @@ public record WorkerOcrProperties(
         pdfHelperCommand == null || pdfHelperCommand.isBlank() ? "java" : pdfHelperCommand;
     pdfHelperJar =
         pdfHelperJar == null || pdfHelperJar.isBlank() ? "/app/pdf-helper.jar" : pdfHelperJar;
+    maxWordsPerPage = maxWordsPerPage <= 0 ? 10_000 : maxWordsPerPage;
+    maxWordsPerDocument = maxWordsPerDocument <= 0 ? 100_000 : maxWordsPerDocument;
+    versionProbeTimeout =
+        versionProbeTimeout == null
+                || versionProbeTimeout.isNegative()
+                || versionProbeTimeout.isZero()
+            ? Duration.ofSeconds(5)
+            : versionProbeTimeout;
+    versionProbeMaxOutputBytes =
+        versionProbeMaxOutputBytes <= 0 ? 4 * 1024 : versionProbeMaxOutputBytes;
   }
 }

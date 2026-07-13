@@ -16,12 +16,21 @@ public final class TesseractTsvParser {
           + "\ttext";
 
   private final int maxBytes;
+  private final int maxWordsPerPage;
 
   public TesseractTsvParser(int maxBytes) {
+    this(maxBytes, 10_000);
+  }
+
+  public TesseractTsvParser(int maxBytes, int maxWordsPerPage) {
     if (maxBytes <= 0) {
       throw new IllegalArgumentException("TSV byte limit must be positive");
     }
+    if (maxWordsPerPage <= 0) {
+      throw new IllegalArgumentException("TSV word limit must be positive");
+    }
     this.maxBytes = maxBytes;
+    this.maxWordsPerPage = maxWordsPerPage;
   }
 
   public OcrPageResult parse(byte[] output, int documentPage) {
@@ -53,6 +62,9 @@ public final class TesseractTsvParser {
       ParsedRow row = parseRow(columns);
       if (row.level() != 5 || row.text().isBlank()) {
         continue;
+      }
+      if (words.size() >= maxWordsPerPage) {
+        throw failure("OCR_WORD_LIMIT", "OCR result exceeded the configured word limit");
       }
 
       int pageWordOrder = words.size() + 1;

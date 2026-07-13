@@ -70,6 +70,10 @@ public class PdfHelperClient {
     List<OcrWord> words = new ArrayList<>();
     int pageWordOrder = 1;
     for (JsonNode node : response.path("words")) {
+      if (pageWordOrder > properties.maxWordsPerPage()) {
+        throw new OcrProviderException(
+            "OCR_WORD_LIMIT", "OCR result exceeded the configured word limit");
+      }
       JsonNode box = node.path("boundingBox");
       if (node.path("text").asText().isBlank() || !box.isObject()) throw protocolFailure();
       words.add(

@@ -83,6 +83,22 @@ class TesseractTsvParserTest {
         .isEqualTo("OCR_TSV_TOO_LARGE");
   }
 
+  @Test
+  void rejectsTheNextWordBeforeAppendingBeyondThePageLimit() {
+    String tsv =
+        HEADER
+            + "5\t1\t1\t1\t1\t1\t1\t1\t1\t1\t90\tOne\n"
+            + "5\t1\t1\t1\t1\t2\t1\t1\t1\t1\t90\tTwo\n"
+            + "5\t1\t1\t1\t1\t3\t1\t1\t1\t1\t90\tThree\n";
+
+    assertThatThrownBy(
+            () -> new TesseractTsvParser(4096, 2).parse(tsv.getBytes(StandardCharsets.UTF_8), 1))
+        .isInstanceOf(OcrProviderException.class)
+        .hasMessage("OCR result exceeded the configured word limit")
+        .extracting(exception -> ((OcrProviderException) exception).code())
+        .isEqualTo("OCR_WORD_LIMIT");
+  }
+
   private TesseractTsvParser parser(int maxBytes) {
     return new TesseractTsvParser(maxBytes);
   }

@@ -3,6 +3,7 @@ package com.openecosystem.os.worker.search;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.openecosystem.os.worker.OpenEcosystemWorkerApplication;
+import com.openecosystem.os.worker.ocr.TestTesseractVersionConfiguration;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.Map;
@@ -19,6 +20,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @SpringBootTest(
     classes = {
       OpenEcosystemWorkerApplication.class,
+      TestTesseractVersionConfiguration.class,
       SearchIndexingProcessorTest.SearchIndexingProcessorTestConfiguration.class
     })
 class SearchIndexingProcessorTest {

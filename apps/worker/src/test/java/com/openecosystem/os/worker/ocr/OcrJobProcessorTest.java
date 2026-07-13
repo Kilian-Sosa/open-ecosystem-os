@@ -22,6 +22,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @SpringBootTest(
     classes = {
       OpenEcosystemWorkerApplication.class,
+      TestTesseractVersionConfiguration.class,
       OcrJobProcessorTest.OcrJobProcessorTestConfiguration.class
     })
 class OcrJobProcessorTest {

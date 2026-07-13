@@ -148,6 +148,68 @@ class DriveOcrSourceReaderTest {
   }
 
   @Test
+  void acceptsPlaintextExactlyAtTheConfiguredLimit() throws Exception {
+    EncryptedFixture fixture = encrypted("exact-limit");
+    DriveOcrSourceReader reader =
+        reader(
+            (fileId, workspaceId) ->
+                Optional.of(metadata(fixture, "application/pdf", expectedStorageKey())),
+            storageKey -> new ByteArrayInputStream(fixture.ciphertext()),
+            fixture.plaintext().length);
+
+    try (OcrSource source = reader.open(job("application/pdf", expectedStorageKey()))) {
+      assertThat(Files.readAllBytes(source.path())).isEqualTo(fixture.plaintext());
+    }
+    assertTemporaryRootEmpty();
+  }
+
+  @Test
+  void rejectsPlaintextOneByteAboveTheConfiguredLimit() {
+    EncryptedFixture fixture = encrypted("one-byte-over");
+    DriveOcrSourceReader reader =
+        reader(
+            (fileId, workspaceId) ->
+                Optional.of(metadata(fixture, "application/pdf", expectedStorageKey())),
+            storageKey -> new ByteArrayInputStream(fixture.ciphertext()),
+            fixture.plaintext().length - 1L);
+
+    assertFailure(
+        () -> reader.open(job("application/pdf", expectedStorageKey())),
+        "OCR_SOURCE_ENCRYPTION_MISMATCH",
+        "OCR source encryption metadata was invalid");
+    assertTemporaryRootEmpty();
+  }
+
+  @Test
+  void rejectsTruncatedAuthenticationTagAndCiphertextBeyondTheEnvelopeLimit() {
+    EncryptedFixture fixture = encrypted("authentication tag");
+    byte[] truncated =
+        java.util.Arrays.copyOf(fixture.ciphertext(), fixture.ciphertext().length - 1);
+    DriveOcrSourceReader truncatedReader =
+        reader(
+            (fileId, workspaceId) ->
+                Optional.of(metadata(fixture, "application/pdf", expectedStorageKey())),
+            storageKey -> new ByteArrayInputStream(truncated),
+            1024);
+    assertFailure(
+        () -> truncatedReader.open(job("application/pdf", expectedStorageKey())),
+        "OCR_SOURCE_DECRYPTION_FAILED",
+        "OCR source could not be authenticated");
+
+    DriveOcrSourceReader oversizedReader =
+        reader(
+            (fileId, workspaceId) ->
+                Optional.of(metadata(fixture, "application/pdf", expectedStorageKey())),
+            storageKey -> new ByteArrayInputStream(new byte[fixture.plaintext().length + 17]),
+            fixture.plaintext().length);
+    assertFailure(
+        () -> oversizedReader.open(job("application/pdf", expectedStorageKey())),
+        "OCR_SOURCE_SIZE_LIMIT",
+        "OCR source exceeded the configured size limit");
+    assertTemporaryRootEmpty();
+  }
+
+  @Test
   void rejectsAesGcmAuthenticationFailureAndCleansPartialOutput() {
     EncryptedFixture fixture = encrypted("authenticated input");
     byte[] tampered = fixture.ciphertext().clone();

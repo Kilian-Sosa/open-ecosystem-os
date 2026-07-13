@@ -120,6 +120,7 @@ class TesseractOcrProviderTest {
   void returnsFixedSafeFailureWhenTesseractFails() throws Exception {
     Path root = Files.createTempDirectory("ocr-cleanup-");
     Path input = Files.createFile(root.resolve("input.png"));
+    Files.write(input, png(1, 1));
     BoundedProcessRunner runner =
         new BoundedProcessRunner(
             command -> new CompletedProcess(1, "private diagnostics", "private path"));
@@ -131,6 +132,36 @@ class TesseractOcrProviderTest {
             new FakePdfHelperClient(1, nativePage()));
 
     assertFailure(() -> provider.extract(job()), "OCR_PROCESS_FAILED");
+    assertThat(Files.exists(root)).isFalse();
+  }
+
+  @Test
+  void rejectsAnOverLimitDirectImageBeforeStartingTesseract() throws Exception {
+    Path root = Files.createTempDirectory("ocr-image-bound-");
+    Path input = root.resolve("input.png");
+    Files.write(input, png(100_000, 100_000));
+    AtomicInteger starts = new AtomicInteger();
+    TesseractOcrProvider provider =
+        provider(input, root, "image/png", starts, new FakePdfHelperClient(1, nativePage()));
+
+    assertFailure(() -> provider.extract(job()), "OCR_IMAGE_PIXEL_LIMIT");
+    assertThat(starts).hasValue(0);
+    assertThat(Files.exists(root)).isFalse();
+  }
+
+  @Test
+  void rejectsMultiPageTsvOutputBeforeAppendingBeyondTheDocumentWordLimit() throws Exception {
+    Path root = Files.createTempDirectory("ocr-document-word-bound-");
+    Path input = Files.createFile(root.resolve("input.pdf"));
+    WorkerOcrProperties limited = properties(2, 1);
+    TesseractOcrProvider provider =
+        new TesseractOcrProvider(
+            sourceReader(input, root, "application/pdf"),
+            runner(new AtomicInteger()),
+            limited,
+            new FakePdfHelperClient(2, PdfHelperPage.tesseract()));
+
+    assertFailure(() -> provider.extract(job()), "OCR_WORD_LIMIT");
     assertThat(Files.exists(root)).isFalse();
   }
 
@@ -164,6 +195,10 @@ class TesseractOcrProviderTest {
   }
 
   private WorkerOcrProperties properties(int maxPages) {
+    return properties(maxPages, 100_000);
+  }
+
+  private WorkerOcrProperties properties(int maxPages, int maxWordsPerDocument) {
     return new WorkerOcrProperties(
         "tesseract",
         3,
@@ -181,7 +216,54 @@ class TesseractOcrProviderTest {
         Duration.ofMinutes(10),
         Duration.ofMinutes(2),
         "java",
-        "/app/pdf-helper.jar");
+        "/app/pdf-helper.jar",
+        10_000,
+        maxWordsPerDocument,
+        Duration.ofSeconds(5),
+        4 * 1024);
+  }
+
+  private static byte[] png(int width, int height) {
+    try {
+      java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
+      output.write(new byte[] {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10});
+      byte[] header =
+          java.nio.ByteBuffer.allocate(13)
+              .order(java.nio.ByteOrder.BIG_ENDIAN)
+              .putInt(width)
+              .putInt(height)
+              .put((byte) 8)
+              .put((byte) 2)
+              .put((byte) 0)
+              .put((byte) 0)
+              .put((byte) 0)
+              .array();
+      chunk(output, "IHDR", header);
+      chunk(output, "IEND", new byte[0]);
+      return output.toByteArray();
+    } catch (java.io.IOException exception) {
+      throw new AssertionError(exception);
+    }
+  }
+
+  private static void chunk(java.io.ByteArrayOutputStream output, String type, byte[] data)
+      throws java.io.IOException {
+    output.write(
+        java.nio.ByteBuffer.allocate(4)
+            .order(java.nio.ByteOrder.BIG_ENDIAN)
+            .putInt(data.length)
+            .array());
+    byte[] typeBytes = type.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+    output.write(typeBytes);
+    output.write(data);
+    java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+    crc.update(typeBytes);
+    crc.update(data);
+    output.write(
+        java.nio.ByteBuffer.allocate(4)
+            .order(java.nio.ByteOrder.BIG_ENDIAN)
+            .putInt((int) crc.getValue())
+            .array());
   }
 
   private OcrJob job() {
@@ -250,7 +332,8 @@ class TesseractOcrProviderTest {
       super(
           new BoundedProcessRunner(command -> new CompletedProcess(0, "", "")),
           new WorkerOcrProperties(
-              null, 0, null, null, null, 0, null, 0, 0, 0, 0, 0, null, null, null, null, null),
+              null, 0, null, null, null, 0, null, 0, 0, 0, 0, 0, null, null, null, null, null, 0, 0,
+              null, 0),
           new ObjectMapper());
       this.pageCount = pageCount;
       this.page = page;
@@ -264,7 +347,32 @@ class TesseractOcrProviderTest {
     @Override
     public PdfHelperPage processPage(
         Path pdf, Path renderedOutput, int pageNumber, OcrExecutionDeadline deadline) {
-      return page;
+      if (page.sourceKind() == OcrSourceKind.TESSERACT_TSV) {
+        try {
+          Files.write(renderedOutput, png(1, 1));
+        } catch (Exception exception) {
+          throw new AssertionError(exception);
+        }
+        return page;
+      }
+      return new PdfHelperPage(
+          page.sourceKind(),
+          page.pageText(),
+          page.words().stream()
+              .map(
+                  word ->
+                      new OcrWord(
+                          word.readingOrder(),
+                          pageNumber,
+                          word.pageWordOrder(),
+                          word.blockNumber(),
+                          word.paragraphNumber(),
+                          word.lineNumber(),
+                          word.wordNumber(),
+                          word.text(),
+                          word.confidence(),
+                          word.boundingBox()))
+              .toList());
     }
   }
 

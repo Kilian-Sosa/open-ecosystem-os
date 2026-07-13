@@ -49,8 +49,12 @@ try {
     } catch { return $false }
   }
 
-  & docker compose -f $composeFile exec -T worker tesseract --version
+  $tesseractVersionOutput = & docker compose -f $composeFile exec -T worker tesseract --version
   if ($LASTEXITCODE -ne 0) { throw "The worker container does not provide the Tesseract executable." }
+  $tesseractVersionLine = @($tesseractVersionOutput | Select-Object -First 1)[0]
+  $tesseractVersionMatch = [regex]::Match($tesseractVersionLine, '^tesseract\s+(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)$')
+  if (-not $tesseractVersionMatch.Success) { throw "The worker Tesseract version was not a supported semantic version." }
+  $tesseractVersion = $tesseractVersionMatch.Groups[1].Value
   $languages = & docker compose -f $composeFile exec -T worker tesseract --list-langs
   if ($LASTEXITCODE -ne 0 -or -not ($languages -match "(?m)^eng$")) {
     throw "The worker container does not provide Tesseract English language data."
@@ -75,6 +79,9 @@ try {
 
   if ($detail.provider -ne "tesseract" -or $detail.ocrResult.provider -ne "tesseract") {
     throw "The smoke result was not produced by the Tesseract provider."
+  }
+  if ($detail.ocrResult.providerVersion -ne $tesseractVersion) {
+    throw "The persisted provider version did not match the running worker image."
   }
   if ($detail.ocrResult.wordCount -le 0) { throw "The persisted OCR result did not contain structured words." }
   if (-not $detail.extraction.reviewRequired) {

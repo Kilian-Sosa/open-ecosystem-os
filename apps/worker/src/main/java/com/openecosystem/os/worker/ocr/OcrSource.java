@@ -10,11 +10,18 @@ public final class OcrSource implements AutoCloseable {
   private final Path path;
   private final Path ownedDirectory;
   private final String contentType;
+  private final OcrTemporaryWorkspaceCleaner cleaner;
 
   OcrSource(Path path, Path ownedDirectory, String contentType) {
+    this(path, ownedDirectory, contentType, null);
+  }
+
+  OcrSource(
+      Path path, Path ownedDirectory, String contentType, OcrTemporaryWorkspaceCleaner cleaner) {
     this.path = path;
     this.ownedDirectory = ownedDirectory;
     this.contentType = contentType;
+    this.cleaner = cleaner;
   }
 
   public Path path() {
@@ -27,6 +34,10 @@ public final class OcrSource implements AutoCloseable {
 
   @Override
   public void close() {
+    if (cleaner != null) {
+      cleaner.clean(ownedDirectory, "source");
+      return;
+    }
     try (var paths = Files.walk(ownedDirectory)) {
       paths.sorted(Comparator.reverseOrder()).forEach(this::deleteQuietly);
     } catch (IOException ignored) {

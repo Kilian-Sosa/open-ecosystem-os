@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.openecosystem.os.worker.OpenEcosystemWorkerApplication;
 import com.openecosystem.os.worker.common.observability.CorrelationIds;
+import com.openecosystem.os.worker.ocr.TestTesseractVersionConfiguration;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -14,7 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
 @SpringBootTest(
-    classes = OpenEcosystemWorkerApplication.class,
+    classes = {OpenEcosystemWorkerApplication.class, TestTesseractVersionConfiguration.class},
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class WorkerHealthControllerTest {
 

@@ -12,7 +12,8 @@ class WorkerOcrPropertiesTest {
   void defaultsTheStaleClaimFenceBeyondTheWholeDocumentBudgetAndCleanupMargin() {
     WorkerOcrProperties properties =
         new WorkerOcrProperties(
-            null, 0, null, null, null, 0, null, 0, 0, 0, 0, 0, null, null, null, null, null);
+            null, 0, null, null, null, 0, null, 0, 0, 0, 0, 0, null, null, null, null, null, 0, 0,
+            null, 0);
 
     assertThat(properties.documentTimeout()).isEqualTo(Duration.ofMinutes(10));
     assertThat(properties.persistenceCleanupMargin()).isEqualTo(Duration.ofMinutes(2));
@@ -41,7 +42,11 @@ class WorkerOcrPropertiesTest {
             Duration.ofMinutes(10),
             Duration.ofMinutes(2),
             "java",
-            "/app/pdf-helper.jar");
+            "/app/pdf-helper.jar",
+            10_000,
+            100_000,
+            Duration.ofSeconds(5),
+            4 * 1024);
 
     assertThatThrownBy(() -> new OcrExecutionBudgetValidator(properties).validate())
         .isInstanceOf(IllegalStateException.class)

@@ -30,21 +30,25 @@ public class DriveOcrSourceReader implements OcrSourceReader {
   private final String configuredKeyId;
   private final byte[] configuredKey;
   private final long maxInputBytes;
+  private final long maxCiphertextBytes;
   private final Path temporaryRoot;
+  private final OcrTemporaryWorkspaceCleaner cleaner;
 
   @Autowired
   public DriveOcrSourceReader(
       DriveOcrMetadataRepository metadataRepository,
       OcrObjectStore objectStore,
       WorkerDriveProperties driveProperties,
-      WorkerOcrProperties ocrProperties) {
+      WorkerOcrProperties ocrProperties,
+      OcrTemporaryWorkspaceCleaner cleaner) {
     this(
         metadataRepository,
         objectStore,
         driveProperties.encryption().keyId(),
         driveProperties.encryption().keyBase64(),
         ocrProperties.maxInputBytes(),
-        Path.of(System.getProperty("java.io.tmpdir")));
+        Path.of(System.getProperty("java.io.tmpdir")),
+        cleaner);
   }
 
   DriveOcrSourceReader(
@@ -54,6 +58,24 @@ public class DriveOcrSourceReader implements OcrSourceReader {
       String configuredKeyBase64,
       long maxInputBytes,
       Path temporaryRoot) {
+    this(
+        metadataRepository,
+        objectStore,
+        configuredKeyId,
+        configuredKeyBase64,
+        maxInputBytes,
+        temporaryRoot,
+        null);
+  }
+
+  DriveOcrSourceReader(
+      DriveOcrMetadataRepository metadataRepository,
+      OcrObjectStore objectStore,
+      String configuredKeyId,
+      String configuredKeyBase64,
+      long maxInputBytes,
+      Path temporaryRoot,
+      OcrTemporaryWorkspaceCleaner cleaner) {
     this.metadataRepository = metadataRepository;
     this.objectStore = objectStore;
     this.configuredKeyId = required(configuredKeyId);
@@ -62,7 +84,13 @@ public class DriveOcrSourceReader implements OcrSourceReader {
       throw new IllegalArgumentException("OCR input limit must be positive");
     }
     this.maxInputBytes = maxInputBytes;
+    try {
+      maxCiphertextBytes = Math.addExact(maxInputBytes, 16L);
+    } catch (ArithmeticException exception) {
+      throw new IllegalArgumentException("OCR input limit exceeds the AES-GCM envelope bound");
+    }
     this.temporaryRoot = temporaryRoot;
+    this.cleaner = cleaner;
   }
 
   @Override
@@ -73,7 +101,7 @@ public class DriveOcrSourceReader implements OcrSourceReader {
       ownedDirectory = createOwnedDirectory();
       Path plaintextPath = ownedDirectory.resolve("input.bin");
       decryptAndVerify(metadata, plaintextPath);
-      return new OcrSource(plaintextPath, ownedDirectory, metadata.contentType());
+      return new OcrSource(plaintextPath, ownedDirectory, metadata.contentType(), cleaner);
     } catch (OcrProviderException exception) {
       deleteDirectory(ownedDirectory);
       throw exception;
@@ -110,7 +138,7 @@ public class DriveOcrSourceReader implements OcrSourceReader {
     MessageDigest digest = MessageDigest.getInstance("SHA-256");
     long decryptedBytes = 0;
     try (InputStream encrypted = objectStore.open(metadata.storageKey());
-        InputStream boundedEncrypted = new MaxBytesInputStream(encrypted, maxInputBytes);
+        InputStream boundedEncrypted = new MaxBytesInputStream(encrypted, maxCiphertextBytes);
         InputStream plaintext =
             new CipherInputStream(boundedEncrypted, decryptCipher(metadata.contentIv()));
         var output = Files.newOutputStream(plaintextPath)) {
@@ -170,7 +198,8 @@ public class DriveOcrSourceReader implements OcrSourceReader {
     if (directory == null) {
       return;
     }
-    new OcrSource(directory.resolve("input.bin"), directory, "application/octet-stream").close();
+    new OcrSource(directory.resolve("input.bin"), directory, "application/octet-stream", cleaner)
+        .close();
   }
 
   private boolean validIv(String value) {
