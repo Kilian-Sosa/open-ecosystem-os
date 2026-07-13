@@ -6,9 +6,12 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,6 +74,21 @@ public class JdbcOcrResultRepository {
             ocrResultId,
             workspaceId)
         .map(this::loadDocument);
+  }
+
+  public Set<String> findPresentJobIdsForWorkspace(String workspaceId, List<String> jobIds) {
+    if (jobIds.isEmpty()) return Set.of();
+    String placeholders = jobIds.stream().map(ignored -> "?").collect(Collectors.joining(", "));
+    List<Object> arguments = new ArrayList<>();
+    arguments.add(workspaceId);
+    arguments.addAll(jobIds);
+    return new LinkedHashSet<>(
+        jdbcTemplate.query(
+            "select job_id from ocr_results where workspace_id = ? and job_id in ("
+                + placeholders
+                + ")",
+            (resultSet, rowNumber) -> resultSet.getString("job_id"),
+            arguments.toArray()));
   }
 
   private void savePage(OcrPageResult page) {

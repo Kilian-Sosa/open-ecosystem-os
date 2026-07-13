@@ -13,6 +13,7 @@ import com.openecosystem.os.invoice.InvoiceExtraction;
 import com.openecosystem.os.invoice.InvoiceExtractionField;
 import com.openecosystem.os.invoice.InvoiceExtractionPort;
 import com.openecosystem.os.invoice.InvoiceExtractionRequest;
+import com.openecosystem.os.invoice.InvoiceExtractionStatus;
 import com.openecosystem.os.invoice.JdbcInvoiceExtractionRepository;
 import com.openecosystem.os.knowledge.JdbcKnowledgeItemRepository;
 import com.openecosystem.os.knowledge.KnowledgeItem;
@@ -355,6 +356,17 @@ public class WorkflowRunner {
     String resourceType =
         optionalActionText(step.action(), "resourceType", RESOURCE_TYPE_WORKFLOW_EXECUTION);
     Map<String, String> attributes = actionAttributes(command, execution, step);
+    invoiceExtractionRepository
+        .findSummaryByWorkflowExecutionIdForWorkspace(
+            execution.executionId(), execution.workspaceId())
+        .ifPresent(
+            extraction -> {
+              attributes.put("extractionId", extraction.extractionId());
+              attributes.put("status", extraction.status().value());
+              attributes.put(
+                  "reviewRequired",
+                  Boolean.toString(extraction.status() == InvoiceExtractionStatus.REVIEW_REQUIRED));
+            });
     String auditId = Ids.newId("aud");
     auditRecordRepository.save(
         new AuditRecord(

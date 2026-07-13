@@ -161,6 +161,22 @@ class JdbcInvoiceExtractionRepositoryTest {
     assertThat(count("invoice_extraction_field_sources")).isZero();
   }
 
+  @Test
+  void findsWorkspaceScopedExtractionSummariesWithoutLoadingFieldsOrWarnings() {
+    insertParents("wrk_test", "file_test", "ocr_test", "wfe_test");
+    ocrResultRepository.save(result());
+    repository.save(extraction("wrk_test", "wfe_test"));
+
+    assertThat(
+            repository.findSummariesByOcrJobIdsForWorkspace(
+                "wrk_test", List.of("ocr_test", "ocr_missing")))
+        .containsEntry(
+            "ocr_test",
+            new InvoiceExtractionSummary("invx_test", InvoiceExtractionStatus.COMPLETED));
+    assertThat(repository.findSummariesByOcrJobIdsForWorkspace("wrk_other", List.of("ocr_test")))
+        .isEmpty();
+  }
+
   private InvoiceExtraction extraction(String workspaceId, String executionId) {
     String fieldId = "invf_test";
     return new InvoiceExtraction(

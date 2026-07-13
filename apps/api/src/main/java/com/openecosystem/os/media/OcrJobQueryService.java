@@ -9,11 +9,13 @@ import com.openecosystem.os.drive.DriveFileRepository;
 import com.openecosystem.os.drive.crypto.FileEncryptionService;
 import com.openecosystem.os.invoice.InvoiceExtraction;
 import com.openecosystem.os.invoice.InvoiceExtractionField;
+import com.openecosystem.os.invoice.InvoiceExtractionSummary;
 import com.openecosystem.os.invoice.JdbcInvoiceExtractionRepository;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -47,10 +49,19 @@ public class OcrJobQueryService {
 
   public OcrJobListResponse listJobs() {
     AuthenticatedPrincipal principal = authenticationContext.currentPrincipal();
-    return new OcrJobListResponse(
+    List<AuthorizedOcrJob> authorizedJobs =
         ocrJobRepository.listByWorkspace(principal.workspaceId()).stream()
             .flatMap(job -> authorized(job).stream())
-            .map(this::toSummaryResponse)
+            .toList();
+    List<String> jobIds = authorizedJobs.stream().map(job -> job.job().jobId()).toList();
+    Set<String> ocrResultJobIds =
+        ocrResultRepository.findPresentJobIdsForWorkspace(principal.workspaceId(), jobIds);
+    Map<String, InvoiceExtractionSummary> extractionSummaries =
+        invoiceExtractionRepository.findSummariesByOcrJobIdsForWorkspace(
+            principal.workspaceId(), jobIds);
+    return new OcrJobListResponse(
+        authorizedJobs.stream()
+            .map(job -> toSummaryResponse(job, ocrResultJobIds, extractionSummaries))
             .toList());
   }
 
@@ -72,12 +83,12 @@ public class OcrJobQueryService {
         .map(file -> new AuthorizedOcrJob(job, file));
   }
 
-  private OcrJobSummaryResponse toSummaryResponse(AuthorizedOcrJob authorizedJob) {
+  private OcrJobSummaryResponse toSummaryResponse(
+      AuthorizedOcrJob authorizedJob,
+      Set<String> ocrResultJobIds,
+      Map<String, InvoiceExtractionSummary> extractionSummaries) {
     OcrJob job = authorizedJob.job();
-    boolean ocrResultPresent =
-        ocrResultRepository.findByJobIdForWorkspace(job.jobId(), job.workspaceId()).isPresent();
-    Optional<InvoiceExtraction> extraction =
-        invoiceExtractionRepository.findByOcrJobIdForWorkspace(job.jobId(), job.workspaceId());
+    InvoiceExtractionSummary extraction = extractionSummaries.get(job.jobId());
     return new OcrJobSummaryResponse(
         job.jobId(),
         job.fileId(),
@@ -96,10 +107,10 @@ public class OcrJobQueryService {
         job.completedAt(),
         job.failedAt(),
         job.updatedAt(),
-        ocrResultPresent,
-        extraction.isPresent(),
-        extraction.map(value -> value.status().value()).orElse(null),
-        extraction.map(value -> value.status().value().equals("review_required")).orElse(false));
+        ocrResultJobIds.contains(job.jobId()),
+        extraction != null,
+        extraction == null ? null : extraction.status().value(),
+        extraction != null && extraction.status().value().equals("review_required"));
   }
 
   private OcrJobDetailResponse toDetailResponse(AuthorizedOcrJob authorizedJob) {

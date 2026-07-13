@@ -159,6 +159,20 @@ class JdbcOcrResultRepositoryTest {
     assertThat(repository.findByJobIdForWorkspace("ocr_legacy", "wrk_test")).isEmpty();
   }
 
+  @Test
+  void findsWorkspaceScopedResultPresenceWithoutLoadingDocumentContent() {
+    insertParents("wrk_test", "file_present", "ocr_present", null);
+    insertParents("wrk_test", "file_absent", "ocr_absent", null);
+    repository.save(document("ocrr_present", "ocr_present", "file_present", "wrk_test"));
+
+    assertThat(
+            repository.findPresentJobIdsForWorkspace(
+                "wrk_test", List.of("ocr_present", "ocr_absent")))
+        .containsExactly("ocr_present");
+    assertThat(repository.findPresentJobIdsForWorkspace("wrk_other", List.of("ocr_present")))
+        .isEmpty();
+  }
+
   private OcrDocumentResult document(
       String resultId, String jobId, String fileId, String workspaceId) {
     OcrWord word =

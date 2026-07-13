@@ -9,6 +9,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 class HeuristicInvoiceExtractionAdapterTest {
 
@@ -90,9 +92,9 @@ class HeuristicInvoiceExtractionAdapterTest {
   }
 
   @Test
-  void prefersTheNearestSameLineValueByHorizontalDistance() {
+  void prefersTheNearestSameLineEvidenceWhenValuesNormalizeTheSame() {
     OcrWord label = word("ocrw_label", 1, 0, 0, "Total");
-    OcrWord distantValue = word("ocrw_distant", 1, 1, 900, "999.00");
+    OcrWord distantValue = word("ocrw_distant", 1, 1, 900, "121,00");
     OcrWord nearbyValue = word("ocrw_nearby", 1, 2, 100, "121.00");
     OcrDocumentResult result = document(List.of(List.of(label, distantValue, nearbyValue)));
 
@@ -100,6 +102,9 @@ class HeuristicInvoiceExtractionAdapterTest {
         new HeuristicInvoiceExtractionAdapter().extract(request(), result);
 
     assertThat(field(extraction, "total_amount").normalizedValue()).isEqualTo("121.00");
+    assertThat(field(extraction, "total_amount").sources())
+        .extracting(InvoiceExtractionFieldSource::ocrWordId)
+        .contains("ocrw_nearby");
   }
 
   @Test
@@ -176,6 +181,112 @@ class HeuristicInvoiceExtractionAdapterTest {
     assertThat(extraction.warnings())
         .extracting(InvoiceExtractionWarning::code)
         .contains("ambiguous_total_amount");
+  }
+
+  @Test
+  void marksDifferentlySpacedDistinctLabelledTotalsAsAmbiguous() {
+    InvoiceExtraction extraction =
+        new HeuristicInvoiceExtractionAdapter()
+            .extract(
+                request(),
+                document(
+                    List.of(
+                        List.of(
+                            word("ocrw_total_label_near", 1, 0, 10, "Total"),
+                            word("ocrw_total_value_near", 1, 1, 100, "121.00")),
+                        List.of(
+                            word("ocrw_total_label_distant", 2, 0, 10, "Total"),
+                            word("ocrw_total_value_distant", 2, 1, 800, "122.00")))));
+
+    assertThat(extraction.status()).isEqualTo(InvoiceExtractionStatus.REVIEW_REQUIRED);
+    assertThat(extraction.fields())
+        .extracting(InvoiceExtractionField::fieldKey)
+        .doesNotContain("total_amount");
+    assertThat(extraction.warnings())
+        .extracting(InvoiceExtractionWarning::code)
+        .contains("ambiguous_total_amount")
+        .doesNotContain("missing_total_amount");
+    assertThat(extraction.warnings())
+        .extracting(InvoiceExtractionWarning::message)
+        .allMatch(message -> !message.contains("121.00") && !message.contains("122.00"));
+  }
+
+  @Test
+  void selectsRepeatedLabelledEvidenceWhenTheNormalizedTotalIsTheSame() {
+    InvoiceExtraction extraction =
+        new HeuristicInvoiceExtractionAdapter()
+            .extract(
+                request(),
+                document(
+                    List.of(
+                        List.of(
+                            word("ocrw_total_label_near", 1, 0, 10, "Total"),
+                            word("ocrw_total_value_near", 1, 1, 100, "121.00")),
+                        List.of(
+                            word("ocrw_total_label_distant", 2, 0, 10, "Total"),
+                            word("ocrw_total_value_distant", 2, 1, 800, "121,00")))));
+
+    assertThat(field(extraction, "total_amount").normalizedValue()).isEqualTo("121.00");
+    assertThat(extraction.warnings())
+        .extracting(InvoiceExtractionWarning::code)
+        .doesNotContain("ambiguous_total_amount");
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "USD, USD",
+    "CAD, CAD",
+    "AUD, AUD",
+    "EUR, EUR",
+    "GBP, GBP",
+    "US$, USD",
+    "CA$, CAD",
+    "C$, CAD",
+    "AU$, AUD",
+    "A$, AUD",
+    "NZ$, NZD",
+    "€, EUR",
+    "£, GBP"
+  })
+  void acceptsOnlyApprovedExplicitCurrencyEvidence(String evidence, String expectedCurrency) {
+    InvoiceExtraction extraction =
+        new HeuristicInvoiceExtractionAdapter()
+            .extract(request(), document(List.of(words(1, "Currency", evidence))));
+
+    assertThat(field(extraction, "currency").normalizedValue()).isEqualTo(expectedCurrency);
+  }
+
+  @Test
+  void treatsALabelledBareDollarAsAmbiguousWithoutFabricatingCurrency() {
+    InvoiceExtraction extraction =
+        new HeuristicInvoiceExtractionAdapter()
+            .extract(request(), document(List.of(words(1, "Currency", "$"))));
+
+    assertThat(extraction.status()).isEqualTo(InvoiceExtractionStatus.REVIEW_REQUIRED);
+    assertThat(extraction.fields())
+        .extracting(InvoiceExtractionField::fieldKey)
+        .doesNotContain("currency");
+    assertThat(extraction.warnings())
+        .extracting(InvoiceExtractionWarning::code)
+        .contains("ambiguous_currency")
+        .doesNotContain("missing_currency", "invalid_currency");
+    assertThat(extraction.warnings())
+        .extracting(InvoiceExtractionWarning::message)
+        .allMatch(message -> !message.contains("$") && !message.contains("USD"));
+  }
+
+  @Test
+  void rejectsUnlistedCurrencyMarkersWithoutMappingThem() {
+    InvoiceExtraction extraction =
+        new HeuristicInvoiceExtractionAdapter()
+            .extract(request(), document(List.of(words(1, "Currency", "¥"))));
+
+    assertThat(extraction.fields())
+        .extracting(InvoiceExtractionField::fieldKey)
+        .doesNotContain("currency");
+    assertThat(extraction.warnings())
+        .extracting(InvoiceExtractionWarning::message)
+        .allMatch(message -> !message.contains("¥") && !message.contains("JPY"));
   }
 
   private InvoiceExtractionRequest request() {

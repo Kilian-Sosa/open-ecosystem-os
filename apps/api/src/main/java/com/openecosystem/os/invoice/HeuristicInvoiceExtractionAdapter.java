@@ -40,6 +40,16 @@ public class HeuristicInvoiceExtractionAdapter implements InvoiceExtractionPort 
   private static final DateTimeFormatter ISO_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
   private static final DateTimeFormatter DMY_DATE =
       DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
+  private static final Map<String, String> CURRENCY_MARKERS =
+      Map.ofEntries(
+          Map.entry("€", "EUR"),
+          Map.entry("£", "GBP"),
+          Map.entry("US$", "USD"),
+          Map.entry("CA$", "CAD"),
+          Map.entry("C$", "CAD"),
+          Map.entry("AU$", "AUD"),
+          Map.entry("A$", "AUD"),
+          Map.entry("NZ$", "NZD"));
   private static final List<FieldDefinition> FIELD_DEFINITIONS =
       List.of(
           new FieldDefinition(
@@ -72,19 +82,26 @@ public class HeuristicInvoiceExtractionAdapter implements InvoiceExtractionPort 
     List<InvoiceExtractionField> fields = new ArrayList<>();
     Map<String, InvoiceExtractionWarning> warnings = new LinkedHashMap<>();
     for (FieldDefinition definition : FIELD_DEFINITIONS) {
+      boolean ambiguous =
+          hasAmbiguousCandidates(definition, result)
+              || hasBareDollarCurrencyCandidate(definition, result);
       resolveField(definition, result)
           .ifPresentOrElse(
               candidate ->
                   fields.add(
                       toField(extractionId, request, definition.key(), candidate, now, warnings)),
-              () ->
+              () -> {
+                if (!ambiguous) {
                   warnings.putIfAbsent(
-                      "missing_" + definition.key(), missingWarning(definition.key())));
-      if (hasInvalidLabelledCandidate(definition, result)) {
+                      "missing_" + definition.key(), missingWarning(definition.key()));
+                }
+              });
+      if (hasInvalidLabelledCandidate(definition, result)
+          && !hasBareDollarCurrencyCandidate(definition, result)) {
         warnings.putIfAbsent("invalid_" + definition.key(), invalidWarning(definition.key()));
         fields.removeIf(field -> field.fieldKey().equals(definition.key()));
       }
-      if (hasAmbiguousCandidates(definition, result)) {
+      if (ambiguous) {
         warnings.putIfAbsent("ambiguous_" + definition.key(), ambiguousWarning(definition.key()));
         fields.removeIf(field -> field.fieldKey().equals(definition.key()));
       }
@@ -125,10 +142,13 @@ public class HeuristicInvoiceExtractionAdapter implements InvoiceExtractionPort 
     List<Candidate> candidates =
         candidates(definition, result).stream().filter(this::isValid).toList();
     if (candidates.isEmpty()) return Optional.empty();
-    int bestScore = candidates.stream().mapToInt(Candidate::score).min().orElseThrow();
-    List<Candidate> best =
-        candidates.stream().filter(candidate -> candidate.score() == bestScore).toList();
-    return best.size() == 1 ? Optional.of(best.getFirst()) : Optional.empty();
+    Map<String, List<Candidate>> byNormalizedValue = candidatesByNormalizedValue(candidates);
+    if (byNormalizedValue.size() != 1) return Optional.empty();
+    return byNormalizedValue.values().iterator().next().stream()
+        .min(
+            Comparator.comparingInt(Candidate::score)
+                .thenComparingInt(candidate -> candidate.labelWords().getFirst().pageNumber())
+                .thenComparingInt(candidate -> candidate.labelWords().getFirst().readingOrder()));
   }
 
   private boolean hasInvalidLabelledCandidate(
@@ -139,9 +159,25 @@ public class HeuristicInvoiceExtractionAdapter implements InvoiceExtractionPort 
 
   private boolean hasAmbiguousCandidates(FieldDefinition definition, OcrDocumentResult result) {
     List<Candidate> valid = candidates(definition, result).stream().filter(this::isValid).toList();
-    if (valid.isEmpty()) return false;
-    int bestScore = valid.stream().mapToInt(Candidate::score).min().orElseThrow();
-    return valid.stream().filter(candidate -> candidate.score() == bestScore).count() > 1;
+    return candidatesByNormalizedValue(valid).size() > 1;
+  }
+
+  private Map<String, List<Candidate>> candidatesByNormalizedValue(List<Candidate> candidates) {
+    Map<String, List<Candidate>> byNormalizedValue = new LinkedHashMap<>();
+    for (Candidate candidate : candidates) {
+      byNormalizedValue
+          .computeIfAbsent(
+              normalizedValue(candidate.key(), candidate.text()), ignored -> new ArrayList<>())
+          .add(candidate);
+    }
+    return byNormalizedValue;
+  }
+
+  private boolean hasBareDollarCurrencyCandidate(
+      FieldDefinition definition, OcrDocumentResult result) {
+    return definition.key().equals("currency")
+        && candidates(definition, result).stream()
+            .anyMatch(candidate -> candidate.text().trim().equals("$"));
   }
 
   private List<Candidate> candidates(FieldDefinition definition, OcrDocumentResult result) {
@@ -361,19 +397,15 @@ public class HeuristicInvoiceExtractionAdapter implements InvoiceExtractionPort 
   }
 
   private Optional<String> currency(String text) {
-    String upper = text.toUpperCase(Locale.ROOT);
-    for (String token : upper.split("[^A-Z]+")) {
-      if (token.length() != 3) continue;
+    String evidence = text.trim().toUpperCase(Locale.ROOT);
+    if (evidence.matches("[A-Z]{3}")) {
       try {
-        return Optional.of(Currency.getInstance(token).getCurrencyCode());
+        return Optional.of(Currency.getInstance(evidence).getCurrencyCode());
       } catch (IllegalArgumentException ignored) {
         // Continue searching an explicitly labelled candidate for a supported code.
       }
     }
-    if (upper.contains("€")) return Optional.of("EUR");
-    if (upper.contains("£")) return Optional.of("GBP");
-    if (upper.contains("$") && !upper.contains("US$")) return Optional.of("USD");
-    return Optional.empty();
+    return Optional.ofNullable(CURRENCY_MARKERS.get(evidence));
   }
 
   private Optional<LocalDate> parseDate(String text) {

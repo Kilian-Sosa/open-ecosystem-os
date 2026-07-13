@@ -7,8 +7,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -99,6 +103,53 @@ public class JdbcInvoiceExtractionRepository {
             jobId,
             workspaceId);
     return results.stream().findFirst();
+  }
+
+  public Map<String, InvoiceExtractionSummary> findSummariesByOcrJobIdsForWorkspace(
+      String workspaceId, List<String> jobIds) {
+    if (jobIds.isEmpty()) return Map.of();
+    String placeholders = jobIds.stream().map(ignored -> "?").collect(Collectors.joining(", "));
+    List<Object> arguments = new ArrayList<>();
+    arguments.add(workspaceId);
+    arguments.addAll(jobIds);
+    Map<String, InvoiceExtractionSummary> byJobId = new LinkedHashMap<>();
+    jdbcTemplate
+        .query(
+            """
+            select job_id, extraction_id, status
+            from invoice_extractions
+            where workspace_id = ? and job_id in (%s)
+            order by job_id, created_at desc
+            """
+                .formatted(placeholders),
+            (resultSet, rowNumber) ->
+                Map.entry(
+                    resultSet.getString("job_id"),
+                    new InvoiceExtractionSummary(
+                        resultSet.getString("extraction_id"),
+                        invoiceStatus(resultSet.getString("status")))),
+            arguments.toArray())
+        .forEach(entry -> byJobId.putIfAbsent(entry.getKey(), entry.getValue()));
+    return Map.copyOf(byJobId);
+  }
+
+  public Optional<InvoiceExtractionSummary> findSummaryByWorkflowExecutionIdForWorkspace(
+      String workflowExecutionId, String workspaceId) {
+    return jdbcTemplate
+        .query(
+            """
+            select extraction_id, status
+            from invoice_extractions
+            where workflow_execution_id = ? and workspace_id = ?
+            """,
+            (resultSet, rowNumber) ->
+                new InvoiceExtractionSummary(
+                    resultSet.getString("extraction_id"),
+                    invoiceStatus(resultSet.getString("status"))),
+            workflowExecutionId,
+            workspaceId)
+        .stream()
+        .findFirst();
   }
 
   private void saveField(InvoiceExtraction extraction, InvoiceExtractionField field) {

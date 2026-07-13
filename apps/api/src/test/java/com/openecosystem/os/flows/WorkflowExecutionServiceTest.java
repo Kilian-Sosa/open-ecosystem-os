@@ -77,6 +77,16 @@ class WorkflowExecutionServiceTest {
     assertThat(outboxCount("IndexingRequested")).isEqualTo(1);
     assertThat(jdbcTemplate.queryForObject("select status from invoice_extractions", String.class))
         .isEqualTo("completed");
+    String extractionId =
+        jdbcTemplate.queryForObject("select extraction_id from invoice_extractions", String.class);
+    String auditAttributes =
+        jdbcTemplate.queryForObject("select attributes_json from audit_records", String.class);
+    assertThat(auditAttributes)
+        .contains(
+            "\"extractionId\":\"" + extractionId + "\"",
+            "\"status\":\"completed\"",
+            "\"reviewRequired\":\"false\"")
+        .doesNotContain(PRIVATE_OCR_TEXT, PRIVATE_IBAN, PRIVATE_TAX_ID, "TEST-INV-2026-42");
 
     String extractionOutput =
         jdbcTemplate.queryForObject(
@@ -142,6 +152,16 @@ class WorkflowExecutionServiceTest {
     assertThat(count("notifications")).isEqualTo(1);
     assertThat(count("search_documents")).isEqualTo(1);
     assertThat(count("event_consumptions")).isEqualTo(1);
+    String extractionId =
+        jdbcTemplate.queryForObject("select extraction_id from invoice_extractions", String.class);
+    String auditAttributes =
+        jdbcTemplate.queryForObject("select attributes_json from audit_records", String.class);
+    assertThat(auditAttributes)
+        .contains(
+            "\"extractionId\":\"" + extractionId + "\"",
+            "\"status\":\"review_required\"",
+            "\"reviewRequired\":\"true\"")
+        .doesNotContain(PRIVATE_OCR_TEXT, PRIVATE_IBAN, PRIVATE_TAX_ID, "TEST-INV-2026-42");
   }
 
   private String createWorkflow(String definitionJson) throws Exception {
