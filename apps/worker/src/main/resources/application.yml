@@ -53,6 +53,10 @@ openecosystem:
       max-rendered-pixels: ${OCR_MAX_RENDERED_PIXELS:20000000}
       max-process-output-bytes: ${OCR_MAX_PROCESS_OUTPUT_BYTES:10485760}
       stale-processing-timeout: ${OCR_STALE_PROCESSING_TIMEOUT_SECONDS:15m}
+      document-timeout: ${OCR_DOCUMENT_TIMEOUT_SECONDS:10m}
+      persistence-cleanup-margin: ${OCR_PERSISTENCE_CLEANUP_MARGIN_SECONDS:2m}
+      pdf-helper-command: ${OCR_PDF_HELPER_COMMAND:java}
+      pdf-helper-jar: ${OCR_PDF_HELPER_JAR:/app/pdf-helper.jar}
   drive:
     encryption:
       key-id: ${DRIVE_ENCRYPTION_KEY_ID:}

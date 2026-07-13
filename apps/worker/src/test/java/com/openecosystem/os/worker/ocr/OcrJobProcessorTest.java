@@ -565,7 +565,7 @@ class OcrJobProcessorTest {
     }
 
     @Override
-    public OcrDocumentResult extract(OcrJob job) {
+    public OcrDocumentResult extract(OcrJob job, OcrExecutionDeadline deadline) {
       calls.incrementAndGet();
       onExtract.run();
       if (unsafeFailure.get()) {

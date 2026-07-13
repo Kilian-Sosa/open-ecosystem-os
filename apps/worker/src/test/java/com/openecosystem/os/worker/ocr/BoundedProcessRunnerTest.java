@@ -44,6 +44,20 @@ class BoundedProcessRunnerTest {
   }
 
   @Test
+  void forciblyTerminatesAStubbornHelperProcessWithinItsDeadline() {
+    StubbornProcess process = new StubbornProcess();
+    BoundedProcessRunner runner = new BoundedProcessRunner(command -> process);
+
+    assertFailure(
+        () -> runner.run(List.of("java", "-jar", "helper.jar"), Duration.ofMillis(10), 64, 16),
+        "OCR_PROCESS_TIMEOUT",
+        "OCR process timed out");
+
+    assertThat(process.destroyed.get()).isTrue();
+    assertThat(process.forciblyDestroyed.get()).isTrue();
+  }
+
+  @Test
   void terminatesProcessWhenStdoutExceedsCap() {
     ControlledProcess process = ControlledProcess.completed(0, "x".repeat(65), "");
     BoundedProcessRunner runner = new BoundedProcessRunner(command -> process);
@@ -230,6 +244,59 @@ class BoundedProcessRunnerTest {
     @Override
     public boolean isAlive() {
       return completion.getCount() > 0;
+    }
+  }
+
+  private static final class StubbornProcess extends Process {
+
+    private final AtomicBoolean destroyed = new AtomicBoolean(false);
+    private final AtomicBoolean forciblyDestroyed = new AtomicBoolean(false);
+
+    @Override
+    public OutputStream getOutputStream() {
+      return new ByteArrayOutputStream();
+    }
+
+    @Override
+    public InputStream getInputStream() {
+      return new ByteArrayInputStream(new byte[0]);
+    }
+
+    @Override
+    public InputStream getErrorStream() {
+      return new ByteArrayInputStream(new byte[0]);
+    }
+
+    @Override
+    public int waitFor() throws InterruptedException {
+      Thread.sleep(Long.MAX_VALUE);
+      return 0;
+    }
+
+    @Override
+    public boolean waitFor(long timeout, TimeUnit unit) {
+      return forciblyDestroyed.get();
+    }
+
+    @Override
+    public int exitValue() {
+      return 0;
+    }
+
+    @Override
+    public void destroy() {
+      destroyed.set(true);
+    }
+
+    @Override
+    public Process destroyForcibly() {
+      forciblyDestroyed.set(true);
+      return this;
+    }
+
+    @Override
+    public boolean isAlive() {
+      return !forciblyDestroyed.get();
     }
   }
 }

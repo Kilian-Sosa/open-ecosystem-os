@@ -9,6 +9,7 @@ out/
 # Java / Maven
 apps/api/target/
 apps/worker/target/
+apps/worker/pdf-helper/target/
 *.class
 
 # Env

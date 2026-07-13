@@ -6,6 +6,7 @@ import com.openecosystem.os.worker.common.events.EventConsumptionRepository;
 import com.openecosystem.os.worker.common.events.EventEnvelope;
 import com.openecosystem.os.worker.common.events.JdbcEventOutboxRepository;
 import com.openecosystem.os.worker.metrics.WorkerMetrics;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
@@ -84,7 +85,13 @@ public class OcrJobProcessor {
     }
 
     try {
-      OcrDocumentResult providerResult = ocrProvider.extract(claimedJob);
+      OcrDocumentResult providerResult =
+          ocrProvider.extract(
+              claimedJob,
+              OcrExecutionDeadline.start(
+                  Clock.systemUTC(),
+                  claimedJob.processingStartedAt(),
+                  properties.documentTimeout()));
       completeJob(event, claimedJob, providerResult);
       return new OcrProcessingResult(OcrProcessingOutcome.COMPLETED, event.jobId());
     } catch (RuntimeException exception) {

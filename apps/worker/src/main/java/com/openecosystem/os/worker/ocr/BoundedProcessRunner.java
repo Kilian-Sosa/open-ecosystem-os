@@ -28,7 +28,12 @@ public final class BoundedProcessRunner {
   }
 
   public BoundedProcessResult run(List<String> command, Duration timeout, int maxOutputBytes) {
-    List<String> arguments = validate(command, timeout, maxOutputBytes);
+    return run(command, timeout, maxOutputBytes, maxOutputBytes);
+  }
+
+  public BoundedProcessResult run(
+      List<String> command, Duration timeout, int maxStdoutBytes, int maxStderrBytes) {
+    List<String> arguments = validate(command, timeout, maxStdoutBytes, maxStderrBytes);
     Process process = start(arguments);
     ExecutorService drainers =
         Executors.newFixedThreadPool(
@@ -37,12 +42,12 @@ public final class BoundedProcessRunner {
         drainers.submit(
             () ->
                 readBounded(
-                    process.getInputStream(), maxOutputBytes, OutputStreamKind.STDOUT, process));
+                    process.getInputStream(), maxStdoutBytes, OutputStreamKind.STDOUT, process));
     Future<byte[]> stderr =
         drainers.submit(
             () ->
                 readBounded(
-                    process.getErrorStream(), maxOutputBytes, OutputStreamKind.STDERR, process));
+                    process.getErrorStream(), maxStderrBytes, OutputStreamKind.STDERR, process));
 
     try {
       process.getOutputStream().close();
@@ -71,14 +76,15 @@ public final class BoundedProcessRunner {
     }
   }
 
-  private List<String> validate(List<String> command, Duration timeout, int maxOutputBytes) {
+  private List<String> validate(
+      List<String> command, Duration timeout, int maxStdoutBytes, int maxStderrBytes) {
     if (command == null || command.isEmpty() || command.getFirst().isBlank()) {
       throw new IllegalArgumentException("Process command must not be empty");
     }
     if (timeout == null || timeout.isZero() || timeout.isNegative()) {
       throw new IllegalArgumentException("Process timeout must be positive");
     }
-    if (maxOutputBytes <= 0) {
+    if (maxStdoutBytes <= 0 || maxStderrBytes <= 0) {
       throw new IllegalArgumentException("Process output limit must be positive");
     }
     return List.copyOf(command);
@@ -131,6 +137,18 @@ public final class BoundedProcessRunner {
   }
 
   private void terminate(Process process) {
+    try {
+      process.toHandle().descendants().forEach(handle -> handle.destroy());
+      process
+          .toHandle()
+          .descendants()
+          .forEach(
+              handle -> {
+                if (handle.isAlive()) handle.destroyForcibly();
+              });
+    } catch (UnsupportedOperationException ignored) {
+      // Test doubles and legacy process implementations may not expose a ProcessHandle.
+    }
     if (!process.isAlive()) {
       process.destroy();
       return;
