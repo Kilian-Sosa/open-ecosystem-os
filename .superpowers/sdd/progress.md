@@ -1,5 +1,27 @@
 # Real OCR extraction progress
 
+## 2026-07-13 CV-04 source-file `file:view` authorization closed by implementation
+
+- Detached worktree: `C:\Users\kilia\AppData\Local\Temp\open-ecosystem-os-cv04-file-view-20260713-1530` at source HEAD `ad4f257d450a7f8435067851574061a4977942c0`.
+- Root-cause findings and the retained sharing-model gap are recorded in
+  `.superpowers/sdd/task-final-review-file-view-report.md`.
+- Added the reusable `ResourcePermissionDecision` for the persisted private-file model:
+  matching workspace plus `drive_files.owner_id` is the current executable `file:view`
+  decision. No migration, workspace-membership fallback, or invented sharing schema was added.
+- Applied the decision to Drive list/detail and to OCR list/detail before OCR-result or
+  extraction repository reads. Denied, foreign-workspace, and missing-source OCR detail
+  responses remain non-enumerating `NOT_FOUND`; denied requests do not load protected OCR or
+  extraction data.
+- Explicit shared-user access remains unsupported because no persisted sharing/grant model
+  exists; this architectural gap is documented rather than substituted with workspace membership.
+- Detached commit: `808662b` (`fix(api): enforce source file view authorization`).
+- Source cherry-pick commit: `109291d` on `feat/real-ocr-extraction`.
+- Verification passed in the detached worktree: focused permission/OCR/Drive tests, full
+  `apps\api\mvnw.cmd -q test`, and `apps\api\mvnw.cmd -q spotless:check`.
+- Post-cherry-pick source verification passed:
+  `ResourcePermissionDecisionTest`, `OcrJobQueryServiceTest`, `OcrJobControllerTest`, and
+  `DriveFileControllerTest`.
+
 ## 2026-07-13 Remediation Task 4 — bounded Media/OCR polling and feedback
 
 - Detached worktree: `C:\Users\kilia\AppData\Local\Temp\open-ecosystem-os-task4-media-polling-20260713` at source HEAD `f9c3c8f`.
