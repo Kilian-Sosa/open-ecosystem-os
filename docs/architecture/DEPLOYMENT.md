@@ -58,6 +58,8 @@ Each image should:
 - receive config through environment variables
 - not include secrets in the image
 
+The worker image includes the Tesseract executable and English (`eng`) language data. It runs as a non-root user and defaults to `OCR_PROVIDER=tesseract`; mock OCR is test-only and is not a supported runtime setting. Compose configures the worker command, languages, single-document concurrency, page timeout/count, render DPI, input, rendered-pixel, and process-output bounds. Compose mounts a bounded writable `/tmp` while retaining a read-only worker root filesystem.
+
 ## Kubernetes strategy
 
 Start with raw manifests or Kustomize overlays:
@@ -69,6 +71,8 @@ infra/k8s/overlays/prod
 ```
 
 Consider Helm only after manifests stabilize.
+
+The worker Deployment keeps `readOnlyRootFilesystem`, drops Linux capabilities, runs as UID/GID 10001, and mounts only a bounded 128 MiB `emptyDir` at `/tmp`. The `JAVA_TOOL_OPTIONS` setting maps Java temporary-file creation to that volume. Its capacity covers the single-document 25 MiB input cap plus a worst-case rendered page bounded by `OCR_MAX_RENDERED_PIXELS`; the base ConfigMap carries the same non-secret Tesseract and application-limit settings as Compose. Credentials and encryption keys remain Kubernetes Secrets. Production retains the bounded temporary volume and has higher worker CPU/memory limits for PDF rendering while application-level document concurrency remains one.
 
 ## Suggested namespaces
 

@@ -55,7 +55,7 @@ workspace membership and permission model.
 - task
 - notification
 - search_document
-- demo_invoice_extraction
+- invoice_extraction
 - audit_log
 - integration
 - api_key
@@ -92,7 +92,7 @@ workspace membership and permission model.
 | Pages              | manage | manage | edit                 | edit               | view   | limited view | view audit only |
 | Workflows          | manage | manage | edit/execute         | execute if allowed | view   | none         | view audit only |
 | Search documents   | manage | manage | view                 | view               | view   | none         | view audit only |
-| Demo invoice data  | manage | manage | execute              | execute if allowed | view   | none         | view audit only |
+| Invoice extraction | manage | manage | view                 | view               | view   | none         | view audit only |
 | Integrations       | manage | manage | configure if allowed | none               | none   | none         | view            |
 | API keys           | manage | manage | create own           | none               | none   | none         | view audit only |
 | Audit logs         | view   | view   | limited own          | limited own        | none   | none         | view            |
@@ -183,6 +183,8 @@ map OCR job access to the source file permission:
 
 - viewing OCR job status requires `file:view`
 - viewing extracted OCR text requires `file:view` on the source file
+- viewing structured OCR words, extraction fields, warnings, and provenance requires the
+  same `file:view` permission on the source file; there is no separate extraction-data grant
 - re-running or deleting OCR jobs later should require `file:edit` or `file:manage`
 - auditors may view OCR audit metadata but not extracted text by default
 - the OCR lifecycle projection inherits the same source-file and OCR-detail

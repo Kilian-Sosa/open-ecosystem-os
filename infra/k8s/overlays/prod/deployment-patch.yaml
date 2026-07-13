@@ -93,3 +93,7 @@ spec:
             limits:
               cpu: "2000m"
               memory: "2Gi"
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 128Mi

@@ -22,6 +22,7 @@ make docker-watch
 make docker-down
 make docker-logs
 make smoke
+make smoke-real-ocr
 make security-scan
 make k8s-validate
 make ci-local
@@ -111,6 +112,16 @@ make obs-watch
 make obs-ps
 make obs-down
 ```
+
+Real OCR Compose smoke:
+
+```bash
+make smoke-real-ocr
+# PowerShell: .\scripts\smoke-real-ocr.ps1 -StartStack
+# POSIX shell: sh scripts/smoke-real-ocr.sh --start-stack
+```
+
+The smoke uploads only the committed, clearly labelled synthetic fixture and requires a running containerized Tesseract binary with `eng` language data. It asserts persisted structured words, observed extraction fields, and a review-required extraction; it does not exercise a runtime mock.
 
 ## Kubernetes validation commands
 

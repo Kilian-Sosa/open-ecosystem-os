@@ -22,10 +22,10 @@ Purpose: prove the product can be installed and understood from zero.
 Upload invoice PDF to Drive
   -> FileUploaded event emitted
   -> OCR job queued
-  -> OCR worker processes document
+  -> OCR worker decrypts and processes the eligible PDF/image with Tesseract when required
   -> OcrCompleted event emitted
   -> Open Ecosystem Flows matches workflow trigger
-  -> Extract invoice fields using AI/mock extractor
+  -> Extract persisted invoice fields with the local heuristic and surface review-required warnings
   -> Create Open Pages/Knowledge entry
   -> Create Kanban task or approval request
   -> Send notification
