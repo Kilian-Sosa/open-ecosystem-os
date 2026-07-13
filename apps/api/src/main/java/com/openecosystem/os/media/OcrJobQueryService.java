@@ -4,6 +4,7 @@ import com.openecosystem.os.common.errors.ApiErrorCode;
 import com.openecosystem.os.common.errors.ApiException;
 import com.openecosystem.os.common.security.AuthenticatedPrincipal;
 import com.openecosystem.os.common.security.AuthenticationContext;
+import com.openecosystem.os.common.security.ResourcePermissionDecision;
 import com.openecosystem.os.drive.DriveFileMetadata;
 import com.openecosystem.os.drive.DriveFileRepository;
 import com.openecosystem.os.drive.crypto.FileEncryptionService;
@@ -29,6 +30,7 @@ public class OcrJobQueryService {
   private final OcrJobLifecycleProjectionService lifecycleProjectionService;
   private final JdbcOcrResultRepository ocrResultRepository;
   private final JdbcInvoiceExtractionRepository invoiceExtractionRepository;
+  private final ResourcePermissionDecision resourcePermissionDecision;
 
   public OcrJobQueryService(
       AuthenticationContext authenticationContext,
@@ -37,7 +39,8 @@ public class OcrJobQueryService {
       FileEncryptionService encryptionService,
       OcrJobLifecycleProjectionService lifecycleProjectionService,
       JdbcOcrResultRepository ocrResultRepository,
-      JdbcInvoiceExtractionRepository invoiceExtractionRepository) {
+      JdbcInvoiceExtractionRepository invoiceExtractionRepository,
+      ResourcePermissionDecision resourcePermissionDecision) {
     this.authenticationContext = authenticationContext;
     this.ocrJobRepository = ocrJobRepository;
     this.driveFileRepository = driveFileRepository;
@@ -45,13 +48,14 @@ public class OcrJobQueryService {
     this.lifecycleProjectionService = lifecycleProjectionService;
     this.ocrResultRepository = ocrResultRepository;
     this.invoiceExtractionRepository = invoiceExtractionRepository;
+    this.resourcePermissionDecision = resourcePermissionDecision;
   }
 
   public OcrJobListResponse listJobs() {
     AuthenticatedPrincipal principal = authenticationContext.currentPrincipal();
     List<AuthorizedOcrJob> authorizedJobs =
         ocrJobRepository.listByWorkspace(principal.workspaceId()).stream()
-            .flatMap(job -> authorized(job).stream())
+            .flatMap(job -> authorized(job, principal).stream())
             .toList();
     List<String> jobIds = authorizedJobs.stream().map(job -> job.job().jobId()).toList();
     Set<String> ocrResultJobIds =
@@ -69,7 +73,7 @@ public class OcrJobQueryService {
     AuthenticatedPrincipal principal = authenticationContext.currentPrincipal();
     return ocrJobRepository
         .findByIdForWorkspace(jobId, principal.workspaceId())
-        .flatMap(this::authorized)
+        .flatMap(job -> authorized(job, principal))
         .map(this::toDetailResponse)
         .orElseThrow(
             () ->
@@ -77,9 +81,10 @@ public class OcrJobQueryService {
                     HttpStatus.NOT_FOUND, ApiErrorCode.NOT_FOUND, "OCR job was not found"));
   }
 
-  private Optional<AuthorizedOcrJob> authorized(OcrJob job) {
+  private Optional<AuthorizedOcrJob> authorized(OcrJob job, AuthenticatedPrincipal principal) {
     return driveFileRepository
         .findByIdForWorkspace(job.fileId(), job.workspaceId())
+        .filter(file -> resourcePermissionDecision.mayViewFile(principal, file))
         .map(file -> new AuthorizedOcrJob(job, file));
   }
 

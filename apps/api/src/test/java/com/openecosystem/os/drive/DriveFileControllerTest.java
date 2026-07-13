@@ -156,6 +156,51 @@ class DriveFileControllerTest {
         .doesNotContain("\"name\":\"workspace-b.pdf\"");
   }
 
+  @Test
+  void hidesPrivateFilesFromAnUnsharedWorkspaceMember() throws Exception {
+    String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
+    seedExistingWorkspaceMembership("usr_unshared", workspaceId, "VIEWER");
+
+    HttpResponse<String> uploadResponse =
+        httpClient.send(
+            uploadRequest(
+                    "private.pdf",
+                    "application/pdf",
+                    "%PDF-1.7 private".getBytes(StandardCharsets.UTF_8))
+                .header(
+                    PlaceholderAuthenticationContext.ACTOR_HEADER,
+                    PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID)
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+                .build(),
+            BodyHandlers.ofString());
+    String fileId =
+        jdbcTemplate.queryForObject(
+            "select file_id from drive_files where workspace_id = ?", String.class, workspaceId);
+
+    HttpResponse<String> listResponse =
+        httpClient.send(
+            HttpRequest.newBuilder(uri("/api/drive/files"))
+                .header(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_unshared")
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+                .GET()
+                .build(),
+            BodyHandlers.ofString());
+    HttpResponse<String> detailResponse =
+        httpClient.send(
+            HttpRequest.newBuilder(uri("/api/drive/files/" + fileId))
+                .header(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_unshared")
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+                .GET()
+                .build(),
+            BodyHandlers.ofString());
+
+    assertThat(uploadResponse.statusCode()).isEqualTo(201);
+    assertThat(listResponse.statusCode()).isEqualTo(200);
+    assertThat(listResponse.body()).doesNotContain("private.pdf");
+    assertThat(detailResponse.statusCode()).isEqualTo(404);
+    assertThat(detailResponse.body()).doesNotContain("private.pdf");
+  }
+
   private void seedWorkspaceMembership(String actorId, String workspaceId) {
     jdbcTemplate.update(
         """
@@ -184,6 +229,28 @@ class DriveFileControllerTest {
         """,
         workspaceId,
         actorId);
+  }
+
+  private void seedExistingWorkspaceMembership(String actorId, String workspaceId, String role) {
+    jdbcTemplate.update(
+        """
+        insert into identity_users (
+          user_id, display_name, email, avatar_initials, status, is_seeded, created_at, updated_at
+        ) values (?, ?, ?, ?, 'active', false, current_timestamp, current_timestamp)
+        """,
+        actorId,
+        actorId,
+        actorId + "@example.test",
+        "TS");
+    jdbcTemplate.update(
+        """
+        insert into workspace_memberships (
+          workspace_id, user_id, role, is_default, created_at, updated_at
+        ) values (?, ?, ?, false, current_timestamp, current_timestamp)
+        """,
+        workspaceId,
+        actorId,
+        role);
   }
 
   @Test

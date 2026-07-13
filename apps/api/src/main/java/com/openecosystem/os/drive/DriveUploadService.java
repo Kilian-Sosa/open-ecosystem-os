@@ -11,6 +11,7 @@ import com.openecosystem.os.common.ids.Ids;
 import com.openecosystem.os.common.security.AuthenticatedPrincipal;
 import com.openecosystem.os.common.security.AuthenticationContext;
 import com.openecosystem.os.common.security.CorrelationContext;
+import com.openecosystem.os.common.security.ResourcePermissionDecision;
 import com.openecosystem.os.drive.crypto.EncryptedBytes;
 import com.openecosystem.os.drive.crypto.EncryptedText;
 import com.openecosystem.os.drive.crypto.FileEncryptionService;
@@ -44,6 +45,7 @@ public class DriveUploadService {
   private final FileObjectStorage objectStorage;
   private final FileEncryptionService encryptionService;
   private final TransactionTemplate transactionTemplate;
+  private final ResourcePermissionDecision resourcePermissionDecision;
 
   public DriveUploadService(
       AuthenticationContext authenticationContext,
@@ -53,7 +55,8 @@ public class DriveUploadService {
       JdbcEventOutboxRepository eventOutboxRepository,
       FileObjectStorage objectStorage,
       FileEncryptionService encryptionService,
-      TransactionTemplate transactionTemplate) {
+      TransactionTemplate transactionTemplate,
+      ResourcePermissionDecision resourcePermissionDecision) {
     this.authenticationContext = authenticationContext;
     this.driveProperties = driveProperties;
     this.driveFileRepository = driveFileRepository;
@@ -62,6 +65,7 @@ public class DriveUploadService {
     this.objectStorage = objectStorage;
     this.encryptionService = encryptionService;
     this.transactionTemplate = transactionTemplate;
+    this.resourcePermissionDecision = resourcePermissionDecision;
   }
 
   public DriveFileResponse upload(MultipartFile file) {
@@ -122,6 +126,7 @@ public class DriveUploadService {
     AuthenticatedPrincipal principal = authenticationContext.currentPrincipal();
     List<DriveFileResponse> files =
         driveFileRepository.listByWorkspace(principal.workspaceId()).stream()
+            .filter(file -> resourcePermissionDecision.mayViewFile(principal, file))
             .map(this::toResponse)
             .toList();
     return new DriveFileListResponse(files);
@@ -131,6 +136,7 @@ public class DriveUploadService {
     AuthenticatedPrincipal principal = authenticationContext.currentPrincipal();
     return driveFileRepository
         .findByIdForWorkspace(fileId, principal.workspaceId())
+        .filter(file -> resourcePermissionDecision.mayViewFile(principal, file))
         .map(this::toResponse)
         .orElseThrow(
             () ->

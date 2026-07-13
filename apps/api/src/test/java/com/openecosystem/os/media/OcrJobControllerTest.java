@@ -351,6 +351,27 @@ class OcrJobControllerTest {
   }
 
   @Test
+  void hidesPrivateOcrDetailFromAnUnsharedWorkspaceMember() throws Exception {
+    String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
+    seedWorkspaceMember("usr_ocr_unshared", workspaceId, "VIEWER");
+    saveDriveFile("file_private", workspaceId, "Private.pdf", "application/pdf");
+    ocrJobRepository.saveQueued(completedJob("ocr_private", "file_private", workspaceId));
+
+    HttpResponse<String> response =
+        httpClient.send(
+            request("/api/media/ocr-jobs/ocr_private")
+                .header(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_ocr_unshared")
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+                .build(),
+            BodyHandlers.ofString());
+
+    assertThat(response.statusCode()).isEqualTo(404);
+    assertThat(response.body())
+        .doesNotContain("Private.pdf")
+        .doesNotContain("Fake extracted invoice total");
+  }
+
+  @Test
   void returnsNestedCompletedExtractionDetailsWithAllProvenanceAndMetadataOnlyList()
       throws Exception {
     String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
@@ -684,6 +705,28 @@ class OcrJobControllerTest {
             encryptedName.ivBase64(),
             now,
             now));
+  }
+
+  private void seedWorkspaceMember(String actorId, String workspaceId, String role) {
+    jdbcTemplate.update(
+        """
+        insert into identity_users (
+          user_id, display_name, email, avatar_initials, status, is_seeded, created_at, updated_at
+        ) values (?, ?, ?, ?, 'active', false, current_timestamp, current_timestamp)
+        """,
+        actorId,
+        actorId,
+        actorId + "@example.test",
+        "TS");
+    jdbcTemplate.update(
+        """
+        insert into workspace_memberships (
+          workspace_id, user_id, role, is_default, created_at, updated_at
+        ) values (?, ?, ?, false, current_timestamp, current_timestamp)
+        """,
+        workspaceId,
+        actorId,
+        role);
   }
 
   private OcrJob job(String jobId, String fileId, String workspaceId, OcrJobStatus status) {
