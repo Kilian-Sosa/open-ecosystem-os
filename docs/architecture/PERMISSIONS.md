@@ -192,3 +192,14 @@ map OCR job access to the source file permission:
 - lifecycle rows expose sanitized diagnostic metadata only and never expose
   event payloads, storage keys, OCR text, workflow step input/output, or audit
   attributes
+
+### Current seeded-MVP `file:view` decision
+
+The current executable `file:view` decision is intentionally narrow: a private Drive file is
+visible only when the authenticated actor and the file owner match in the same workspace. It is
+applied before Drive and Media/OCR list or detail content is returned; denied, foreign-workspace,
+and missing resources use the same non-enumerating not-found response.
+
+Workspace membership and its stored roles do not independently grant file visibility. The
+current persistence model has no workspace-visible or user/group sharing grants, so those access
+paths remain unsupported until a dedicated sharing model is designed and persisted.

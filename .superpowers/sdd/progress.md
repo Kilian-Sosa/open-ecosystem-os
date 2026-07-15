@@ -1,5 +1,14 @@
 # Real OCR extraction progress
 
+## 2026-07-15 Remediation Task 5 — tooling, product documentation, and evidence
+
+- Detached worktree: `C:\Users\kilia\AppData\Local\Temp\open-ecosystem-os-real-ocr-task5` advanced cleanly to source HEAD `46fd2dc` before editing.
+- Retired the obsolete fake-runtime demo scripts and Makefile `seed`/`reset` targets; `make smoke-real-ocr` remains the synthetic real-OCR smoke path.
+- Documented the implemented OCR/extraction/review/search/notification/audit lifecycle and made Kanban-task and approval-request creation explicitly P2.
+- Recorded the implemented owner-only private-file `file:view` decision without changing its authorization boundary; CV-04 closure evidence and focused test sources were confirmed present.
+- New truthful verification evidence is in `.superpowers/sdd/task-final-review-tooling-docs-report.md`. Historical verification reports remain unchanged and are not reused as current merge proof.
+- The exact PowerShell Kubernetes validator was run, but Docker was unavailable; its zero wrapper exit code is recorded as unavailable validation evidence rather than a pass. POSIX and scan checks remain unavailable.
+
 ## 2026-07-13 CV-04 source-file `file:view` authorization closed by implementation
 
 - Detached worktree: `C:\Users\kilia\AppData\Local\Temp\open-ecosystem-os-cv04-file-view-20260713-1530` at source HEAD `ad4f257d450a7f8435067851574061a4977942c0`.

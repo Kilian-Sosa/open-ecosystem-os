@@ -1,7 +1,7 @@
 # Real OCR and invoice extraction design
 
-**Status:** Approved design; implementation pending Sol Ultra review  
-**Date:** 2026-07-10  
+**Status:** Approved design; implementation pending Sol Ultra review
+**Date:** 2026-07-10
 **Scope:** MVP invoice-automation vertical slice
 
 ## Goal

@@ -133,6 +133,12 @@ make k8s-validate
 trivy config infra/k8s
 ```
 
+On Windows, run the repository PowerShell validator directly:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\k8s-validate.ps1 -KubeconformImage ghcr.io/yannh/kubeconform:latest
+```
+
 `make k8s-validate` uses local `kubeconform` when installed. If it is not
 installed but Docker is available, it runs `ghcr.io/yannh/kubeconform:latest`.
 If neither is available, it still renders all Kustomize overlays.
