@@ -10,8 +10,11 @@ import com.openecosystem.os.common.events.JdbcEventOutboxRepository;
 import com.openecosystem.os.common.ids.Ids;
 import com.openecosystem.os.common.security.AuthenticatedPrincipal;
 import com.openecosystem.os.common.security.AuthenticationContext;
+import com.openecosystem.os.common.security.AuthorizationDecision;
 import com.openecosystem.os.common.security.CorrelationContext;
-import com.openecosystem.os.common.security.ResourcePermissionDecision;
+import com.openecosystem.os.common.security.ResourceAction;
+import com.openecosystem.os.common.security.ResourceAuthorizationService;
+import com.openecosystem.os.common.security.ResourceType;
 import com.openecosystem.os.drive.crypto.EncryptedBytes;
 import com.openecosystem.os.drive.crypto.EncryptedText;
 import com.openecosystem.os.drive.crypto.FileEncryptionService;
@@ -24,6 +27,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -45,7 +49,7 @@ public class DriveUploadService {
   private final FileObjectStorage objectStorage;
   private final FileEncryptionService encryptionService;
   private final TransactionTemplate transactionTemplate;
-  private final ResourcePermissionDecision resourcePermissionDecision;
+  private final ResourceAuthorizationService authorizationService;
 
   public DriveUploadService(
       AuthenticationContext authenticationContext,
@@ -56,7 +60,7 @@ public class DriveUploadService {
       FileObjectStorage objectStorage,
       FileEncryptionService encryptionService,
       TransactionTemplate transactionTemplate,
-      ResourcePermissionDecision resourcePermissionDecision) {
+      ResourceAuthorizationService authorizationService) {
     this.authenticationContext = authenticationContext;
     this.driveProperties = driveProperties;
     this.driveFileRepository = driveFileRepository;
@@ -65,7 +69,7 @@ public class DriveUploadService {
     this.objectStorage = objectStorage;
     this.encryptionService = encryptionService;
     this.transactionTemplate = transactionTemplate;
-    this.resourcePermissionDecision = resourcePermissionDecision;
+    this.authorizationService = authorizationService;
   }
 
   public DriveFileResponse upload(MultipartFile file) {
@@ -125,9 +129,19 @@ public class DriveUploadService {
 
   public DriveFileListResponse listFiles() {
     AuthenticatedPrincipal principal = authenticationContext.currentPrincipal();
+    List<String> candidateIds = driveFileRepository.listIdsByWorkspace(principal.workspaceId());
+    Set<String> allowedIds =
+        authorizationService.allowedResourceIds(
+            principal,
+            principal.workspaceId(),
+            ResourceType.FILE,
+            candidateIds,
+            ResourceAction.VIEW);
+    if (allowedIds.isEmpty()) {
+      return new DriveFileListResponse(List.of());
+    }
     List<DriveFileResponse> files =
-        driveFileRepository.listByWorkspace(principal.workspaceId()).stream()
-            .filter(file -> resourcePermissionDecision.mayViewFile(principal, file))
+        driveFileRepository.listByIdsForWorkspace(principal.workspaceId(), allowedIds).stream()
             .map(this::toResponse)
             .toList();
     return new DriveFileListResponse(files);
@@ -135,14 +149,16 @@ public class DriveUploadService {
 
   public DriveFileResponse getFile(String fileId) {
     AuthenticatedPrincipal principal = authenticationContext.currentPrincipal();
+    AuthorizationDecision decision =
+        authorizationService.decide(
+            principal, principal.workspaceId(), ResourceType.FILE, fileId, ResourceAction.VIEW);
+    if (!decision.allowed()) {
+      throw driveFileNotFound();
+    }
     return driveFileRepository
         .findByIdForWorkspace(fileId, principal.workspaceId())
-        .filter(file -> resourcePermissionDecision.mayViewFile(principal, file))
         .map(this::toResponse)
-        .orElseThrow(
-            () ->
-                new ApiException(
-                    HttpStatus.NOT_FOUND, ApiErrorCode.NOT_FOUND, "Drive file was not found"));
+        .orElseThrow(this::driveFileNotFound);
   }
 
   private ValidatedUpload validate(MultipartFile file) {
@@ -254,6 +270,7 @@ public class DriveUploadService {
   private DriveFileResponse toResponse(DriveFileMetadata metadata) {
     return new DriveFileResponse(
         metadata.fileId(),
+        metadata.visibility().value(),
         encryptionService.decryptText(metadata.encryptedName(), metadata.nameIv()),
         metadata.contentType(),
         metadata.sizeBytes(),
@@ -261,6 +278,11 @@ public class DriveUploadService {
         true,
         metadata.createdAt(),
         metadata.updatedAt());
+  }
+
+  private ApiException driveFileNotFound() {
+    return new ApiException(
+        HttpStatus.NOT_FOUND, ApiErrorCode.NOT_FOUND, "Drive file was not found");
   }
 
   private String storageKey(String workspaceId, String fileId) {

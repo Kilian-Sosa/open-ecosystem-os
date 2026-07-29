@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "@/components/providers/app-providers";
 import { DriveScreen } from "./drive-screen";
-import type { DriveState } from "@/lib/drive-mock-data";
+import { driveMockFiles, type DriveState } from "@/lib/drive-mock-data";
 
 describe("DriveScreen", () => {
   afterEach(() => {
@@ -36,6 +36,11 @@ describe("DriveScreen", () => {
     );
     expect(screen.getByLabelText("File details")).toBeInTheDocument();
     expect(screen.getAllByText("Encrypted").length).toBeGreaterThan(0);
+    expect(driveMockFiles.map((file) => file.visibility)).toEqual([
+      "private",
+      "workspace",
+      "private",
+    ]);
   });
 
   it("renders the loading state", () => {

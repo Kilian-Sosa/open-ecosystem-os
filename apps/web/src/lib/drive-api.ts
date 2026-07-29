@@ -2,6 +2,7 @@ import { API_BASE_URL, workspaceHeaders } from "@/lib/api";
 
 export type DriveFile = {
   fileId: string;
+  visibility: "private" | "workspace";
   name: string;
   contentType: string;
   sizeBytes: number;
