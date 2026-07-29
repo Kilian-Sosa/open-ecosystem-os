@@ -70,6 +70,20 @@ class PlaceholderAuthenticationContextTest {
         .hasMessageContaining("Actor is not a member of the workspace");
   }
 
+  @Test
+  void preservesTheForbiddenBoundaryForDisabledOrRemovedHeaderPrincipals() {
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.addHeader(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_disabled_or_removed");
+    request.addHeader(
+        PlaceholderAuthenticationContext.WORKSPACE_HEADER,
+        PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID);
+    RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+    assertThatThrownBy(authenticationContext::currentPrincipal)
+        .isInstanceOf(ApiException.class)
+        .hasMessageContaining("Actor is not a member of the workspace");
+  }
+
   private static final class InMemorySeededSessionRepository implements SeededSessionRepository {
 
     @Override
