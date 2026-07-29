@@ -9,6 +9,7 @@ import com.openecosystem.os.media.OcrDocumentResult;
 import com.openecosystem.os.media.OcrPageResult;
 import com.openecosystem.os.media.OcrWord;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,15 +19,34 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
+@Testcontainers
 @SpringBootTest(classes = OpenEcosystemApiApplication.class)
 class WorkflowExecutionServiceTest {
 
   private static final Instant NOW = Instant.parse("2026-07-11T12:00:00Z");
+  private static final Timestamp SQL_NOW = Timestamp.from(NOW);
   private static final String PRIVATE_OCR_TEXT = "PRIVATE_OCR_TEXT";
   private static final String PRIVATE_IBAN = "ES9121000418450200051332";
   private static final String PRIVATE_TAX_ID = "B12345678";
   private static final String PRIVATE_FILE_NAME = "private-invoice.pdf";
+
+  @Container
+  private static final PostgreSQLContainer<?> POSTGRES =
+      new PostgreSQLContainer<>("postgres:16-alpine");
+
+  @DynamicPropertySource
+  static void databaseProperties(DynamicPropertyRegistry registry) {
+    registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+    registry.add("spring.datasource.username", POSTGRES::getUsername);
+    registry.add("spring.datasource.password", POSTGRES::getPassword);
+    registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+  }
 
   @Autowired private WorkflowService workflowService;
   @Autowired private OcrCompletedWorkflowTriggerService triggerService;
@@ -223,8 +243,8 @@ class WorkflowExecutionServiceTest {
         fileId,
         PRIVATE_FILE_NAME,
         "workspaces/wrk_dev_placeholder/drive/" + fileId + "/original",
-        NOW,
-        NOW);
+        SQL_NOW,
+        SQL_NOW);
     jdbcTemplate.update(
         """
         insert into ocr_jobs (
@@ -240,11 +260,11 @@ class WorkflowExecutionServiceTest {
         "workspaces/wrk_dev_placeholder/drive/" + fileId + "/original",
         PRIVATE_OCR_TEXT,
         PRIVATE_OCR_TEXT.length(),
-        NOW,
-        NOW,
-        NOW,
-        NOW,
-        NOW);
+        SQL_NOW,
+        SQL_NOW,
+        SQL_NOW,
+        SQL_NOW,
+        SQL_NOW);
     ocrResultRepository.save(structuredResult(jobId, fileId));
   }
 
