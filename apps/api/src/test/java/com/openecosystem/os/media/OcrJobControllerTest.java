@@ -8,6 +8,7 @@ import com.openecosystem.os.OpenEcosystemApiApplication;
 import com.openecosystem.os.common.security.PlaceholderAuthenticationContext;
 import com.openecosystem.os.drive.DriveFileMetadata;
 import com.openecosystem.os.drive.DriveFileRepository;
+import com.openecosystem.os.drive.DriveFileVisibility;
 import com.openecosystem.os.drive.crypto.EncryptedText;
 import com.openecosystem.os.drive.crypto.FileEncryptionService;
 import com.openecosystem.os.invoice.InvoiceExtraction;
@@ -694,6 +695,7 @@ class OcrJobControllerTest {
             fileId,
             workspaceId,
             PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID,
+            DriveFileVisibility.PRIVATE,
             encryptedName.ciphertextBase64(),
             contentType,
             1024,

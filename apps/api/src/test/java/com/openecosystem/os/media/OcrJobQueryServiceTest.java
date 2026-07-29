@@ -15,6 +15,7 @@ import com.openecosystem.os.common.security.AuthenticationContext;
 import com.openecosystem.os.common.security.ResourcePermissionDecision;
 import com.openecosystem.os.drive.DriveFileMetadata;
 import com.openecosystem.os.drive.DriveFileRepository;
+import com.openecosystem.os.drive.DriveFileVisibility;
 import com.openecosystem.os.drive.crypto.FileEncryptionService;
 import com.openecosystem.os.invoice.InvoiceExtractionStatus;
 import com.openecosystem.os.invoice.InvoiceExtractionSummary;
@@ -292,6 +293,7 @@ class OcrJobQueryServiceTest {
         fileId,
         "wrk_test",
         "usr_test",
+        DriveFileVisibility.PRIVATE,
         "encrypted-name",
         "application/pdf",
         10,

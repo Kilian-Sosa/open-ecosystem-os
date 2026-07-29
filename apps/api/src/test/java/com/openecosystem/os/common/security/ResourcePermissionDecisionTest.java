@@ -3,6 +3,7 @@ package com.openecosystem.os.common.security;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.openecosystem.os.drive.DriveFileMetadata;
+import com.openecosystem.os.drive.DriveFileVisibility;
 import java.time.Instant;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,7 @@ class ResourcePermissionDecisionTest {
         "file_test",
         workspaceId,
         ownerId,
+        DriveFileVisibility.PRIVATE,
         "encrypted-name",
         "application/pdf",
         10,

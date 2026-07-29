@@ -46,12 +46,54 @@ class DriveFileRepositoryTest {
             });
   }
 
+  @Test
+  void persistsExplicitVisibilityAndListsOnlyRequestedWorkspaceIdsNewestFirst() {
+    Instant older = Instant.parse("2026-05-22T08:00:00Z");
+    Instant newer = Instant.parse("2026-05-22T09:00:00Z");
+
+    repository.save(
+        file("file_private", "wrk_123", "encrypted-private", older, DriveFileVisibility.PRIVATE));
+    repository.save(
+        file(
+            "file_workspace",
+            "wrk_123",
+            "encrypted-workspace",
+            newer,
+            DriveFileVisibility.WORKSPACE));
+    repository.save(
+        file("file_other", "wrk_other", "encrypted-other", newer, DriveFileVisibility.PRIVATE));
+
+    assertThat(repository.findByIdForWorkspace("file_private", "wrk_123"))
+        .get()
+        .extracting(DriveFileMetadata::visibility)
+        .isEqualTo(DriveFileVisibility.PRIVATE);
+    assertThat(repository.findByIdForWorkspace("file_workspace", "wrk_123"))
+        .get()
+        .extracting(DriveFileMetadata::visibility)
+        .isEqualTo(DriveFileVisibility.WORKSPACE);
+    assertThat(
+            repository.listByIdsForWorkspace(
+                "wrk_123", java.util.List.of("file_workspace", "file_private", "file_other")))
+        .extracting(DriveFileMetadata::fileId)
+        .containsExactly("file_workspace", "file_private");
+  }
+
   private DriveFileMetadata file(
       String fileId, String workspaceId, String encryptedName, Instant createdAt) {
+    return file(fileId, workspaceId, encryptedName, createdAt, DriveFileVisibility.PRIVATE);
+  }
+
+  private DriveFileMetadata file(
+      String fileId,
+      String workspaceId,
+      String encryptedName,
+      Instant createdAt,
+      DriveFileVisibility visibility) {
     return new DriveFileMetadata(
         fileId,
         workspaceId,
         "usr_123",
+        visibility,
         encryptedName,
         "application/pdf",
         8,

@@ -89,6 +89,106 @@ class RealOcrPostgresMigrationTest {
         .isInstanceOf(DataIntegrityViolationException.class);
   }
 
+  @Test
+  void migratesDriveFilesToPrivateVisibilityAndEnforcesUserGrantIntegrity() {
+    String schema = schemaName();
+    migrate(schema, MigrationVersion.fromVersion("8"));
+    JdbcTemplate jdbcTemplate = jdbcTemplate(schema);
+    insertActiveWorkspaceMember(jdbcTemplate, "wrk_legacy", "usr_owner");
+    insertActiveWorkspaceMember(jdbcTemplate, "wrk_legacy", "usr_grantee");
+    insertActiveWorkspaceMember(jdbcTemplate, "wrk_other", "usr_other");
+    insertDriveFile(jdbcTemplate, "file_legacy", "wrk_legacy");
+
+    migrate(schema, null);
+
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "select visibility from drive_files where file_id = ?",
+                String.class,
+                "file_legacy"))
+        .isEqualTo("private");
+    assertThatThrownBy(
+            () ->
+                jdbcTemplate.update(
+                    "update drive_files set visibility = 'public' where file_id = 'file_legacy'"))
+        .isInstanceOf(DataIntegrityViolationException.class);
+
+    insertViewGrant(jdbcTemplate, "grant_valid", "wrk_legacy", "file_legacy", "usr_grantee");
+
+    assertThatThrownBy(
+            () ->
+                insertGrant(
+                    jdbcTemplate,
+                    "grant_invalid_action",
+                    "wrk_legacy",
+                    "file_legacy",
+                    "usr_grantee",
+                    "file:edit",
+                    null,
+                    null))
+        .isInstanceOf(DataIntegrityViolationException.class);
+    assertThatThrownBy(
+            () ->
+                insertGrant(
+                    jdbcTemplate,
+                    "grant_invalid_revocation",
+                    "wrk_legacy",
+                    "file_legacy",
+                    "usr_other",
+                    "file:view",
+                    null,
+                    NOW))
+        .isInstanceOf(DataIntegrityViolationException.class);
+    assertThatThrownBy(
+            () ->
+                insertGrant(
+                    jdbcTemplate,
+                    "grant_invalid_revocation_actor",
+                    "wrk_legacy",
+                    "file_legacy",
+                    "usr_other",
+                    "file:view",
+                    "usr_owner",
+                    null))
+        .isInstanceOf(DataIntegrityViolationException.class);
+    assertThatThrownBy(
+            () ->
+                insertGrant(
+                    jdbcTemplate,
+                    "grant_foreign_lineage",
+                    "wrk_other",
+                    "file_legacy",
+                    "usr_other",
+                    "file:view",
+                    null,
+                    null))
+        .isInstanceOf(DataIntegrityViolationException.class);
+    assertThatThrownBy(
+            () ->
+                insertViewGrant(
+                    jdbcTemplate, "grant_duplicate", "wrk_legacy", "file_legacy", "usr_grantee"))
+        .isInstanceOf(DataIntegrityViolationException.class);
+    assertThat(
+            jdbcTemplate.queryForList(
+                """
+                select indexname
+                from pg_indexes
+                where schemaname = current_schema()
+                  and indexname in (
+                    'drive_files_workspace_owner_created_at_idx',
+                    'drive_files_workspace_visibility_created_at_idx',
+                    'drive_file_user_grants_grantee_lookup_idx',
+                    'drive_file_user_grants_file_lookup_idx'
+                  )
+                """,
+                String.class))
+        .containsExactlyInAnyOrder(
+            "drive_files_workspace_owner_created_at_idx",
+            "drive_files_workspace_visibility_created_at_idx",
+            "drive_file_user_grants_grantee_lookup_idx",
+            "drive_file_user_grants_file_lookup_idx");
+  }
+
   private void migrate(String schema, MigrationVersion target) {
     Flyway.configure()
         .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
@@ -125,6 +225,80 @@ class RealOcrPostgresMigrationTest {
         fileId,
         workspaceId,
         "workspaces/" + workspaceId + "/drive/" + fileId + "/original",
+        Timestamp.from(NOW),
+        Timestamp.from(NOW));
+  }
+
+  private void insertActiveWorkspaceMember(
+      JdbcTemplate jdbcTemplate, String workspaceId, String userId) {
+    jdbcTemplate.update(
+        """
+        insert into identity_users (
+          user_id, display_name, email, avatar_initials, status, is_seeded, created_at, updated_at
+        ) values (?, ?, ?, 'TU', 'active', false, ?, ?)
+        """,
+        userId,
+        userId,
+        userId + "@example.test",
+        Timestamp.from(NOW),
+        Timestamp.from(NOW));
+    jdbcTemplate.update(
+        """
+        insert into workspaces (
+          workspace_id, name, slug, status, is_seeded, created_at, updated_at
+        ) values (?, ?, ?, 'active', false, ?, ?)
+        on conflict (workspace_id) do nothing
+        """,
+        workspaceId,
+        workspaceId,
+        workspaceId,
+        Timestamp.from(NOW),
+        Timestamp.from(NOW));
+    jdbcTemplate.update(
+        """
+        insert into workspace_memberships (
+          workspace_id, user_id, role, is_default, created_at, updated_at
+        ) values (?, ?, 'VIEWER', true, ?, ?)
+        """,
+        workspaceId,
+        userId,
+        Timestamp.from(NOW),
+        Timestamp.from(NOW));
+  }
+
+  private void insertViewGrant(
+      JdbcTemplate jdbcTemplate,
+      String grantId,
+      String workspaceId,
+      String fileId,
+      String granteeUserId) {
+    insertGrant(jdbcTemplate, grantId, workspaceId, fileId, granteeUserId, "file:view", null, null);
+  }
+
+  private void insertGrant(
+      JdbcTemplate jdbcTemplate,
+      String grantId,
+      String workspaceId,
+      String fileId,
+      String granteeUserId,
+      String action,
+      String revokedByUserId,
+      Instant revokedAt) {
+    jdbcTemplate.update(
+        """
+        insert into drive_file_user_grants (
+          grant_id, workspace_id, file_id, grantee_user_id, action, granted_by_user_id,
+          granted_at, revoked_by_user_id, revoked_at, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, 'usr_owner', ?, ?, ?, ?, ?)
+        """,
+        grantId,
+        workspaceId,
+        fileId,
+        granteeUserId,
+        action,
+        Timestamp.from(NOW),
+        revokedByUserId,
+        revokedAt == null ? null : Timestamp.from(revokedAt),
         Timestamp.from(NOW),
         Timestamp.from(NOW));
   }
