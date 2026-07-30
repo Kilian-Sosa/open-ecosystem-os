@@ -26,7 +26,6 @@ jobs:
     timeout-minutes: 45
     env:
       DEPENDENCY_CHECK_DATA_PATH: ~/.m2/repository/org/owasp/dependency-check-data
-      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -53,6 +52,8 @@ jobs:
 
       - name: Update Dependency-Check data
         working-directory: apps/api
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: ./mvnw -B -DskipTests -P security-scan org.owasp:dependency-check-maven:update-only
 
       - name: Save Dependency-Check data
