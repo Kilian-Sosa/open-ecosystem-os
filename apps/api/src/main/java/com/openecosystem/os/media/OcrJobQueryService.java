@@ -4,7 +4,10 @@ import com.openecosystem.os.common.errors.ApiErrorCode;
 import com.openecosystem.os.common.errors.ApiException;
 import com.openecosystem.os.common.security.AuthenticatedPrincipal;
 import com.openecosystem.os.common.security.AuthenticationContext;
-import com.openecosystem.os.common.security.ResourcePermissionDecision;
+import com.openecosystem.os.common.security.AuthorizationDecision;
+import com.openecosystem.os.common.security.ResourceAction;
+import com.openecosystem.os.common.security.ResourceAuthorizationService;
+import com.openecosystem.os.common.security.ResourceType;
 import com.openecosystem.os.drive.DriveFileMetadata;
 import com.openecosystem.os.drive.DriveFileRepository;
 import com.openecosystem.os.drive.crypto.FileEncryptionService;
@@ -13,6 +16,7 @@ import com.openecosystem.os.invoice.InvoiceExtractionField;
 import com.openecosystem.os.invoice.InvoiceExtractionSummary;
 import com.openecosystem.os.invoice.JdbcInvoiceExtractionRepository;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -30,7 +34,7 @@ public class OcrJobQueryService {
   private final OcrJobLifecycleProjectionService lifecycleProjectionService;
   private final JdbcOcrResultRepository ocrResultRepository;
   private final JdbcInvoiceExtractionRepository invoiceExtractionRepository;
-  private final ResourcePermissionDecision resourcePermissionDecision;
+  private final ResourceAuthorizationService resourceAuthorizationService;
 
   public OcrJobQueryService(
       AuthenticationContext authenticationContext,
@@ -40,7 +44,7 @@ public class OcrJobQueryService {
       OcrJobLifecycleProjectionService lifecycleProjectionService,
       JdbcOcrResultRepository ocrResultRepository,
       JdbcInvoiceExtractionRepository invoiceExtractionRepository,
-      ResourcePermissionDecision resourcePermissionDecision) {
+      ResourceAuthorizationService resourceAuthorizationService) {
     this.authenticationContext = authenticationContext;
     this.ocrJobRepository = ocrJobRepository;
     this.driveFileRepository = driveFileRepository;
@@ -48,56 +52,89 @@ public class OcrJobQueryService {
     this.lifecycleProjectionService = lifecycleProjectionService;
     this.ocrResultRepository = ocrResultRepository;
     this.invoiceExtractionRepository = invoiceExtractionRepository;
-    this.resourcePermissionDecision = resourcePermissionDecision;
+    this.resourceAuthorizationService = resourceAuthorizationService;
   }
 
   public OcrJobListResponse listJobs() {
     AuthenticatedPrincipal principal = authenticationContext.currentPrincipal();
-    List<AuthorizedOcrJob> authorizedJobs =
-        ocrJobRepository.listByWorkspace(principal.workspaceId()).stream()
-            .flatMap(job -> authorized(job, principal).stream())
+    String workspaceId = principal.workspaceId();
+    List<OcrJobSourceReference> sourceReferences =
+        ocrJobRepository.listSourceReferencesByWorkspace(workspaceId);
+    Set<String> candidateFileIds =
+        sourceReferences.stream()
+            .map(OcrJobSourceReference::fileId)
+            .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+    Set<String> allowedFileIds =
+        resourceAuthorizationService.allowedResourceIds(
+            principal, workspaceId, ResourceType.FILE, candidateFileIds, ResourceAction.VIEW);
+    List<OcrJobSourceReference> allowedReferences =
+        sourceReferences.stream()
+            .filter(reference -> allowedFileIds.contains(reference.fileId()))
             .toList();
-    List<String> jobIds = authorizedJobs.stream().map(job -> job.job().jobId()).toList();
+    List<String> jobIds = allowedReferences.stream().map(OcrJobSourceReference::jobId).toList();
+    if (jobIds.isEmpty()) {
+      return new OcrJobListResponse(List.of());
+    }
+    List<OcrJobSummary> jobs = ocrJobRepository.findSummariesByIdsForWorkspace(jobIds, workspaceId);
+    Map<String, DriveFileMetadata> filesById =
+        driveFileRepository.listByIdsForWorkspace(workspaceId, allowedFileIds).stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    DriveFileMetadata::fileId,
+                    file -> file,
+                    (left, right) -> left,
+                    LinkedHashMap::new));
     Set<String> ocrResultJobIds =
-        ocrResultRepository.findPresentJobIdsForWorkspace(principal.workspaceId(), jobIds);
+        ocrResultRepository.findPresentJobIdsForWorkspace(workspaceId, jobIds);
     Map<String, InvoiceExtractionSummary> extractionSummaries =
-        invoiceExtractionRepository.findSummariesByOcrJobIdsForWorkspace(
-            principal.workspaceId(), jobIds);
+        invoiceExtractionRepository.findSummariesByOcrJobIdsForWorkspace(workspaceId, jobIds);
     return new OcrJobListResponse(
-        authorizedJobs.stream()
-            .map(job -> toSummaryResponse(job, ocrResultJobIds, extractionSummaries))
+        jobs.stream()
+            .filter(job -> filesById.containsKey(job.fileId()))
+            .map(
+                job ->
+                    toSummaryResponse(
+                        job, filesById.get(job.fileId()), ocrResultJobIds, extractionSummaries))
             .toList());
   }
 
   public OcrJobDetailResponse getJob(String jobId) {
     AuthenticatedPrincipal principal = authenticationContext.currentPrincipal();
-    return ocrJobRepository
-        .findByIdForWorkspace(jobId, principal.workspaceId())
-        .flatMap(job -> authorized(job, principal))
-        .map(this::toDetailResponse)
-        .orElseThrow(
-            () ->
-                new ApiException(
-                    HttpStatus.NOT_FOUND, ApiErrorCode.NOT_FOUND, "OCR job was not found"));
-  }
-
-  private Optional<AuthorizedOcrJob> authorized(OcrJob job, AuthenticatedPrincipal principal) {
-    return driveFileRepository
-        .findByIdForWorkspace(job.fileId(), job.workspaceId())
-        .filter(file -> resourcePermissionDecision.mayViewFile(principal, file))
-        .map(file -> new AuthorizedOcrJob(job, file));
+    OcrJobSourceReference source =
+        ocrJobRepository
+            .findSourceReferenceByIdForWorkspace(jobId, principal.workspaceId())
+            .orElseThrow(this::ocrNotFound);
+    AuthorizationDecision decision =
+        resourceAuthorizationService.decide(
+            principal,
+            source.workspaceId(),
+            ResourceType.FILE,
+            source.fileId(),
+            ResourceAction.VIEW);
+    if (!decision.allowed()) {
+      throw ocrNotFound();
+    }
+    DriveFileMetadata file =
+        driveFileRepository
+            .findByIdForWorkspace(source.fileId(), source.workspaceId())
+            .orElseThrow(this::ocrNotFound);
+    OcrJob job =
+        ocrJobRepository
+            .findDetailByIdForWorkspace(source.jobId(), source.workspaceId())
+            .orElseThrow(this::ocrNotFound);
+    return toDetailResponse(job, file);
   }
 
   private OcrJobSummaryResponse toSummaryResponse(
-      AuthorizedOcrJob authorizedJob,
+      OcrJobSummary job,
+      DriveFileMetadata file,
       Set<String> ocrResultJobIds,
       Map<String, InvoiceExtractionSummary> extractionSummaries) {
-    OcrJob job = authorizedJob.job();
     InvoiceExtractionSummary extraction = extractionSummaries.get(job.jobId());
     return new OcrJobSummaryResponse(
         job.jobId(),
         job.fileId(),
-        fileName(authorizedJob.file()),
+        fileName(file),
         job.contentType(),
         job.status().value(),
         job.provider(),
@@ -118,8 +155,7 @@ public class OcrJobQueryService {
         extraction != null && extraction.status().value().equals("review_required"));
   }
 
-  private OcrJobDetailResponse toDetailResponse(AuthorizedOcrJob authorizedJob) {
-    OcrJob job = authorizedJob.job();
+  private OcrJobDetailResponse toDetailResponse(OcrJob job, DriveFileMetadata file) {
     Optional<OcrDocumentResult> result =
         ocrResultRepository.findByJobIdForWorkspace(job.jobId(), job.workspaceId());
     Optional<InvoiceExtraction> extraction =
@@ -127,7 +163,7 @@ public class OcrJobQueryService {
     return new OcrJobDetailResponse(
         job.jobId(),
         job.fileId(),
-        fileName(authorizedJob.file()),
+        fileName(file),
         job.contentType(),
         job.status().value(),
         result.map(OcrDocumentResult::provider).orElse(job.provider()),
@@ -242,5 +278,7 @@ public class OcrJobQueryService {
     return encryptionService.decryptText(file.encryptedName(), file.nameIv());
   }
 
-  private record AuthorizedOcrJob(OcrJob job, DriveFileMetadata file) {}
+  private ApiException ocrNotFound() {
+    return new ApiException(HttpStatus.NOT_FOUND, ApiErrorCode.NOT_FOUND, "OCR job was not found");
+  }
 }

@@ -246,7 +246,7 @@ public class WorkflowRunner {
 
     OcrJob ocrJob =
         ocrJobRepository
-            .findByIdForWorkspace(ocrEvent.jobId(), execution.workspaceId())
+            .findDetailByIdForWorkspace(ocrEvent.jobId(), execution.workspaceId())
             .orElseThrow(() -> new IllegalStateException("Completed OCR job was not found"));
     if (ocrJob.status() != OcrJobStatus.COMPLETED
         || !ocrJob.fileId().equals(ocrEvent.fileId())

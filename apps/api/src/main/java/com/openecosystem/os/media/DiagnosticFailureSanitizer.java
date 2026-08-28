@@ -19,6 +19,11 @@ final class DiagnosticFailureSanitizer {
     return "OCR processing did not complete. Use the correlation ID for permitted diagnostics.";
   }
 
+  static String ocrReason(OcrJobSummary job) {
+    if (job.failureCode() == null) return null;
+    return "OCR processing did not complete. Use the correlation ID for permitted diagnostics.";
+  }
+
   static String workflowReason() {
     return "Workflow processing failed. Use the correlation ID for permitted diagnostics.";
   }

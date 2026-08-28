@@ -2,22 +2,24 @@ package com.openecosystem.os.media;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.openecosystem.os.common.errors.ApiErrorCode;
 import com.openecosystem.os.common.errors.ApiException;
 import com.openecosystem.os.common.security.AuthenticatedPrincipal;
 import com.openecosystem.os.common.security.AuthenticationContext;
-import com.openecosystem.os.common.security.ResourcePermissionDecision;
+import com.openecosystem.os.common.security.AuthorizationDecision;
+import com.openecosystem.os.common.security.AuthorizationDecisionCode;
+import com.openecosystem.os.common.security.ResourceAction;
+import com.openecosystem.os.common.security.ResourceAuthorizationService;
+import com.openecosystem.os.common.security.ResourceType;
 import com.openecosystem.os.drive.DriveFileMetadata;
 import com.openecosystem.os.drive.DriveFileRepository;
 import com.openecosystem.os.drive.DriveFileVisibility;
 import com.openecosystem.os.drive.crypto.FileEncryptionService;
-import com.openecosystem.os.invoice.InvoiceExtractionStatus;
 import com.openecosystem.os.invoice.InvoiceExtractionSummary;
 import com.openecosystem.os.invoice.JdbcInvoiceExtractionRepository;
 import java.time.Instant;
@@ -26,257 +28,136 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
 
 class OcrJobQueryServiceTest {
 
-  private static final Instant NOW = Instant.parse("2026-07-13T12:00:00Z");
+  private static final Instant NOW = Instant.parse("2026-08-28T12:00:00Z");
 
   @Test
-  void listsMultipleJobsWithTwoMetadataProjectionsAndNoContentLoaders() {
-    AuthenticationContext authenticationContext = mock(AuthenticationContext.class);
-    OcrJobRepository ocrJobRepository = mock(OcrJobRepository.class);
-    DriveFileRepository driveFileRepository = mock(DriveFileRepository.class);
-    FileEncryptionService encryptionService = mock(FileEncryptionService.class);
-    OcrJobLifecycleProjectionService lifecycleProjectionService =
-        mock(OcrJobLifecycleProjectionService.class);
-    JdbcOcrResultRepository ocrResultRepository = mock(JdbcOcrResultRepository.class);
-    JdbcInvoiceExtractionRepository invoiceExtractionRepository =
-        mock(JdbcInvoiceExtractionRepository.class);
-    OcrJobQueryService service =
-        new OcrJobQueryService(
-            authenticationContext,
-            ocrJobRepository,
-            driveFileRepository,
-            encryptionService,
-            lifecycleProjectionService,
-            ocrResultRepository,
-            invoiceExtractionRepository,
-            new ResourcePermissionDecision());
-
-    OcrJob first = job("ocr_first", "file_first");
-    OcrJob second = job("ocr_second", "file_second");
-    when(authenticationContext.currentPrincipal())
-        .thenReturn(new AuthenticatedPrincipal("usr_test", "wrk_test", Set.of(), true));
-    when(ocrJobRepository.listByWorkspace("wrk_test")).thenReturn(List.of(first, second));
-    when(driveFileRepository.findByIdForWorkspace("file_first", "wrk_test"))
-        .thenReturn(Optional.of(file("file_first")));
-    when(driveFileRepository.findByIdForWorkspace("file_second", "wrk_test"))
-        .thenReturn(Optional.of(file("file_second")));
-    when(encryptionService.decryptText("encrypted-name", "name-iv")).thenReturn("Invoice.pdf");
-    when(ocrResultRepository.findPresentJobIdsForWorkspace(
-            "wrk_test", List.of("ocr_first", "ocr_second")))
-        .thenReturn(Set.of("ocr_first", "ocr_second"));
-    when(invoiceExtractionRepository.findSummariesByOcrJobIdsForWorkspace(
-            "wrk_test", List.of("ocr_first", "ocr_second")))
-        .thenReturn(
-            Map.of(
-                "ocr_first",
-                new InvoiceExtractionSummary("invx_first", InvoiceExtractionStatus.COMPLETED),
-                "ocr_second",
-                new InvoiceExtractionSummary(
-                    "invx_second", InvoiceExtractionStatus.REVIEW_REQUIRED)));
-
-    OcrJobListResponse response = service.listJobs();
-
-    assertThat(response.jobs()).hasSize(2);
-    verify(ocrResultRepository)
-        .findPresentJobIdsForWorkspace(eq("wrk_test"), eq(List.of("ocr_first", "ocr_second")));
-    verify(invoiceExtractionRepository)
-        .findSummariesByOcrJobIdsForWorkspace(
-            eq("wrk_test"), eq(List.of("ocr_first", "ocr_second")));
-    verify(ocrResultRepository, never()).findByJobIdForWorkspace("ocr_first", "wrk_test");
-    verify(ocrResultRepository, never()).findByJobIdForWorkspace("ocr_second", "wrk_test");
-    verify(invoiceExtractionRepository, never())
-        .findByOcrJobIdForWorkspace("ocr_first", "wrk_test");
-    verify(invoiceExtractionRepository, never())
-        .findByOcrJobIdForWorkspace("ocr_second", "wrk_test");
-  }
-
-  @Test
-  void deniesUnsharedWorkspaceMemberBeforeLoadingProtectedDetail() {
-    AuthenticationContext authenticationContext = mock(AuthenticationContext.class);
-    OcrJobRepository ocrJobRepository = mock(OcrJobRepository.class);
-    DriveFileRepository driveFileRepository = mock(DriveFileRepository.class);
-    FileEncryptionService encryptionService = mock(FileEncryptionService.class);
-    OcrJobLifecycleProjectionService lifecycleProjectionService =
-        mock(OcrJobLifecycleProjectionService.class);
-    JdbcOcrResultRepository ocrResultRepository = mock(JdbcOcrResultRepository.class);
-    JdbcInvoiceExtractionRepository invoiceExtractionRepository =
-        mock(JdbcInvoiceExtractionRepository.class);
-    OcrJobQueryService service =
-        new OcrJobQueryService(
-            authenticationContext,
-            ocrJobRepository,
-            driveFileRepository,
-            encryptionService,
-            lifecycleProjectionService,
-            ocrResultRepository,
-            invoiceExtractionRepository,
-            new ResourcePermissionDecision());
-
-    OcrJob job = job("ocr_private", "file_private");
-    when(authenticationContext.currentPrincipal())
-        .thenReturn(new AuthenticatedPrincipal("usr_unshared", "wrk_test", Set.of(), true));
-    when(ocrJobRepository.findByIdForWorkspace("ocr_private", "wrk_test"))
+  void authorizesTheSourceBeforeLoadingAnyProtectedDetail() {
+    TestContext context = new TestContext();
+    OcrJobSourceReference source =
+        new OcrJobSourceReference("ocr_allowed", "file_allowed", "wrk_test");
+    OcrJob job = job("ocr_allowed", "file_allowed");
+    when(context.repository.findSourceReferenceByIdForWorkspace("ocr_allowed", "wrk_test"))
+        .thenReturn(Optional.of(source));
+    when(context.authorizationService.decide(
+            context.principal, "wrk_test", ResourceType.FILE, "file_allowed", ResourceAction.VIEW))
+        .thenReturn(AuthorizationDecision.allow(AuthorizationDecisionCode.ALLOW_USER_GRANT));
+    when(context.driveFiles.findByIdForWorkspace("file_allowed", "wrk_test"))
+        .thenReturn(Optional.of(file("file_allowed")));
+    when(context.repository.findDetailByIdForWorkspace("ocr_allowed", "wrk_test"))
         .thenReturn(Optional.of(job));
-    when(driveFileRepository.findByIdForWorkspace("file_private", "wrk_test"))
-        .thenReturn(Optional.of(file("file_private")));
+    when(context.encryption.decryptText("encrypted-name", "name-iv")).thenReturn("Invoice.pdf");
+    when(context.ocrResults.findByJobIdForWorkspace("ocr_allowed", "wrk_test"))
+        .thenReturn(Optional.empty());
+    when(context.extractions.findByOcrJobIdForWorkspace("ocr_allowed", "wrk_test"))
+        .thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> service.getJob("ocr_private"))
-        .isInstanceOfSatisfying(
-            ApiException.class,
-            exception -> {
-              assertThat(exception.status()).isEqualTo(HttpStatus.NOT_FOUND);
-              assertThat(exception.code()).isEqualTo(ApiErrorCode.NOT_FOUND);
-            });
+    OcrJobDetailResponse response = context.service.getJob("ocr_allowed");
 
-    verify(ocrResultRepository, never()).findByJobIdForWorkspace("ocr_private", "wrk_test");
-    verify(invoiceExtractionRepository, never())
-        .findByOcrJobIdForWorkspace("ocr_private", "wrk_test");
+    assertThat(response.extractedText()).isEqualTo("legacy extracted secret");
+    verify(context.authorizationService)
+        .decide(
+            context.principal, "wrk_test", ResourceType.FILE, "file_allowed", ResourceAction.VIEW);
+    verify(context.driveFiles).findByIdForWorkspace("file_allowed", "wrk_test");
+    verify(context.repository).findDetailByIdForWorkspace("ocr_allowed", "wrk_test");
   }
 
   @Test
-  void deniesForeignWorkspaceBeforeLoadingProtectedDetail() {
-    AuthenticationContext authenticationContext = mock(AuthenticationContext.class);
-    OcrJobRepository ocrJobRepository = mock(OcrJobRepository.class);
-    DriveFileRepository driveFileRepository = mock(DriveFileRepository.class);
-    FileEncryptionService encryptionService = mock(FileEncryptionService.class);
-    OcrJobLifecycleProjectionService lifecycleProjectionService =
-        mock(OcrJobLifecycleProjectionService.class);
-    JdbcOcrResultRepository ocrResultRepository = mock(JdbcOcrResultRepository.class);
-    JdbcInvoiceExtractionRepository invoiceExtractionRepository =
-        mock(JdbcInvoiceExtractionRepository.class);
-    OcrJobQueryService service =
-        new OcrJobQueryService(
-            authenticationContext,
-            ocrJobRepository,
-            driveFileRepository,
-            encryptionService,
-            lifecycleProjectionService,
-            ocrResultRepository,
-            invoiceExtractionRepository,
-            new ResourcePermissionDecision());
+  void returnsOneNonEnumeratingNotFoundWithoutProtectedLoadsWhenSourceIsDenied() {
+    TestContext context = new TestContext();
+    OcrJobSourceReference source =
+        new OcrJobSourceReference("ocr_private", "file_private", "wrk_test");
+    when(context.repository.findSourceReferenceByIdForWorkspace("ocr_private", "wrk_test"))
+        .thenReturn(Optional.of(source));
+    when(context.authorizationService.decide(
+            context.principal, "wrk_test", ResourceType.FILE, "file_private", ResourceAction.VIEW))
+        .thenReturn(AuthorizationDecision.deny(AuthorizationDecisionCode.DENY_NO_POLICY));
 
-    when(authenticationContext.currentPrincipal())
-        .thenReturn(new AuthenticatedPrincipal("usr_owner", "wrk_test", Set.of(), true));
-    when(ocrJobRepository.findByIdForWorkspace("ocr_foreign", "wrk_test"))
-        .thenReturn(Optional.empty());
+    assertThatThrownBy(() -> context.service.getJob("ocr_private"))
+        .isInstanceOf(ApiException.class)
+        .hasMessage("OCR job was not found");
 
-    assertThatThrownBy(() -> service.getJob("ocr_foreign"))
-        .isInstanceOfSatisfying(
-            ApiException.class,
-            exception -> {
-              assertThat(exception.status()).isEqualTo(HttpStatus.NOT_FOUND);
-              assertThat(exception.code()).isEqualTo(ApiErrorCode.NOT_FOUND);
-            });
-
-    verify(ocrResultRepository, never()).findByJobIdForWorkspace("ocr_foreign", "wrk_test");
-    verify(invoiceExtractionRepository, never())
-        .findByOcrJobIdForWorkspace("ocr_foreign", "wrk_test");
+    verify(context.driveFiles, never()).findByIdForWorkspace(any(), any());
+    verify(context.repository, never()).findDetailByIdForWorkspace(any(), any());
+    verify(context.ocrResults, never()).findByJobIdForWorkspace(any(), any());
+    verify(context.extractions, never()).findByOcrJobIdForWorkspace(any(), any());
+    verify(context.lifecycle, never()).project(any());
+    verify(context.encryption, never()).decryptText(any(), any());
   }
 
   @Test
-  void deniesMissingSourceBeforeLoadingProtectedDetail() {
-    AuthenticationContext authenticationContext = mock(AuthenticationContext.class);
-    OcrJobRepository ocrJobRepository = mock(OcrJobRepository.class);
-    DriveFileRepository driveFileRepository = mock(DriveFileRepository.class);
-    FileEncryptionService encryptionService = mock(FileEncryptionService.class);
-    OcrJobLifecycleProjectionService lifecycleProjectionService =
-        mock(OcrJobLifecycleProjectionService.class);
-    JdbcOcrResultRepository ocrResultRepository = mock(JdbcOcrResultRepository.class);
-    JdbcInvoiceExtractionRepository invoiceExtractionRepository =
-        mock(JdbcInvoiceExtractionRepository.class);
-    OcrJobQueryService service =
-        new OcrJobQueryService(
-            authenticationContext,
-            ocrJobRepository,
-            driveFileRepository,
-            encryptionService,
-            lifecycleProjectionService,
-            ocrResultRepository,
-            invoiceExtractionRepository,
-            new ResourcePermissionDecision());
-
-    OcrJob job = job("ocr_missing", "file_missing");
-    when(authenticationContext.currentPrincipal())
-        .thenReturn(new AuthenticatedPrincipal("usr_owner", "wrk_test", Set.of(), true));
-    when(ocrJobRepository.findByIdForWorkspace("ocr_missing", "wrk_test"))
-        .thenReturn(Optional.of(job));
-    when(driveFileRepository.findByIdForWorkspace("file_missing", "wrk_test"))
+  void stopsBeforeAuthorizationWhenTheOcrJobIsMissing() {
+    TestContext context = new TestContext();
+    when(context.repository.findSourceReferenceByIdForWorkspace("ocr_missing", "wrk_test"))
         .thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> service.getJob("ocr_missing"))
-        .isInstanceOfSatisfying(
-            ApiException.class,
-            exception -> {
-              assertThat(exception.status()).isEqualTo(HttpStatus.NOT_FOUND);
-              assertThat(exception.code()).isEqualTo(ApiErrorCode.NOT_FOUND);
-            });
+    assertThatThrownBy(() -> context.service.getJob("ocr_missing"))
+        .isInstanceOf(ApiException.class)
+        .hasMessage("OCR job was not found");
 
-    verify(ocrResultRepository, never()).findByJobIdForWorkspace("ocr_missing", "wrk_test");
-    verify(invoiceExtractionRepository, never())
-        .findByOcrJobIdForWorkspace("ocr_missing", "wrk_test");
+    verify(context.authorizationService, never()).decide(any(), any(), any(), any(), any());
+    verify(context.driveFiles, never()).findByIdForWorkspace(any(), any());
+    verify(context.repository, never()).findDetailByIdForWorkspace(any(), any());
   }
 
   @Test
-  void returnsLegacyExtractedTextForAuthorizedFileOwner() {
-    AuthenticationContext authenticationContext = mock(AuthenticationContext.class);
-    OcrJobRepository ocrJobRepository = mock(OcrJobRepository.class);
-    DriveFileRepository driveFileRepository = mock(DriveFileRepository.class);
-    FileEncryptionService encryptionService = mock(FileEncryptionService.class);
-    OcrJobLifecycleProjectionService lifecycleProjectionService =
-        mock(OcrJobLifecycleProjectionService.class);
-    JdbcOcrResultRepository ocrResultRepository = mock(JdbcOcrResultRepository.class);
-    JdbcInvoiceExtractionRepository invoiceExtractionRepository =
-        mock(JdbcInvoiceExtractionRepository.class);
-    OcrJobQueryService service =
-        new OcrJobQueryService(
-            authenticationContext,
-            ocrJobRepository,
-            driveFileRepository,
-            encryptionService,
-            lifecycleProjectionService,
-            ocrResultRepository,
-            invoiceExtractionRepository,
-            new ResourcePermissionDecision());
+  void batchFiltersListCandidatesBeforeSafeSummaryAndMetadataLoads() {
+    TestContext context = new TestContext();
+    OcrJobSourceReference allowed =
+        new OcrJobSourceReference("ocr_allowed", "file_allowed", "wrk_test");
+    OcrJobSourceReference denied =
+        new OcrJobSourceReference("ocr_denied", "file_denied", "wrk_test");
+    when(context.repository.listSourceReferencesByWorkspace("wrk_test"))
+        .thenReturn(List.of(allowed, denied));
+    when(context.authorizationService.allowedResourceIds(
+            context.principal,
+            "wrk_test",
+            ResourceType.FILE,
+            Set.of("file_allowed", "file_denied"),
+            ResourceAction.VIEW))
+        .thenReturn(Set.of("file_allowed"));
+    when(context.repository.findSummariesByIdsForWorkspace(List.of("ocr_allowed"), "wrk_test"))
+        .thenReturn(List.of(summary("ocr_allowed", "file_allowed")));
+    when(context.driveFiles.listByIdsForWorkspace("wrk_test", Set.of("file_allowed")))
+        .thenReturn(List.of(file("file_allowed")));
+    when(context.encryption.decryptText("encrypted-name", "name-iv")).thenReturn("Allowed.pdf");
+    when(context.ocrResults.findPresentJobIdsForWorkspace("wrk_test", List.of("ocr_allowed")))
+        .thenReturn(Set.of("ocr_allowed"));
+    when(context.extractions.findSummariesByOcrJobIdsForWorkspace(
+            "wrk_test", List.of("ocr_allowed")))
+        .thenReturn(Map.<String, InvoiceExtractionSummary>of());
 
-    OcrJob job = job("ocr_owner", "file_owner");
-    when(authenticationContext.currentPrincipal())
-        .thenReturn(new AuthenticatedPrincipal("usr_test", "wrk_test", Set.of(), true));
-    when(ocrJobRepository.findByIdForWorkspace("ocr_owner", "wrk_test"))
-        .thenReturn(Optional.of(job));
-    when(driveFileRepository.findByIdForWorkspace("file_owner", "wrk_test"))
-        .thenReturn(Optional.of(file("file_owner")));
-    when(encryptionService.decryptText("encrypted-name", "name-iv")).thenReturn("Invoice.pdf");
-    when(ocrResultRepository.findByJobIdForWorkspace("ocr_owner", "wrk_test"))
-        .thenReturn(Optional.empty());
-    when(invoiceExtractionRepository.findByOcrJobIdForWorkspace("ocr_owner", "wrk_test"))
-        .thenReturn(Optional.empty());
+    OcrJobListResponse response = context.service.listJobs();
 
-    OcrJobDetailResponse response = service.getJob("ocr_owner");
-
-    assertThat(response.extractedText()).isEqualTo("sensitive text");
-    verify(ocrResultRepository).findByJobIdForWorkspace("ocr_owner", "wrk_test");
-    verify(invoiceExtractionRepository).findByOcrJobIdForWorkspace("ocr_owner", "wrk_test");
+    assertThat(response.jobs())
+        .extracting(OcrJobSummaryResponse::jobId)
+        .containsExactly("ocr_allowed");
+    verify(context.repository).findSummariesByIdsForWorkspace(List.of("ocr_allowed"), "wrk_test");
+    verify(context.driveFiles).listByIdsForWorkspace("wrk_test", Set.of("file_allowed"));
+    verify(context.ocrResults).findPresentJobIdsForWorkspace("wrk_test", List.of("ocr_allowed"));
+    verify(context.extractions)
+        .findSummariesByOcrJobIdsForWorkspace("wrk_test", List.of("ocr_allowed"));
+    verify(context.encryption, never()).decryptText("denied-name", "denied-iv");
   }
 
-  private OcrJob job(String jobId, String fileId) {
+  private static OcrJob job(String jobId, String fileId) {
     return new OcrJob(
         jobId,
         fileId,
         "wrk_test",
-        "usr_test",
+        "usr_owner",
         "evt_test",
         "corr_test",
         "application/pdf",
-        "storage-key",
+        "private-storage-key",
         OcrJobStatus.COMPLETED,
         "tesseract",
         1,
         3,
-        "sensitive text",
-        14,
+        "legacy extracted secret",
+        23,
         null,
         null,
         NOW,
@@ -288,11 +169,31 @@ class OcrJobQueryServiceTest {
         NOW);
   }
 
-  private DriveFileMetadata file(String fileId) {
+  private static OcrJobSummary summary(String jobId, String fileId) {
+    return new OcrJobSummary(
+        jobId,
+        fileId,
+        "wrk_test",
+        "application/pdf",
+        OcrJobStatus.COMPLETED,
+        "tesseract",
+        1,
+        3,
+        23,
+        null,
+        "corr_test",
+        NOW,
+        NOW,
+        NOW,
+        null,
+        NOW);
+  }
+
+  private static DriveFileMetadata file(String fileId) {
     return new DriveFileMetadata(
         fileId,
         "wrk_test",
-        "usr_test",
+        "usr_owner",
         DriveFileVisibility.PRIVATE,
         "encrypted-name",
         "application/pdf",
@@ -305,5 +206,35 @@ class OcrJobQueryServiceTest {
         "name-iv",
         NOW,
         NOW);
+  }
+
+  private static final class TestContext {
+    private final AuthenticationContext authentication = mock(AuthenticationContext.class);
+    private final OcrJobRepository repository = mock(OcrJobRepository.class);
+    private final DriveFileRepository driveFiles = mock(DriveFileRepository.class);
+    private final FileEncryptionService encryption = mock(FileEncryptionService.class);
+    private final OcrJobLifecycleProjectionService lifecycle =
+        mock(OcrJobLifecycleProjectionService.class);
+    private final JdbcOcrResultRepository ocrResults = mock(JdbcOcrResultRepository.class);
+    private final JdbcInvoiceExtractionRepository extractions =
+        mock(JdbcInvoiceExtractionRepository.class);
+    private final ResourceAuthorizationService authorizationService =
+        mock(ResourceAuthorizationService.class);
+    private final AuthenticatedPrincipal principal =
+        new AuthenticatedPrincipal("usr_viewer", "wrk_test", Set.of(), true);
+    private final OcrJobQueryService service =
+        new OcrJobQueryService(
+            authentication,
+            repository,
+            driveFiles,
+            encryption,
+            lifecycle,
+            ocrResults,
+            extractions,
+            authorizationService);
+
+    private TestContext() {
+      when(authentication.currentPrincipal()).thenReturn(principal);
+    }
   }
 }

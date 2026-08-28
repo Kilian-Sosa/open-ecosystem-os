@@ -60,7 +60,7 @@ public class FileUploadedOcrJobService {
             return;
           }
 
-          if (ocrJobRepository.findByFileId(event.fileId()).isEmpty()) {
+          if (!ocrJobRepository.existsByFileId(event.fileId())) {
             OcrJob job = queuedJob(event, now);
             ocrJobRepository.saveQueued(job);
             auditRecordRepository.save(queuedAuditRecord(job, event, now));
