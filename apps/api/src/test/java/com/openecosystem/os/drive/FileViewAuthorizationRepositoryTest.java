@@ -46,42 +46,42 @@ class FileViewAuthorizationRepositoryTest {
   void preservesSingularAndBatchParityForEveryRoleVisibilityAndGrantState() {
     insertWorkspace(WORKSPACE_ID, "active");
     insertActiveMember(WORKSPACE_ID, OWNER_ID, "VIEWER");
-    insertFile("file_private", WORKSPACE_ID, OWNER_ID, "private");
-    insertFile("file_workspace", WORKSPACE_ID, OWNER_ID, "workspace");
+    insertFile("file_auth_private", WORKSPACE_ID, OWNER_ID, "private");
+    insertFile("file_auth_workspace", WORKSPACE_ID, OWNER_ID, "workspace");
 
-    assertParity(OWNER_ID, "file_private", true);
-    assertParity(OWNER_ID, "file_workspace", true);
+    assertParity(OWNER_ID, "file_auth_private", true);
+    assertParity(OWNER_ID, "file_auth_workspace", true);
 
     List<String> approvedRoles =
         List.of("INSTANCE_OWNER", "WORKSPACE_ADMIN", "DEVELOPER", "EDITOR", "VIEWER");
     List<String> deniedRoles = List.of("GUEST", "AUDITOR", "DEVELOPMENT_PLACEHOLDER");
     for (String role : approvedRoles) {
       insertActiveMember(WORKSPACE_ID, actorFor(role), role);
-      assertParity(actorFor(role), "file_private", false);
-      assertParity(actorFor(role), "file_workspace", true);
+      assertParity(actorFor(role), "file_auth_private", false);
+      assertParity(actorFor(role), "file_auth_workspace", true);
     }
     for (String role : deniedRoles) {
       insertActiveMember(WORKSPACE_ID, actorFor(role), role);
-      assertParity(actorFor(role), "file_private", false);
-      assertParity(actorFor(role), "file_workspace", false);
+      assertParity(actorFor(role), "file_auth_private", false);
+      assertParity(actorFor(role), "file_auth_workspace", false);
     }
 
     insertActiveMember(WORKSPACE_ID, "usr_auth_granted", "GUEST");
-    insertGrant("grant_active", "file_private", "usr_auth_granted", null);
-    assertParity("usr_auth_granted", "file_private", true);
+    insertGrant("grant_active", "file_auth_private", "usr_auth_granted", null);
+    assertParity("usr_auth_granted", "file_auth_private", true);
 
     insertActiveMember(WORKSPACE_ID, "usr_auth_revoked", "AUDITOR");
-    insertGrant("grant_revoked", "file_private", "usr_auth_revoked", NOW.plusSeconds(1));
-    assertParity("usr_auth_revoked", "file_private", false);
+    insertGrant("grant_revoked", "file_auth_private", "usr_auth_revoked", NOW.plusSeconds(1));
+    assertParity("usr_auth_revoked", "file_auth_private", false);
 
     assertThat(
             service.allowedResourceIds(
                 principal("usr_auth_granted"),
                 WORKSPACE_ID,
                 ResourceType.FILE,
-                List.of("file_private", "file_workspace"),
+                List.of("file_auth_private", "file_auth_workspace"),
                 ResourceAction.VIEW))
-        .containsExactly("file_private");
+        .containsExactly("file_auth_private");
   }
 
   @Test
