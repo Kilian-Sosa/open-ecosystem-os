@@ -95,7 +95,7 @@ Use for transient operational state:
 Use for search indexing:
 
 - file names
-- OCR text
+- approved normalized extraction fields (excluding raw OCR)
 - Open Pages
 - Knowledge items
 - forms/submissions
