@@ -2,6 +2,12 @@ name: OWASP Dependency Check (Advisory)
 
 on:
   workflow_dispatch:
+    inputs:
+      refresh_nvd:
+        description: Refresh the NVD database for a manual bootstrap or recovery run
+        required: false
+        default: false
+        type: boolean
   pull_request:
     branches: [main, develop]
   push:
@@ -15,11 +21,11 @@ permissions:
 jobs:
   dependency-check-data:
     name: OWASP Dependency-Check data
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.refresh_nvd) }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       DEPENDENCY_CHECK_DATA_PATH: ~/.m2/repository/org/owasp/dependency-check-data
-      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -46,6 +52,8 @@ jobs:
 
       - name: Update Dependency-Check data
         working-directory: apps/api
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: ./mvnw -B -DskipTests -P security-scan org.owasp:dependency-check-maven:update-only
 
       - name: Save Dependency-Check data
@@ -57,6 +65,7 @@ jobs:
 
   dependency-check-api:
     name: OWASP Dependency-Check API
+    if: ${{ !cancelled() && (needs.dependency-check-data.result == 'success' || (github.event_name != 'schedule' && !(github.event_name == 'workflow_dispatch' && inputs.refresh_nvd))) }}
     needs: dependency-check-data
     permissions:
       contents: read
@@ -67,11 +76,9 @@ jobs:
       working-directory: apps/api
       report-artifact-name: api-dependency-check-report
       report-path: apps/api/target/dependency-check-report.*
-    secrets:
-      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-
   dependency-check-worker:
     name: OWASP Dependency-Check Worker
+    if: ${{ !cancelled() && (needs.dependency-check-data.result == 'success' || (github.event_name != 'schedule' && !(github.event_name == 'workflow_dispatch' && inputs.refresh_nvd))) }}
     needs: dependency-check-data
     permissions:
       contents: read
@@ -82,5 +89,3 @@ jobs:
       working-directory: apps/worker
       report-artifact-name: worker-dependency-check-report
       report-path: apps/worker/target/dependency-check-report.*
-    secrets:
-      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
