@@ -433,6 +433,7 @@ public class WorkflowRunner {
   private SearchDocument searchDocument(
       InvoiceExtraction extraction, WorkflowExecution execution, Instant now) {
     ObjectNode metadata = objectMapper.createObjectNode();
+    metadata.put("fileId", extraction.fileId());
     addSearchField(metadata, extraction, "invoice_number");
     addSearchField(metadata, extraction, "supplier_name");
     addSearchField(metadata, extraction, "total_amount");

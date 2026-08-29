@@ -127,6 +127,8 @@ class WorkflowExecutionServiceTest {
         jdbcTemplate.queryForMap("select * from search_documents limit 1");
     assertThat(searchDocument.get("source_type")).isEqualTo("invoice_extraction");
     assertThat(searchDocument.get("resource_href")).isEqualTo("/app/media?jobId=ocr_invoice");
+    assertThat(searchDocument.get("metadata_json").toString())
+        .contains("\"fileId\":\"file_invoice\"");
     assertThat(searchDocument.get("content").toString())
         .contains("TEST-INV-2026-42", "Example Supplies", "121.00", "EUR")
         .doesNotContain(PRIVATE_IBAN, PRIVATE_TAX_ID, PRIVATE_OCR_TEXT);

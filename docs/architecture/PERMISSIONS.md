@@ -193,13 +193,22 @@ map OCR job access to the source file permission:
   event payloads, storage keys, OCR text, workflow step input/output, or audit
   attributes
 
-### Current seeded-MVP `file:view` decision
+### Current persisted `file:view` decision
 
-The current executable `file:view` decision is intentionally narrow: a private Drive file is
-visible only when the authenticated actor and the file owner match in the same workspace. It is
-applied before Drive and Media/OCR list or detail content is returned; denied, foreign-workspace,
-and missing resources use the same non-enumerating not-found response.
+Drive file visibility is persisted as either `private` or `workspace`. Every new and migrated
+file is private by default. An active same-workspace owner may view either visibility. An active
+member with `INSTANCE_OWNER`, `WORKSPACE_ADMIN`, `DEVELOPER`, `EDITOR`, or `VIEWER` may view a
+workspace-visible file. `GUEST` and `AUDITOR` do not receive a workspace-visibility role grant.
 
-Workspace membership and its stored roles do not independently grant file visibility. The
-current persistence model has no workspace-visible or user/group sharing grants, so those access
-paths remain unsupported until a dedicated sharing model is designed and persisted.
+An active same-workspace user with an explicit persisted `file:view` grant may view either
+visibility, including a Guest or Auditor. No workspace role bypasses a private file: a non-owner
+needs an explicit active grant. Revoked grants, inactive users or workspaces, and removed
+memberships do not authorize access. Groups are deferred until the product has a real
+workspace-group and membership model.
+
+Drive, Media/OCR, and Search reuse the same source-file authorization service. Drive and OCR
+detail denials are non-enumerating not-found responses, and their list flows return only
+authorized resources. Search omits a denied derived hit from its normal response. PostgreSQL and
+Meilisearch normalized extraction candidates are each filtered by the source `metadata.fileId`
+before merge, labels, counts, or public result construction; a Drive-derived hit with missing or
+invalid lineage fails closed.
