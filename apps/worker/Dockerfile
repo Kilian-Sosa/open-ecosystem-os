@@ -8,7 +8,8 @@ RUN mvn -B -f pdf-helper/pom.xml -DskipTests package \
 
 FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
-RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-eng \
+RUN apk upgrade --no-cache openssl libssl3 libcrypto3 \
+    && apk add --no-cache tesseract-ocr tesseract-ocr-data-eng \
     && addgroup -S -g 10001 openecosystem \
     && adduser -S -D -H -u 10001 -G openecosystem openecosystem
 COPY --from=builder /app/target/open-ecosystem-worker-0.1.0-SNAPSHOT.jar app.jar
