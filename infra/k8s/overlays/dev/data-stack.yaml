@@ -38,10 +38,23 @@ spec:
         app.kubernetes.io/part-of: open-ecosystem-os
     spec:
       automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: postgres
           image: postgres:16-alpine
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
           ports:
             - name: postgres
               containerPort: 5432
@@ -96,6 +109,12 @@ spec:
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
+            - name: postgres-runtime
+              mountPath: /var/run/postgresql
+      volumes:
+        - name: postgres-runtime
+          emptyDir:
+            sizeLimit: 16Mi
   volumeClaimTemplates:
     - metadata:
         name: postgres-data
@@ -146,10 +165,23 @@ spec:
         app.kubernetes.io/part-of: open-ecosystem-os
     spec:
       automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: redis
           image: redis:7-alpine
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
           args:
             - redis-server
             - --appendonly
@@ -237,10 +269,23 @@ spec:
         app.kubernetes.io/part-of: open-ecosystem-os
     spec:
       automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: rabbitmq
           image: rabbitmq:4-management-alpine
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
           ports:
             - name: amqp
               containerPort: 5672
@@ -340,10 +385,23 @@ spec:
         app.kubernetes.io/part-of: open-ecosystem-os
     spec:
       automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: minio
           image: minio/minio:latest
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
           args:
             - server
             - /data
@@ -365,6 +423,8 @@ spec:
                 secretKeyRef:
                   name: open-ecosystem-data-secrets
                   key: MINIO_ROOT_PASSWORD
+            - name: HOME
+              value: /tmp
           readinessProbe:
             httpGet:
               path: /minio/health/ready
@@ -389,6 +449,12 @@ spec:
           volumeMounts:
             - name: minio-data
               mountPath: /data
+            - name: minio-runtime
+              mountPath: /tmp
+      volumes:
+        - name: minio-runtime
+          emptyDir:
+            sizeLimit: 64Mi
   volumeClaimTemplates:
     - metadata:
         name: minio-data
@@ -439,10 +505,23 @@ spec:
         app.kubernetes.io/part-of: open-ecosystem-os
     spec:
       automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: meilisearch
           image: getmeili/meilisearch:latest
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
           ports:
             - name: http
               containerPort: 7700
