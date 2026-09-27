@@ -4,6 +4,7 @@ import java.time.Instant;
 
 public record DriveFileResponse(
     String fileId,
+    String visibility,
     String name,
     String contentType,
     long sizeBytes,

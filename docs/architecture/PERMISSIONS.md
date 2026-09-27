@@ -55,7 +55,7 @@ workspace membership and permission model.
 - task
 - notification
 - search_document
-- demo_invoice_extraction
+- invoice_extraction
 - audit_log
 - integration
 - api_key
@@ -92,7 +92,7 @@ workspace membership and permission model.
 | Pages              | manage | manage | edit                 | edit               | view   | limited view | view audit only |
 | Workflows          | manage | manage | edit/execute         | execute if allowed | view   | none         | view audit only |
 | Search documents   | manage | manage | view                 | view               | view   | none         | view audit only |
-| Demo invoice data  | manage | manage | execute              | execute if allowed | view   | none         | view audit only |
+| Invoice extraction | manage | manage | view                 | view               | view   | none         | view audit only |
 | Integrations       | manage | manage | configure if allowed | none               | none   | none         | view            |
 | API keys           | manage | manage | create own           | none               | none   | none         | view audit only |
 | Audit logs         | view   | view   | limited own          | limited own        | none   | none         | view            |
@@ -183,6 +183,8 @@ map OCR job access to the source file permission:
 
 - viewing OCR job status requires `file:view`
 - viewing extracted OCR text requires `file:view` on the source file
+- viewing structured OCR words, extraction fields, warnings, and provenance requires the
+  same `file:view` permission on the source file; there is no separate extraction-data grant
 - re-running or deleting OCR jobs later should require `file:edit` or `file:manage`
 - auditors may view OCR audit metadata but not extracted text by default
 - the OCR lifecycle projection inherits the same source-file and OCR-detail
@@ -190,3 +192,23 @@ map OCR job access to the source file permission:
 - lifecycle rows expose sanitized diagnostic metadata only and never expose
   event payloads, storage keys, OCR text, workflow step input/output, or audit
   attributes
+
+### Current persisted `file:view` decision
+
+Drive file visibility is persisted as either `private` or `workspace`. Every new and migrated
+file is private by default. An active same-workspace owner may view either visibility. An active
+member with `INSTANCE_OWNER`, `WORKSPACE_ADMIN`, `DEVELOPER`, `EDITOR`, or `VIEWER` may view a
+workspace-visible file. `GUEST` and `AUDITOR` do not receive a workspace-visibility role grant.
+
+An active same-workspace user with an explicit persisted `file:view` grant may view either
+visibility, including a Guest or Auditor. No workspace role bypasses a private file: a non-owner
+needs an explicit active grant. Revoked grants, inactive users or workspaces, and removed
+memberships do not authorize access. Groups are deferred until the product has a real
+workspace-group and membership model.
+
+Drive, Media/OCR, and Search reuse the same source-file authorization service. Drive and OCR
+detail denials are non-enumerating not-found responses, and their list flows return only
+authorized resources. Search omits a denied derived hit from its normal response. PostgreSQL and
+Meilisearch normalized extraction candidates are each filtered by the source `metadata.fileId`
+before merge, labels, counts, or public result construction; a Drive-derived hit with missing or
+invalid lineage fails closed.

@@ -27,6 +27,7 @@ Use for:
 - integration metadata
 - API keys metadata
 - backup metadata
+- structured OCR results, pages, words, and invoice extraction review records
 
 ### PostgreSQL JSONB
 
@@ -69,6 +70,14 @@ Use for binary and large assets:
 
 Drive upload objects are private by default and stored under opaque keys such as `workspaces/{workspaceId}/drive/{fileId}/original`. The application encrypts original file bytes with AES-256-GCM before writing to MinIO or AWS S3-compatible storage. Original filenames are stored encrypted in PostgreSQL metadata, not embedded in object keys.
 
+`drive_files.visibility` persists `private` or `workspace` application visibility, while
+`drive_file_user_grants` persists active and revoked explicit user `file:view` grants. Object
+storage remains private regardless of that application policy. Normalized invoice-extraction
+Search documents persist only the exact source Drive file ID at `metadata.fileId`; user-facing
+Search disclosure authorizes that source file before returning derived fields.
+
+The OCR worker creates decrypted input and rendered-page files only inside its bounded runtime temporary directory. They are deleted after processing and are never stored as object-storage OCR artifacts. PostgreSQL stores the structured OCR result needed for authorized detail and provenance; search reads only an approved persisted extraction-field whitelist.
+
 ### Redis
 
 Use for transient operational state:
@@ -86,7 +95,7 @@ Use for transient operational state:
 Use for search indexing:
 
 - file names
-- OCR text
+- approved normalized extraction fields (excluding raw OCR)
 - Open Pages
 - Knowledge items
 - forms/submissions

@@ -10,7 +10,6 @@ Currently implemented routes include:
 ```txt
 /                              Public landing page
 /app/dashboard                  Workspace dashboard
-/app/demo/invoice-automation    Seeded flagship invoice automation demo
 /app/drive                      Drive / file manager
 /app/flows                      Open Ecosystem Flows
 /app/media                      Media / OCR
@@ -51,7 +50,6 @@ Currently implemented routes include:
 
 ```txt
 /app/dashboard                  Workspace dashboard
-/app/demo/invoice-automation    Seeded flagship invoice automation demo
 /app/drive                      Drive / file manager
 /app/pdf                        PDF editor
 /app/pages                      Open Pages

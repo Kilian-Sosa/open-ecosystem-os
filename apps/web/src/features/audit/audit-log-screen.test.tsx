@@ -15,16 +15,16 @@ describe("AuditLogScreen", () => {
     );
   }
 
-  it("renders audit records for the demo trace", () => {
+  it("renders audit records for the document extraction trace", () => {
     renderAudit("normal");
 
     expect(screen.getAllByText("Audit logs").length).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("flows.demo_invoice.extracted").length,
+      screen.getAllByText("flows.document_extraction.completed").length,
     ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText("demo_invoice_extraction").length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("document_extraction").length).toBeGreaterThan(
+      0,
+    );
   });
 
   it("renders non-normal states", () => {

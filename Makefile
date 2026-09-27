@@ -7,16 +7,14 @@ KUBECONFORM_IMAGE ?= ghcr.io/yannh/kubeconform:latest
 ifeq ($(OS),Windows_NT)
 NULL_DEVICE = NUL
 ENSURE_ENV = powershell -NoProfile -ExecutionPolicy Bypass -Command "if (-not (Test-Path -LiteralPath '.env')) { Copy-Item -LiteralPath '.env.example' -Destination '.env'; Write-Host 'Created .env from .env.example' }"
-SEED_DEMO = powershell -NoProfile -ExecutionPolicy Bypass -File scripts/seed-demo-data.ps1
-RESET_DEMO = powershell -NoProfile -ExecutionPolicy Bypass -File scripts/reset-demo-data.ps1
+ SMOKE_REAL_OCR = powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-real-ocr.ps1 -StartStack
 else
 NULL_DEVICE = /dev/null
 ENSURE_ENV = if [ ! -f .env ]; then cp .env.example .env && echo "Created .env from .env.example"; fi
-SEED_DEMO = ./scripts/seed-demo-data.sh
-RESET_DEMO = ./scripts/reset-demo-data.sh
+ SMOKE_REAL_OCR = sh scripts/smoke-real-ocr.sh --start-stack
 endif
 
-.PHONY: install format format-check lint typecheck test test-unit test-integration test-e2e build docker-up docker-watch docker-watch-web docker-watch-api docker-watch-worker docker-down docker-logs smoke security-scan k8s-validate ci-local up watch down logs ps obs-up obs-watch obs-down obs-ps seed reset ensure-env
+.PHONY: install format format-check lint typecheck test test-unit test-integration test-e2e build docker-up docker-watch docker-watch-web docker-watch-api docker-watch-worker docker-down docker-logs smoke smoke-real-ocr security-scan k8s-validate ci-local up watch down logs ps obs-up obs-watch obs-down obs-ps ensure-env
 
 ensure-env:
 	@$(ENSURE_ENV)
@@ -82,6 +80,9 @@ smoke:
 	kubectl kustomize infra/k8s/overlays/dev >$(NULL_DEVICE)
 	kubectl kustomize infra/k8s/overlays/prod >$(NULL_DEVICE)
 
+smoke-real-ocr: ensure-env
+	$(SMOKE_REAL_OCR)
+
 security-scan:
 	@if command -v trivy >/dev/null 2>&1; then trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 --skip-dirs infra/k8s/overlays/dev .; else echo "trivy not installed; security scan deferred."; fi
 
@@ -116,9 +117,3 @@ obs-down:
 
 obs-ps:
 	$(COMPOSE_OBS_PROFILE) --env-file .env ps
-
-seed:
-	$(SEED_DEMO)
-
-reset:
-	$(RESET_DEMO)

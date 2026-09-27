@@ -136,7 +136,7 @@ Payload:
 {
   "jobId": "ocr_123",
   "fileId": "file_123",
-  "provider": "mock",
+  "provider": "tesseract",
   "attemptCount": 1,
   "maxAttempts": 3,
   "startedAt": "2026-05-22T10:00:10Z"
@@ -145,8 +145,8 @@ Payload:
 
 #### `OcrCompleted` v1
 
-Produced by the OCR worker after the provider returns extracted text and the job
-is persisted as completed.
+Produced by the OCR worker after it persists the structured OCR result, ordered
+pages and words, and marks the job as completed.
 
 Payload:
 
@@ -154,7 +154,7 @@ Payload:
 {
   "jobId": "ocr_123",
   "fileId": "file_123",
-  "provider": "mock",
+  "provider": "tesseract",
   "attemptCount": 1,
   "extractedTextLength": 2048,
   "completedAt": "2026-05-22T10:00:20Z"
@@ -163,8 +163,10 @@ Payload:
 
 Notes:
 
-- Extracted text is stored in PostgreSQL for job detail preview.
-- Event payloads intentionally include only text length, never raw OCR text.
+- Structured OCR text, pages, words, confidence, and TSV-derived bounds are persisted locally;
+  the event payload intentionally includes only metadata and text length.
+- The API-owned invoice extraction reads the persisted OCR result after this event. It never
+  receives raw OCR text or extracted field values from the event payload.
 
 #### `OcrFailed` v1
 
@@ -176,11 +178,11 @@ Payload:
 {
   "jobId": "ocr_123",
   "fileId": "file_123",
-  "provider": "mock",
+  "provider": "tesseract",
   "attemptCount": 3,
   "maxAttempts": 3,
-  "errorCode": "MOCK_OCR_FAILED",
-  "errorMessage": "Mock OCR provider failed",
+  "errorCode": "OCR_PROCESS_FAILED",
+  "errorMessage": "OCR process failed",
   "failedAt": "2026-05-22T10:02:20Z"
 }
 ```
@@ -260,17 +262,17 @@ sanitized failure reason for failed records.
 #### `IndexingRequested` v1
 
 Produced by Flows through the outbox when a workflow asks Search to index a
-metadata document. For the invoice demo, this follows fake/test invoice field
-extraction and never places OCR text in the event payload.
+metadata document. For invoice extraction, this follows persisted heuristic
+fields and never places OCR text or field values in the event payload.
 
 Payload:
 
 ```json
 {
   "searchDocumentId": "srch_123",
-  "sourceType": "demo_invoice_extraction",
-  "sourceId": "dinv_123",
-  "resourceHref": "/app/demo/invoice-automation",
+  "sourceType": "invoice_extraction",
+  "sourceId": "invx_123",
+  "resourceHref": "/app/media?jobId=ocr_123",
   "requestedAt": "2026-05-25T10:00:00Z"
 }
 ```
@@ -278,11 +280,10 @@ Payload:
 Notes:
 
 - `source` is `search`.
-- Payload is metadata only and excludes raw OCR text, document content, and
-  invoice field values such as test IBAN or test NIF examples.
-- The worker reads the local `search_documents` row, indexes the configured
-  document shape into Meilisearch, and records idempotent processing in
-  PostgreSQL.
+- Payload is metadata only and excludes raw OCR text, document content, and invoice field values.
+- The Search worker reads the local `search_documents` row and builds its document from an
+  approved persisted-field whitelist; raw OCR text, TSV, tax identifiers, and IBAN values stay
+  excluded. It records idempotent processing in PostgreSQL.
 
 #### `IndexingCompleted` v1
 
@@ -293,8 +294,8 @@ Payload:
 ```json
 {
   "searchDocumentId": "srch_123",
-  "sourceType": "demo_invoice_extraction",
-  "sourceId": "dinv_123",
+  "sourceType": "invoice_extraction",
+  "sourceId": "invx_123",
   "indexedAt": "2026-05-25T10:00:02Z"
 }
 ```
@@ -309,8 +310,8 @@ Payload:
 ```json
 {
   "searchDocumentId": "srch_123",
-  "sourceType": "demo_invoice_extraction",
-  "sourceId": "dinv_123",
+  "sourceType": "invoice_extraction",
+  "sourceId": "invx_123",
   "errorCode": "meilisearch_index_failed",
   "errorMessage": "Sanitized failure summary",
   "failedAt": "2026-05-25T10:00:30Z"

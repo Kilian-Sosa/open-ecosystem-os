@@ -22,17 +22,19 @@ Purpose: prove the product can be installed and understood from zero.
 Upload invoice PDF to Drive
   -> FileUploaded event emitted
   -> OCR job queued
-  -> OCR worker processes document
+  -> OCR worker decrypts and processes the eligible PDF/image with Tesseract when required
   -> OcrCompleted event emitted
   -> Open Ecosystem Flows matches workflow trigger
-  -> Extract invoice fields using AI/mock extractor
-  -> Create Open Pages/Knowledge entry
-  -> Create Kanban task or approval request
-  -> Send notification
-  -> Audit log records full chain
+  -> Extract persisted structured invoice fields with the local heuristic
+  -> Surface review_required when extraction needs human review
+  -> Record the Knowledge placeholder and approved extraction fields for search
+  -> Send a generic notification
+  -> Record generic audit metadata for the lifecycle
 ```
 
-Purpose: flagship technical and product demo.
+Purpose: flagship technical and product demo. The current MVP lifecycle ends with the
+review state, notification/audit metadata, Knowledge placeholder, and search. Creating a
+Kanban task or approval request is future P2 work and is not part of the implemented flow.
 
 ## Journey 3 — Collaborative project workspace
 

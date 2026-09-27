@@ -40,9 +40,39 @@ openecosystem:
       retry-delay: ${OCR_RETRY_DELAY_SECONDS:30s}
   media:
     ocr:
-      provider: ${OCR_PROVIDER:mock}
+      provider: ${OCR_PROVIDER:tesseract}
       max-attempts: ${OCR_MAX_ATTEMPTS:3}
       retry-delay: ${OCR_RETRY_DELAY_SECONDS:30s}
+      command: ${OCR_COMMAND:tesseract}
+      languages: ${OCR_LANGUAGES:eng}
+      max-concurrent-documents: ${OCR_MAX_CONCURRENT_DOCUMENTS:1}
+      page-timeout: ${OCR_PAGE_TIMEOUT_SECONDS:60s}
+      max-pages: ${OCR_MAX_PAGES:50}
+      render-dpi: ${OCR_RENDER_DPI:200}
+      max-input-bytes: ${OCR_MAX_INPUT_BYTES:26214400}
+      max-rendered-pixels: ${OCR_MAX_RENDERED_PIXELS:20000000}
+      max-process-output-bytes: ${OCR_MAX_PROCESS_OUTPUT_BYTES:10485760}
+      max-words-per-page: ${OCR_MAX_WORDS_PER_PAGE:10000}
+      max-words-per-document: ${OCR_MAX_WORDS_PER_DOCUMENT:100000}
+      version-probe-timeout: ${OCR_VERSION_PROBE_TIMEOUT_SECONDS:5s}
+      version-probe-max-output-bytes: ${OCR_VERSION_PROBE_MAX_OUTPUT_BYTES:4096}
+      stale-processing-timeout: ${OCR_STALE_PROCESSING_TIMEOUT_SECONDS:15m}
+      document-timeout: ${OCR_DOCUMENT_TIMEOUT_SECONDS:10m}
+      persistence-cleanup-margin: ${OCR_PERSISTENCE_CLEANUP_MARGIN_SECONDS:2m}
+      pdf-helper-command: ${OCR_PDF_HELPER_COMMAND:java}
+      pdf-helper-jar: ${OCR_PDF_HELPER_JAR:/app/pdf-helper.jar}
+  drive:
+    encryption:
+      key-id: ${DRIVE_ENCRYPTION_KEY_ID:}
+      key-base64: ${DRIVE_ENCRYPTION_KEY_BASE64:}
+  storage:
+    s3:
+      endpoint: ${S3_ENDPOINT:http://localhost:9000}
+      region: ${S3_REGION:local}
+      bucket: ${S3_BUCKET:openecosystem}
+      access-key: ${S3_ACCESS_KEY:openecosystem}
+      secret-key: ${S3_SECRET_KEY:openecosystem_dev_password}
+      path-style-access-enabled: ${S3_PATH_STYLE_ACCESS:true}
   search:
     meilisearch-host: ${MEILISEARCH_HOST:http://localhost:7700}
     meilisearch-master-key: ${MEILISEARCH_MASTER_KEY:openecosystem_dev_master_key}

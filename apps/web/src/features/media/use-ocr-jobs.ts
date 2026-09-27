@@ -31,6 +31,7 @@ export function useOcrJobs(
     queryFn: fetchOcrJobs,
     enabled,
     refetchInterval,
+    retry: false,
   });
 }
 
@@ -44,6 +45,7 @@ export function useOcrJobDetail(
     queryFn: () => fetchOcrJob(jobId ?? ""),
     enabled: enabled && jobId !== null,
     refetchInterval,
+    retry: false,
   });
 }
 

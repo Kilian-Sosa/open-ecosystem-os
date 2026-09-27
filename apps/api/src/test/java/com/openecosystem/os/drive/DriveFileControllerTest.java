@@ -73,6 +73,7 @@ class DriveFileControllerTest {
     assertThat(response.body()).contains("\"contentType\":\"application/pdf\"");
     assertThat(response.body()).contains("\"sizeBytes\":21");
     assertThat(response.body()).contains("\"encrypted\":true");
+    assertThat(response.body()).contains("\"visibility\":\"private\"");
 
     Map<String, Object> metadata =
         jdbcTemplate.queryForMap(
@@ -156,6 +157,254 @@ class DriveFileControllerTest {
         .doesNotContain("\"name\":\"workspace-b.pdf\"");
   }
 
+  @Test
+  void hidesPrivateFilesFromAnUnsharedWorkspaceMember() throws Exception {
+    String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
+    seedExistingWorkspaceMembership("usr_unshared", workspaceId, "VIEWER");
+
+    HttpResponse<String> uploadResponse =
+        httpClient.send(
+            uploadRequest(
+                    "private.pdf",
+                    "application/pdf",
+                    "%PDF-1.7 private".getBytes(StandardCharsets.UTF_8))
+                .header(
+                    PlaceholderAuthenticationContext.ACTOR_HEADER,
+                    PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID)
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+                .build(),
+            BodyHandlers.ofString());
+    String fileId =
+        jdbcTemplate.queryForObject(
+            "select file_id from drive_files where workspace_id = ?", String.class, workspaceId);
+
+    HttpResponse<String> listResponse =
+        httpClient.send(
+            HttpRequest.newBuilder(uri("/api/drive/files"))
+                .header(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_unshared")
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+                .GET()
+                .build(),
+            BodyHandlers.ofString());
+    HttpResponse<String> detailResponse =
+        httpClient.send(
+            HttpRequest.newBuilder(uri("/api/drive/files/" + fileId))
+                .header(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_unshared")
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+                .GET()
+                .build(),
+            BodyHandlers.ofString());
+
+    assertThat(uploadResponse.statusCode()).isEqualTo(201);
+    assertThat(listResponse.statusCode()).isEqualTo(200);
+    assertThat(listResponse.body()).doesNotContain("private.pdf");
+    assertThat(detailResponse.statusCode()).isEqualTo(404);
+    assertThat(detailResponse.body()).doesNotContain("private.pdf");
+  }
+
+  @Test
+  void activeOwnerCanViewItsPrivateFile() throws Exception {
+    String fileId =
+        uploadAndGetFileId(
+            PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID,
+            PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID,
+            "owner-private.pdf");
+
+    HttpResponse<String> response =
+        httpClient.send(
+            requestForFile(
+                fileId,
+                PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID,
+                PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID),
+            BodyHandlers.ofString());
+
+    assertThat(response.statusCode()).isEqualTo(200);
+    assertThat(response.body()).contains("owner-private.pdf");
+    assertThat(response.body()).contains("\"visibility\":\"private\"");
+  }
+
+  @Test
+  void privateFilesHaveNoRoleBypassButWorkspaceFilesUseApprovedRoles() throws Exception {
+    String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
+    String privateFileId =
+        uploadAndGetFileId(
+            PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID, workspaceId, "private-policy.pdf");
+    String workspaceFileId =
+        uploadAndGetFileId(
+            PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID, workspaceId, "workspace-policy.pdf");
+    jdbcTemplate.update(
+        "update drive_files set visibility = 'workspace' where file_id = ?", workspaceFileId);
+
+    Map<String, String> roles =
+        Map.of(
+            "usr_policy_instance_owner", "INSTANCE_OWNER",
+            "usr_policy_admin", "WORKSPACE_ADMIN",
+            "usr_policy_developer", "DEVELOPER",
+            "usr_policy_editor", "EDITOR",
+            "usr_policy_viewer", "VIEWER",
+            "usr_policy_guest", "GUEST",
+            "usr_policy_auditor", "AUDITOR");
+    roles.forEach((actorId, role) -> seedExistingWorkspaceMembership(actorId, workspaceId, role));
+
+    for (String actorId : roles.keySet()) {
+      HttpResponse<String> privateResponse =
+          httpClient.send(
+              requestForFile(privateFileId, actorId, workspaceId), BodyHandlers.ofString());
+      assertThat(privateResponse.statusCode()).as(actorId).isEqualTo(404);
+    }
+
+    for (String actorId :
+        new String[] {
+          "usr_policy_instance_owner",
+          "usr_policy_admin",
+          "usr_policy_developer",
+          "usr_policy_editor",
+          "usr_policy_viewer"
+        }) {
+      HttpResponse<String> workspaceResponse =
+          httpClient.send(
+              requestForFile(workspaceFileId, actorId, workspaceId), BodyHandlers.ofString());
+      assertThat(workspaceResponse.statusCode()).as(actorId).isEqualTo(200);
+      assertThat(workspaceResponse.body()).contains("workspace-policy.pdf");
+    }
+
+    for (String actorId : new String[] {"usr_policy_guest", "usr_policy_auditor"}) {
+      HttpResponse<String> workspaceResponse =
+          httpClient.send(
+              requestForFile(workspaceFileId, actorId, workspaceId), BodyHandlers.ofString());
+      assertThat(workspaceResponse.statusCode()).as(actorId).isEqualTo(404);
+    }
+  }
+
+  @Test
+  void activeExplicitUserGrantsWorkForPrivateGuestAndAuditorFilesAndRevocationRemovesAccess()
+      throws Exception {
+    String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
+    String guestId = "usr_grant_guest";
+    String auditorId = "usr_grant_auditor";
+    seedExistingWorkspaceMembership(guestId, workspaceId, "GUEST");
+    seedExistingWorkspaceMembership(auditorId, workspaceId, "AUDITOR");
+
+    String privateFileId =
+        uploadAndGetFileId(
+            PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID, workspaceId, "granted-private.pdf");
+    seedGrant(privateFileId, guestId, "grant_guest_private");
+    seedGrant(privateFileId, auditorId, "grant_auditor_private");
+
+    assertThat(
+            httpClient
+                .send(requestForFile(privateFileId, guestId, workspaceId), BodyHandlers.ofString())
+                .statusCode())
+        .isEqualTo(200);
+    assertThat(
+            httpClient
+                .send(
+                    requestForFile(privateFileId, auditorId, workspaceId), BodyHandlers.ofString())
+                .statusCode())
+        .isEqualTo(200);
+
+    jdbcTemplate.update(
+        "update drive_file_user_grants set revoked_by_user_id = ?, revoked_at = current_timestamp "
+            + "where file_id = ? and grantee_user_id = ?",
+        PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID,
+        privateFileId,
+        guestId);
+    assertThat(
+            httpClient
+                .send(requestForFile(privateFileId, guestId, workspaceId), BodyHandlers.ofString())
+                .statusCode())
+        .isEqualTo(404);
+  }
+
+  @Test
+  void listOmitsDeniedFilesAndDetailDenialsMatchMissingAndForeignFiles() throws Exception {
+    String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
+    String viewerId = "usr_list_viewer";
+    seedExistingWorkspaceMembership(viewerId, workspaceId, "VIEWER");
+    seedWorkspaceMembership("usr_foreign_drive_owner", "wrk_drive_foreign");
+    String allowedFileId =
+        uploadAndGetFileId(
+            PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID, workspaceId, "allowed-list.pdf");
+    jdbcTemplate.update(
+        "update drive_files set visibility = 'workspace' where file_id = ?", allowedFileId);
+    String deniedFileId =
+        uploadAndGetFileId(
+            PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID,
+            workspaceId,
+            "denied-list-storage-key.pdf");
+    String foreignFileId =
+        uploadAndGetFileId("usr_foreign_drive_owner", "wrk_drive_foreign", "foreign-list.pdf");
+
+    HttpResponse<String> listResponse =
+        httpClient.send(
+            HttpRequest.newBuilder(uri("/api/drive/files"))
+                .header(PlaceholderAuthenticationContext.ACTOR_HEADER, viewerId)
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+                .GET()
+                .build(),
+            BodyHandlers.ofString());
+    assertThat(listResponse.statusCode()).isEqualTo(200);
+    assertThat(listResponse.body())
+        .contains("allowed-list.pdf")
+        .doesNotContain("denied-list-storage-key.pdf")
+        .doesNotContain("workspaces/" + workspaceId + "/drive/");
+
+    HttpResponse<String> deniedResponse =
+        httpClient.send(
+            requestForFile(deniedFileId, viewerId, workspaceId), BodyHandlers.ofString());
+    HttpResponse<String> missingResponse =
+        httpClient.send(
+            requestForFile("file_missing", viewerId, workspaceId), BodyHandlers.ofString());
+    HttpResponse<String> foreignResponse =
+        httpClient.send(
+            requestForFile(foreignFileId, viewerId, workspaceId), BodyHandlers.ofString());
+
+    assertThat(deniedResponse.statusCode()).isEqualTo(404);
+    assertThat(missingResponse.statusCode()).isEqualTo(404);
+    assertThat(foreignResponse.statusCode()).isEqualTo(404);
+    assertThat(deniedResponse.body())
+        .contains("\"error\":\"NOT_FOUND\"")
+        .contains("\"message\":\"Drive file was not found\"");
+    assertThat(missingResponse.body())
+        .contains("\"error\":\"NOT_FOUND\"")
+        .contains("\"message\":\"Drive file was not found\"");
+    assertThat(foreignResponse.body())
+        .contains("\"error\":\"NOT_FOUND\"")
+        .contains("\"message\":\"Drive file was not found\"");
+  }
+
+  @Test
+  void disabledOrRemovedMembersCannotUsePersistedFileAccess() throws Exception {
+    String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
+    String disabledId = "usr_disabled_drive_member";
+    String removedId = "usr_removed_drive_member";
+    seedExistingWorkspaceMembership(disabledId, workspaceId, "VIEWER");
+    seedExistingWorkspaceMembership(removedId, workspaceId, "VIEWER");
+    String fileId =
+        uploadAndGetFileId(
+            PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID, workspaceId, "inactive-member.pdf");
+    seedGrant(fileId, disabledId, "grant_disabled_member");
+    seedGrant(fileId, removedId, "grant_removed_member");
+
+    jdbcTemplate.update(
+        "update identity_users set status = 'disabled' where user_id = ?", disabledId);
+    jdbcTemplate.update(
+        "delete from workspace_memberships where workspace_id = ? and user_id = ?",
+        workspaceId,
+        removedId);
+
+    assertThat(
+            httpClient
+                .send(requestForFile(fileId, disabledId, workspaceId), BodyHandlers.ofString())
+                .statusCode())
+        .isEqualTo(403);
+    assertThat(
+            httpClient
+                .send(requestForFile(fileId, removedId, workspaceId), BodyHandlers.ofString())
+                .statusCode())
+        .isEqualTo(403);
+  }
+
   private void seedWorkspaceMembership(String actorId, String workspaceId) {
     jdbcTemplate.update(
         """
@@ -184,6 +433,70 @@ class DriveFileControllerTest {
         """,
         workspaceId,
         actorId);
+  }
+
+  private void seedExistingWorkspaceMembership(String actorId, String workspaceId, String role) {
+    jdbcTemplate.update(
+        """
+        insert into identity_users (
+          user_id, display_name, email, avatar_initials, status, is_seeded, created_at, updated_at
+        ) values (?, ?, ?, ?, 'active', false, current_timestamp, current_timestamp)
+        """,
+        actorId,
+        actorId,
+        actorId + "@example.test",
+        "TS");
+    jdbcTemplate.update(
+        """
+        insert into workspace_memberships (
+          workspace_id, user_id, role, is_default, created_at, updated_at
+        ) values (?, ?, ?, false, current_timestamp, current_timestamp)
+        """,
+        workspaceId,
+        actorId,
+        role);
+  }
+
+  private String uploadAndGetFileId(String actorId, String workspaceId, String filename)
+      throws Exception {
+    HttpResponse<String> response =
+        httpClient.send(
+            uploadRequest(filename, "application/pdf", ("%PDF-1.7 " + filename).getBytes())
+                .header(PlaceholderAuthenticationContext.ACTOR_HEADER, actorId)
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+                .build(),
+            BodyHandlers.ofString());
+    assertThat(response.statusCode()).isEqualTo(201);
+    return jdbcTemplate.queryForObject(
+        "select file_id from drive_files where workspace_id = ? and owner_id = ? order by"
+            + " created_at desc limit 1",
+        String.class,
+        workspaceId,
+        actorId);
+  }
+
+  private HttpRequest requestForFile(String fileId, String actorId, String workspaceId) {
+    return HttpRequest.newBuilder(uri("/api/drive/files/" + fileId))
+        .header(PlaceholderAuthenticationContext.ACTOR_HEADER, actorId)
+        .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+        .GET()
+        .build();
+  }
+
+  private void seedGrant(String fileId, String granteeUserId, String grantId) {
+    String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
+    jdbcTemplate.update(
+        """
+        insert into drive_file_user_grants (
+          grant_id, workspace_id, file_id, grantee_user_id, action, granted_by_user_id,
+          granted_at, revoked_by_user_id, revoked_at, created_at, updated_at
+        ) values (?, ?, ?, ?, 'file:view', ?, current_timestamp, null, null, current_timestamp, current_timestamp)
+        """,
+        grantId,
+        workspaceId,
+        fileId,
+        granteeUserId,
+        PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID);
   }
 
   @Test

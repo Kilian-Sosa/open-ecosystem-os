@@ -1,7 +1,7 @@
 "use client";
 
-import { Bot, FileText, Image as ImageIcon, RefreshCw } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { FileText, Image as ImageIcon, RefreshCw } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import {
@@ -18,24 +18,30 @@ import {
   UploadDropzone,
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import type {
-  OcrJobDetail,
-  OcrJobStatus,
-  OcrJobSummary,
-  OcrLifecycleState,
+import {
+  isActiveOcrJob,
+  OcrApiError,
+  type OcrJobDetail,
+  type OcrJobListResponse,
+  type OcrJobStatus,
+  type OcrJobSummary,
 } from "@/lib/media-api";
-import { mediaMockJobs, type MediaState } from "@/lib/media-mock-data";
+import { MediaJobDetails } from "./media-job-details";
+import {
+  nextPollingState,
+  pollingIntervalFor,
+  type PollingExpiryReason,
+  type PollingWindow,
+} from "./media-polling";
 import {
   useOcrJobDetail,
   useOcrJobs,
   useUploadOcrSourceFile,
 } from "./use-ocr-jobs";
-import { OcrLifecycleTrace } from "./ocr-lifecycle-trace";
 
 type MediaScreenProps = {
   initialFileId?: string;
   initialJobId?: string;
-  stateOverride?: MediaState;
 };
 
 const OCR_SOURCE_FILE_TYPES = [
@@ -43,11 +49,8 @@ const OCR_SOURCE_FILE_TYPES = [
   "image/png",
   "image/jpeg",
 ] as const;
-const OCR_JOB_POLL_INTERVAL_MS = 1500;
-const OCR_JOB_WAIT_TIMEOUT_MS = 20000;
-
 type UploadFeedback = {
-  tone: "info" | "warning";
+  tone: "info" | "alert";
   message: string;
 };
 
@@ -60,23 +63,13 @@ type TrackedUpload = PendingUpload & {
   jobId: string;
 };
 
-export function MediaScreen({
-  initialFileId,
-  initialJobId,
-  stateOverride,
-}: MediaScreenProps) {
+export function MediaScreen({ initialFileId, initialJobId }: MediaScreenProps) {
   const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(
     null,
   );
   const [trackedUpload, setTrackedUpload] = useState<TrackedUpload | null>(
     null,
   );
-  const jobsQuery = useOcrJobs(stateOverride === undefined, (query) => {
-    const queryJobs = query.state.data?.jobs ?? [];
-    return pendingUpload || queryJobs.some(isActiveOcrJob)
-      ? OCR_JOB_POLL_INTERVAL_MS
-      : false;
-  });
   const [selectedJobId, setSelectedJobId] = useState<string | null>(
     initialJobId ?? null,
   );
@@ -85,24 +78,38 @@ export function MediaScreen({
   const [uploadFeedback, setUploadFeedback] = useState<UploadFeedback | null>(
     null,
   );
+  const [pollingWindow, setPollingWindow] = useState<PollingWindow | null>(
+    null,
+  );
+  const [pollingExpiry, setPollingExpiry] =
+    useState<PollingExpiryReason | null>(null);
+  const observedListDataRef = useRef<OcrJobListResponse | null>(null);
+  const observedDetailDataRef = useRef<OcrJobDetail | null>(null);
+  const jobsQuery = useOcrJobs(
+    true,
+    pollingWindow && pollingWindow.phase !== "awaiting-extraction"
+      ? pollingIntervalFor(pollingWindow)
+      : false,
+  );
   const uploadMutation = useUploadOcrSourceFile((file) => {
     setPendingUpload({ fileId: file.fileId, fileName: file.name });
+    setTrackedUpload(null);
+    startPolling({
+      phase: "discovery",
+      startedAtMs: Date.now(),
+      attempts: 0,
+      sourceFileId: file.fileId,
+    });
     setUploadFeedback({
       tone: "info",
       message: `Upload complete. Waiting for the OCR job for ${file.name}...`,
     });
   });
 
-  const jobs = useMemo(() => {
-    if (stateOverride === "normal") {
-      return mediaMockJobs;
-    }
-    if (stateOverride === "empty") {
-      return [];
-    }
-    return jobsQuery.data?.jobs ?? [];
-  }, [jobsQuery.data?.jobs, stateOverride]);
-
+  const jobs = useMemo(
+    () => jobsQuery.data?.jobs ?? [],
+    [jobsQuery.data?.jobs],
+  );
   const filteredJobs = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) {
@@ -112,7 +119,8 @@ export function MediaScreen({
       (job) =>
         job.fileName.toLowerCase().includes(normalized) ||
         job.jobId.toLowerCase().includes(normalized) ||
-        job.status.toLowerCase().includes(normalized),
+        job.status.toLowerCase().includes(normalized) ||
+        job.provider?.toLowerCase().includes(normalized),
     );
   }, [jobs, query]);
 
@@ -122,45 +130,26 @@ export function MediaScreen({
     return jobs.find((job) => job.fileId === initialFileId)?.jobId ?? null;
   }, [initialFileId, jobs, selectedJobId]);
   const effectiveSelectedJobId = selectedJobId ?? linkedInitialJobId;
-
   const selectedSummary =
     filteredJobs.find((job) => job.jobId === effectiveSelectedJobId) ??
     filteredJobs[0] ??
     null;
-  const selectedSummaryActive =
-    selectedSummary !== null && isActiveOcrJob(selectedSummary);
   const selectedDetailQuery = useOcrJobDetail(
     selectedSummary?.jobId ?? null,
-    stateOverride === undefined && selectedSummary !== null,
-    (detailQuery) => {
-      const detail = detailQuery.state.data;
-      return shouldPollOcrJobDetail(
-        selectedSummaryActive,
-        detail?.lifecycle.state ?? null,
-      )
-        ? OCR_JOB_POLL_INTERVAL_MS
-        : false;
-    },
+    selectedSummary !== null,
+    pollingWindow?.phase === "awaiting-extraction" &&
+      pollingWindow.jobId === selectedSummary?.jobId
+      ? pollingIntervalFor(pollingWindow)
+      : false,
   );
-  const selectedJob =
-    stateOverride === "normal"
-      ? (mediaMockJobs.find((job) => job.jobId === selectedSummary?.jobId) ??
-        selectedSummary)
-      : (selectedDetailQuery.data ?? selectedSummary);
+  const selectedJob = selectedDetailQuery.data ?? selectedSummary;
   const detailLoading =
-    stateOverride === undefined &&
-    selectedSummary !== null &&
-    selectedDetailQuery.isPending;
+    selectedSummary !== null && selectedDetailQuery.isPending;
   const detailError =
-    stateOverride === undefined &&
-    selectedSummary !== null &&
-    selectedDetailQuery.isError;
-  const state = resolveState(
-    stateOverride,
-    jobsQuery.isPending,
-    jobsQuery.isError,
-    jobs,
-  );
+    selectedSummary !== null && selectedDetailQuery.isError
+      ? selectedDetailQuery.error
+      : null;
+  const state = resolvePageState(jobsQuery.isPending, jobsQuery.error, jobs);
   const inspector =
     state === "normal" && selectedJob ? (
       <MediaJobInspector
@@ -169,37 +158,124 @@ export function MediaScreen({
         detailError={detailError}
       />
     ) : undefined;
-  const pendingOcrJob = useMemo(() => {
-    if (!pendingUpload) {
-      return null;
-    }
-    return (
-      jobs.find((candidate) => candidate.fileId === pendingUpload.fileId) ??
-      null
-    );
-  }, [jobs, pendingUpload]);
 
   useEffect(() => {
-    if (!pendingUpload || !pendingOcrJob) {
+    if (!pollingWindow) {
       return;
     }
 
+    const delay = Math.max(
+      0,
+      pollingIntervalFor(pollingWindow) *
+        (pollingWindow.phase === "active-job" ? 180 : 15) -
+        (Date.now() - pollingWindow.startedAtMs),
+    );
     const timeout = window.setTimeout(() => {
-      setSelectedJobId(pendingOcrJob.jobId);
-      setTrackedUpload({
-        fileId: pendingUpload.fileId,
-        fileName: pendingUpload.fileName,
-        jobId: pendingOcrJob.jobId,
-      });
+      const decision = nextPollingState(pollingWindow, jobs, Date.now());
+      if (!decision.reason) {
+        return;
+      }
+      setPollingWindow(null);
+      setPollingExpiry(decision.reason);
       setUploadFeedback({
-        tone: "info",
-        message: `OCR job created for ${pendingUpload.fileName}. Tracking status...`,
+        tone: "alert",
+        message: expiryMessage(decision.reason),
       });
-      setPendingUpload(null);
+    }, delay);
+
+    return () => window.clearTimeout(timeout);
+  }, [jobs, pollingWindow]);
+
+  useEffect(() => {
+    if (
+      !pollingWindow ||
+      pollingWindow.phase === "awaiting-extraction" ||
+      !jobsQuery.isSuccess ||
+      observedListDataRef.current === jobsQuery.data
+    ) {
+      return;
+    }
+
+    observedListDataRef.current = jobsQuery.data;
+    const decision = nextPollingState(pollingWindow, jobs, Date.now());
+
+    const timeout = window.setTimeout(() => {
+      if (!decision.poll) {
+        setPollingWindow(null);
+        if (decision.reason) {
+          setPollingExpiry(decision.reason);
+          setUploadFeedback({
+            tone: "alert",
+            message: expiryMessage(decision.reason),
+          });
+        }
+        return;
+      }
+
+      if (pollingWindow.phase === "discovery" && decision.matchedJob) {
+        const job = decision.matchedJob;
+        setSelectedJobId(job.jobId);
+        setTrackedUpload({
+          fileId: job.fileId,
+          fileName: job.fileName,
+          jobId: job.jobId,
+        });
+        setPendingUpload(null);
+        setUploadFeedback({
+          tone: "info",
+          message: `OCR job created for ${job.fileName}. Tracking status...`,
+        });
+      }
+
+      if (decision.window.phase === "awaiting-extraction") {
+        observedDetailDataRef.current = null;
+      }
+      setPollingWindow(decision.window);
     }, 0);
 
     return () => window.clearTimeout(timeout);
-  }, [pendingOcrJob, pendingUpload]);
+  }, [jobs, jobsQuery.data, jobsQuery.isSuccess, pollingWindow]);
+
+  useEffect(() => {
+    if (
+      !pollingWindow ||
+      pollingWindow.phase !== "awaiting-extraction" ||
+      !selectedDetailQuery.data ||
+      observedDetailDataRef.current === selectedDetailQuery.data
+    ) {
+      return;
+    }
+
+    observedDetailDataRef.current = selectedDetailQuery.data;
+    const decision = nextPollingState(
+      pollingWindow,
+      [selectedDetailQuery.data],
+      Date.now(),
+    );
+
+    const timeout = window.setTimeout(() => {
+      if (!decision.poll) {
+        setPollingWindow(null);
+        if (decision.reason) {
+          setPollingExpiry(decision.reason);
+          setUploadFeedback({
+            tone: "alert",
+            message: expiryMessage(decision.reason),
+          });
+        } else if (isTerminalExtraction(selectedDetailQuery.data)) {
+          setUploadFeedback({
+            tone: "info",
+            message: `Extraction completed for ${selectedDetailQuery.data.fileName}.`,
+          });
+        }
+        return;
+      }
+
+      setPollingWindow(decision.window);
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [pollingWindow, selectedDetailQuery.data]);
 
   useEffect(() => {
     if (!trackedUpload) {
@@ -216,10 +292,12 @@ export function MediaScreen({
         trackedJob.status === "completed"
           ? {
               tone: "info",
-              message: `OCR completed for ${trackedUpload.fileName}.`,
+              message: isTerminalExtraction(trackedJob)
+                ? `OCR completed for ${trackedUpload.fileName}.`
+                : `OCR completed for ${trackedUpload.fileName}. Extraction is pending.`,
             }
           : {
-              tone: "warning",
+              tone: "alert",
               message: `OCR failed for ${trackedUpload.fileName}.`,
             },
       );
@@ -236,26 +314,11 @@ export function MediaScreen({
     }
   }, [uploadFeedback]);
 
-  useEffect(() => {
-    if (!pendingUpload) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      setUploadFeedback({
-        tone: "warning",
-        message:
-          "Upload succeeded, but the OCR job has not appeared yet. It may still be moving through the event queue.",
-      });
-      setPendingUpload(null);
-    }, OCR_JOB_WAIT_TIMEOUT_MS);
-
-    return () => window.clearTimeout(timeout);
-  }, [pendingUpload]);
-
   function handleUpload(file: File) {
     setPendingUpload(null);
     setTrackedUpload(null);
+    setPollingWindow(null);
+    setPollingExpiry(null);
     setUploadFeedback(null);
     uploadMutation.mutate(file);
   }
@@ -263,50 +326,95 @@ export function MediaScreen({
   function handleRejectedUpload(file: File) {
     setPendingUpload(null);
     setTrackedUpload(null);
+    setPollingWindow(null);
+    setPollingExpiry(null);
     setUploadFeedback({
-      tone: "warning",
+      tone: "alert",
       message: `${file.name} was not uploaded. OCR accepts PDF, PNG, and JPEG files only.`,
     });
   }
 
+  function startPolling(window: PollingWindow) {
+    observedListDataRef.current = null;
+    observedDetailDataRef.current = null;
+    setPollingExpiry(null);
+    setPollingWindow(window);
+  }
+
+  function handleManualRefresh() {
+    if (!pollingExpiry) {
+      return;
+    }
+
+    const startedAtMs = Date.now();
+    if (pollingExpiry === "discovery-expired" && pendingUpload) {
+      startPolling({
+        phase: "discovery",
+        startedAtMs,
+        attempts: 0,
+        sourceFileId: pendingUpload.fileId,
+      });
+      setUploadFeedback({
+        tone: "info",
+        message: `Refreshing OCR job status for ${pendingUpload.fileName}...`,
+      });
+      void jobsQuery.refetch();
+      return;
+    }
+
+    if (pollingExpiry === "active-job-expired" && trackedUpload) {
+      startPolling({
+        phase: "active-job",
+        startedAtMs,
+        attempts: 0,
+        jobId: trackedUpload.jobId,
+      });
+      setUploadFeedback({
+        tone: "info",
+        message: `Refreshing OCR job status for ${trackedUpload.fileName}...`,
+      });
+      void jobsQuery.refetch();
+      return;
+    }
+
+    if (pollingExpiry === "awaiting-extraction-expired" && selectedSummary) {
+      startPolling({
+        phase: "awaiting-extraction",
+        startedAtMs,
+        attempts: 0,
+        jobId: selectedSummary.jobId,
+      });
+      setUploadFeedback({
+        tone: "info",
+        message: `Refreshing extraction status for ${selectedSummary.fileName}...`,
+      });
+      void selectedDetailQuery.refetch();
+    }
+  }
+
+  const feedback =
+    uploadFeedback ??
+    (uploadMutation.isError
+      ? {
+          tone: "alert" as const,
+          message:
+            "Upload failed. Check the file type and size, then try again.",
+        }
+      : null);
+
   return (
-    <AppShell activeHref="/app/media" inspector={inspector}>
-      <div className="space-y-6">
-        <PageHeader
-          title="Media and OCR"
-          subtitle="Track document OCR jobs created from Drive uploads."
-          chips={
-            <>
-              <StatusChip status="active" label="Mock provider" />
-              <StatusChip status="queued" label="Event driven" />
-            </>
-          }
-          primaryAction={
-            <UploadDropzone
-              compact
-              label="Upload OCR file"
-              acceptedFileTypes={OCR_SOURCE_FILE_TYPES}
-              busy={uploadMutation.isPending}
-              onReject={handleRejectedUpload}
-              onUpload={handleUpload}
-            />
-          }
-        />
-
-        {uploadFeedback ? (
-          <UploadFeedbackBanner feedback={uploadFeedback} />
-        ) : null}
-
-        {state === "loading" ? (
-          <LoadingState label="Loading OCR jobs" />
-        ) : state === "empty" ? (
-          <EmptyState
-            title="No OCR jobs yet"
-            description="Upload a PDF or image in Drive or from this page to create the first OCR job."
-            action={
+    <>
+      {feedback ? <LiveFeedback feedback={feedback} /> : null}
+      <AppShell activeHref="/app/media" inspector={inspector}>
+        <div className="space-y-6">
+          <PageHeader
+            title="Media and OCR"
+            subtitle="Track document OCR jobs created from Drive uploads."
+            chips={<StatusChip status="queued" label="Event-driven OCR" />}
+            primaryAction={
               <UploadDropzone
                 compact
-                label="Upload first OCR file"
+                label="Upload OCR file"
                 acceptedFileTypes={OCR_SOURCE_FILE_TYPES}
                 busy={uploadMutation.isPending}
                 onReject={handleRejectedUpload}
@@ -314,78 +422,106 @@ export function MediaScreen({
               />
             }
           />
-        ) : state === "error" ? (
-          <ErrorState
-            title="OCR jobs could not load"
-            description="The Media/OCR API did not return the job queue for this workspace."
-            action={
-              <button
-                type="button"
-                className="inline-flex min-h-10 items-center gap-2 rounded-card border border-border-strong bg-surface px-4 text-sm font-medium text-text-primary hover:bg-surface-muted"
-                onClick={() => jobsQuery.refetch()}
-              >
-                <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                Retry OCR jobs
-              </button>
-            }
-          />
-        ) : state === "permission-denied" ? (
-          <PermissionDeniedState
-            title="Media/OCR access is not available"
-            description="The current workspace role cannot view OCR job status or extracted text."
-          />
-        ) : (
-          <MediaNormalState
-            jobs={filteredJobs}
-            allJobs={jobs}
-            selectedJob={selectedJob}
-            query={query}
-            uploadBusy={uploadMutation.isPending}
-            uploadError={uploadMutation.isError}
-            onQueryChange={setQuery}
-            onRejectUpload={handleRejectedUpload}
-            onUpload={handleUpload}
-            onSelect={(job) => {
-              setSelectedJobId(job.jobId);
-              setMobileSheetOpen(true);
-            }}
-          />
-        )}
-      </div>
 
-      <MobileBottomSheet
-        title={selectedJob?.fileName ?? "OCR job"}
-        open={state === "normal" && mobileSheetOpen && selectedJob !== null}
-        onClose={() => setMobileSheetOpen(false)}
-      >
-        {selectedJob ? (
-          <MediaJobDetails
-            job={selectedJob}
-            detailLoading={detailLoading}
-            detailError={detailError}
-          />
-        ) : null}
-      </MobileBottomSheet>
-    </AppShell>
+          {feedback ? (
+            <UploadFeedbackBanner
+              feedback={feedback}
+              onRefresh={pollingExpiry ? handleManualRefresh : undefined}
+            />
+          ) : null}
+
+          {state === "loading" ? (
+            <LoadingState label="Loading OCR jobs" />
+          ) : state === "empty" ? (
+            <EmptyState
+              title="No OCR jobs yet"
+              description="Upload a PDF or image in Drive or from this page to create the first OCR job."
+              action={
+                <UploadDropzone
+                  compact
+                  label="Upload first OCR file"
+                  acceptedFileTypes={OCR_SOURCE_FILE_TYPES}
+                  busy={uploadMutation.isPending}
+                  onReject={handleRejectedUpload}
+                  onUpload={handleUpload}
+                />
+              }
+            />
+          ) : state === "error" ? (
+            <ErrorState
+              title="OCR jobs could not load"
+              description="The Media/OCR API did not return the job queue for this workspace."
+              action={
+                <button
+                  type="button"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-card border border-border-strong bg-surface px-4 text-sm font-medium text-text-primary hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  onClick={() => jobsQuery.refetch()}
+                >
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                  Retry OCR jobs
+                </button>
+              }
+            />
+          ) : state === "permission-denied" ? (
+            <PermissionDeniedState
+              title="Media/OCR access is not available"
+              description="The current workspace role cannot view OCR job status or extracted text."
+            />
+          ) : (
+            <MediaNormalState
+              jobs={filteredJobs}
+              allJobs={jobs}
+              selectedJob={selectedJob}
+              query={query}
+              uploadBusy={uploadMutation.isPending}
+              onQueryChange={setQuery}
+              onRejectUpload={handleRejectedUpload}
+              onUpload={handleUpload}
+              onSelect={(job) => {
+                setSelectedJobId(job.jobId);
+                setMobileSheetOpen(true);
+              }}
+            />
+          )}
+        </div>
+
+        <MobileBottomSheet
+          title={selectedJob?.fileName ?? "OCR job"}
+          open={state === "normal" && mobileSheetOpen && selectedJob !== null}
+          onClose={() => setMobileSheetOpen(false)}
+        >
+          {selectedJob ? (
+            <MediaJobDetails
+              job={selectedJob}
+              detailLoading={detailLoading}
+              detailError={detailError}
+            />
+          ) : null}
+        </MobileBottomSheet>
+      </AppShell>
+    </>
   );
 }
 
-function resolveState(
-  override: MediaState | undefined,
+function resolvePageState(
   loading: boolean,
-  error: boolean,
+  error: unknown,
   jobs: OcrJobSummary[],
-): MediaState {
-  if (override) {
-    return override;
-  }
+) {
   if (loading) {
     return "loading";
   }
   if (error) {
-    return "error";
+    return isPermissionError(error) ? "permission-denied" : "error";
   }
   return jobs.length === 0 ? "empty" : "normal";
+}
+
+function isPermissionError(error: unknown) {
+  return (
+    error instanceof OcrApiError &&
+    (error.status === 401 || error.status === 403)
+  );
 }
 
 function MediaNormalState({
@@ -394,7 +530,6 @@ function MediaNormalState({
   selectedJob,
   query,
   uploadBusy,
-  uploadError,
   onQueryChange,
   onRejectUpload,
   onUpload,
@@ -405,16 +540,13 @@ function MediaNormalState({
   selectedJob: OcrJobSummary | OcrJobDetail | null;
   query: string;
   uploadBusy: boolean;
-  uploadError: boolean;
   onQueryChange: (query: string) => void;
   onRejectUpload: (file: File) => void;
   onUpload: (file: File) => void;
   onSelect: (job: OcrJobSummary) => void;
 }) {
   const completed = allJobs.filter((job) => job.status === "completed").length;
-  const active = allJobs.filter(
-    (job) => job.status === "queued" || job.status === "processing",
-  ).length;
+  const active = allJobs.filter(isActiveOcrJob).length;
   const failed = allJobs.filter((job) => job.status === "failed").length;
 
   return (
@@ -441,7 +573,7 @@ function MediaNormalState({
         <SectionCard
           title="OCR jobs"
           description="PDF and image uploads that entered the OCR pipeline."
-          action={<StatusChip status="processing" label="Mock OCR" />}
+          action={<StatusChip status="processing" label="OCR queue" />}
         >
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
             <SearchInput
@@ -459,9 +591,9 @@ function MediaNormalState({
                 <tr>
                   <th className="px-4 py-3">File</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Attempts</th>
+                  <th className="px-4 py-3">Provider</th>
+                  <th className="px-4 py-3">Extraction</th>
                   <th className="px-4 py-3">Updated</th>
-                  <th className="px-4 py-3 text-right">Text</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -476,7 +608,7 @@ function MediaNormalState({
                     <td className="px-4 py-3">
                       <button
                         type="button"
-                        className="flex min-w-0 items-center gap-3 text-left"
+                        className="flex min-w-0 items-center gap-3 rounded-card text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         onClick={() => onSelect(job)}
                       >
                         <MediaFileBadge contentType={job.contentType} />
@@ -492,20 +624,18 @@ function MediaNormalState({
                     </td>
                     <td className="px-4 py-3">
                       <StatusChip
-                        status={statusChip(job.status)}
-                        label={statusLabel(job.status)}
+                        status={job.status}
+                        label={formatStatus(job.status)}
                       />
                     </td>
                     <td className="px-4 py-3 text-text-secondary">
-                      {job.attemptCount}/{job.maxAttempts}
+                      {job.provider ?? "Pending"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <ExtractionSummary job={job} />
                     </td>
                     <td className="px-4 py-3 text-text-secondary">
                       {formatDate(job.updatedAt)}
-                    </td>
-                    <td className="px-4 py-3 text-right text-text-secondary">
-                      {job.extractedTextLength
-                        ? `${job.extractedTextLength} chars`
-                        : "-"}
                     </td>
                   </tr>
                 ))}
@@ -518,7 +648,7 @@ function MediaNormalState({
               <button
                 key={job.jobId}
                 type="button"
-                className="w-full rounded-card border border-border bg-surface p-4 text-left shadow-card"
+                className="w-full rounded-card border border-border bg-surface p-4 text-left shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 onClick={() => onSelect(job)}
               >
                 <div className="flex items-start gap-3">
@@ -528,14 +658,17 @@ function MediaNormalState({
                       {job.fileName}
                     </p>
                     <p className="mt-1 text-xs text-text-secondary">
-                      {job.attemptCount}/{job.maxAttempts} attempts -{" "}
+                      {job.provider ?? "Provider pending"} ·{" "}
                       {formatDate(job.updatedAt)}
                     </p>
                   </div>
                   <StatusChip
-                    status={statusChip(job.status)}
-                    label={statusLabel(job.status)}
+                    status={job.status}
+                    label={formatStatus(job.status)}
                   />
+                </div>
+                <div className="mt-3">
+                  <ExtractionSummary job={job} />
                 </div>
               </button>
             ))}
@@ -551,30 +684,84 @@ function MediaNormalState({
             onReject={onRejectUpload}
             onUpload={onUpload}
           />
-          {uploadError ? (
-            <div className="rounded-card border border-danger-soft bg-danger-soft p-4 text-sm text-danger">
-              Upload failed. Check the file type and size, then try again.
-            </div>
-          ) : null}
         </div>
       </div>
     </div>
   );
 }
 
-function UploadFeedbackBanner({ feedback }: { feedback: UploadFeedback }) {
+function ExtractionSummary({ job }: { job: OcrJobSummary }) {
+  if (job.extractionStatus === "review_required") {
+    return <StatusChip status="review-required" label="Review required" />;
+  }
+  if (job.extractionStatus === "completed") {
+    return <StatusChip status="completed" label="Completed" />;
+  }
+  if (job.status === "failed") {
+    return <span className="text-xs text-text-secondary">Not available</span>;
+  }
+  return <span className="text-xs text-text-secondary">Pending</span>;
+}
+
+function LiveFeedback({ feedback }: { feedback: UploadFeedback }) {
   return (
     <div
-      className={cn(
-        "rounded-card border p-4 text-sm",
-        feedback.tone === "warning"
-          ? "border-warning-soft bg-warning-soft text-warning"
-          : "border-info-soft bg-info-soft text-info",
-      )}
+      className="sr-only"
+      role={feedback.tone === "info" ? "status" : "alert"}
+      aria-live={feedback.tone === "info" ? "polite" : undefined}
+      aria-atomic="true"
     >
       {feedback.message}
     </div>
   );
+}
+
+function UploadFeedbackBanner({
+  feedback,
+  onRefresh,
+}: {
+  feedback: UploadFeedback;
+  onRefresh?: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-card border p-4 text-sm",
+        feedback.tone === "alert"
+          ? "border-warning-soft bg-warning-soft text-warning"
+          : "border-info-soft bg-info-soft text-info",
+      )}
+    >
+      <p>{feedback.message}</p>
+      {onRefresh ? (
+        <button
+          type="button"
+          className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-card border border-current px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          onClick={onRefresh}
+        >
+          <RefreshCw className="h-4 w-4" aria-hidden="true" />
+          Refresh OCR job status
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function isTerminalExtraction(job: OcrJobSummary | OcrJobDetail) {
+  return (
+    job.extractionStatus === "completed" ||
+    job.extractionStatus === "review_required"
+  );
+}
+
+function expiryMessage(reason: PollingExpiryReason) {
+  if (reason === "discovery-expired") {
+    return "The OCR job has not appeared yet. It may still be moving through the event queue. Refresh OCR job status to check again.";
+  }
+  if (reason === "active-job-expired") {
+    return "OCR processing is taking longer than expected and may still continue. Refresh OCR job status to check again.";
+  }
+  return "OCR is complete, but extraction is still pending. Refresh OCR job status to check again.";
 }
 
 function MediaMetric({
@@ -604,12 +791,12 @@ function MediaJobInspector({
 }: {
   job: OcrJobSummary | OcrJobDetail;
   detailLoading: boolean;
-  detailError: boolean;
+  detailError: unknown;
 }) {
   return (
     <RightInspectorPanel
       title="OCR job detail"
-      description="Selected job status, lifecycle, and extracted text."
+      description="Selected job status, OCR result, and structured extraction."
     >
       <MediaJobDetails
         job={job}
@@ -617,102 +804,6 @@ function MediaJobInspector({
         detailError={detailError}
       />
     </RightInspectorPanel>
-  );
-}
-
-function MediaJobDetails({
-  job,
-  detailLoading,
-  detailError,
-}: {
-  job: OcrJobSummary | OcrJobDetail;
-  detailLoading: boolean;
-  detailError: boolean;
-}) {
-  const extractedText = "extractedText" in job ? job.extractedText : null;
-  const lifecycle = "lifecycle" in job ? job.lifecycle : null;
-
-  return (
-    <div className="space-y-5">
-      <div className="rounded-card border border-border bg-surface-muted p-4">
-        <div className="flex items-start gap-3">
-          <MediaFileBadge contentType={job.contentType} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-text-primary">
-              {job.fileName}
-            </p>
-            <p className="mt-1 text-xs text-text-secondary">
-              {fileKind(job.contentType)}
-            </p>
-          </div>
-          <StatusChip
-            status={statusChip(job.status)}
-            label={statusLabel(job.status)}
-          />
-        </div>
-      </div>
-
-      <dl className="space-y-3 text-sm">
-        <DetailRow label="Provider" value={job.provider ?? "Not started"} />
-        <DetailRow
-          label="Attempts"
-          value={`${job.attemptCount}/${job.maxAttempts}`}
-        />
-        <DetailRow label="Queued" value={formatDate(job.queuedAt)} />
-        <DetailRow label="Updated" value={formatDate(job.updatedAt)} />
-        <DetailRow label="Correlation" value={job.correlationId} />
-      </dl>
-
-      <OcrLifecycleTrace
-        lifecycle={lifecycle}
-        correlationId={job.correlationId || null}
-        loading={detailLoading}
-        error={detailError}
-      />
-
-      {job.failureCode ? (
-        <div className="rounded-card border border-danger-soft bg-danger-soft p-4">
-          <p className="text-sm font-semibold text-danger">{job.failureCode}</p>
-          <p className="mt-2 text-sm leading-5 text-danger">
-            {job.failureMessage ?? "OCR failed without a detailed message."}
-          </p>
-        </div>
-      ) : null}
-
-      <div className="rounded-card border border-border bg-surface p-4">
-        <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4 text-info" aria-hidden="true" />
-          <p className="text-sm font-semibold text-text-primary">
-            Extracted text
-          </p>
-        </div>
-        {detailLoading ? (
-          <p className="mt-3 text-sm text-text-secondary">
-            Loading extracted text...
-          </p>
-        ) : extractedText ? (
-          <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-card bg-surface-muted p-3 text-xs leading-5 text-text-primary">
-            {extractedText}
-          </pre>
-        ) : (
-          <p className="mt-3 text-sm leading-5 text-text-secondary">
-            Extracted text will appear here after the OCR worker completes this
-            job.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <dt className="text-text-secondary">{label}</dt>
-      <dd className="break-all text-right font-medium text-text-primary">
-        {value}
-      </dd>
-    </div>
   );
 }
 
@@ -741,25 +832,8 @@ function fileKind(contentType: string) {
   return "File";
 }
 
-function statusChip(status: OcrJobStatus) {
-  return status;
-}
-
-function statusLabel(status: OcrJobStatus) {
+function formatStatus(status: OcrJobStatus) {
   return status.charAt(0).toUpperCase() + status.slice(1);
-}
-
-export function shouldPollOcrJobDetail(
-  summaryActive: boolean,
-  lifecycleState: OcrLifecycleState | null,
-) {
-  return (
-    summaryActive || lifecycleState === "active" || lifecycleState === "partial"
-  );
-}
-
-function isActiveOcrJob(job: OcrJobSummary | OcrJobDetail) {
-  return job.status === "queued" || job.status === "processing";
 }
 
 function formatDate(value: string) {

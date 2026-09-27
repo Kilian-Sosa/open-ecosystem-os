@@ -10,6 +10,7 @@ export type DriveState =
 export const driveMockFiles: DriveFile[] = [
   {
     fileId: "file_invoice_demo",
+    visibility: "private",
     name: "Invoice_2026_05.pdf",
     contentType: "application/pdf",
     sizeBytes: 245760,
@@ -21,6 +22,7 @@ export const driveMockFiles: DriveFile[] = [
   },
   {
     fileId: "file_budget_demo",
+    visibility: "workspace",
     name: "Quarterly budget.xlsx",
     contentType:
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -33,6 +35,7 @@ export const driveMockFiles: DriveFile[] = [
   },
   {
     fileId: "file_notes_demo",
+    visibility: "private",
     name: "Meeting notes.txt",
     contentType: "text/plain",
     sizeBytes: 12288,

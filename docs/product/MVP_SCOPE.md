@@ -57,12 +57,15 @@ The MVP is successful when a demo user can:
 1. log in to a seeded workspace
 2. upload an invoice PDF
 3. see an OCR job created and completed
-4. see a workflow triggered from the event
-5. see a notification
-6. inspect the audit log
-7. search for the extracted content
-8. view system health and job status
-9. understand the architecture from public/docs pages
+4. see a workflow trigger structured extraction and a `review_required` state when needed
+5. see a generic notification and audit record for the lifecycle
+6. search approved extracted fields
+7. view system health and job status
+8. understand the architecture from public/docs pages
+
+The implemented invoice lifecycle is OCR, structured extraction, `review_required` where
+needed, generic notification/audit metadata, a Knowledge placeholder, and search. Kanban-task
+and approval-request creation are explicitly post-MVP/P2 capabilities.
 
 ## MVP technical proof points
 
@@ -104,8 +107,8 @@ The repository includes mockups and screen specs for the full long-term product 
 
 ## Post-MVP / P2
 
-- Forms and Approvals
-- Kanban
+- Forms and approval-request creation
+- Kanban task creation
 - Integrations
 - Theme Builder
 - API Explorer

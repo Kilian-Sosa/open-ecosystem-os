@@ -26,6 +26,8 @@ spec:
         runAsNonRoot: true
         runAsUser: 10001
         runAsGroup: 10001
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -40,6 +42,9 @@ spec:
                 name: open-ecosystem-config
             - secretRef:
                 name: open-ecosystem-secrets
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Djava.io.tmpdir=/tmp"
           readinessProbe:
             httpGet:
               path: /ready
@@ -74,7 +79,8 @@ spec:
               memory: "1Gi"
       volumes:
         - name: tmp
-          emptyDir: {}
+          emptyDir:
+            sizeLimit: 128Mi
 ---
 apiVersion: v1
 kind: Service

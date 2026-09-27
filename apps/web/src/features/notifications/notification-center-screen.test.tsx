@@ -20,10 +20,10 @@ describe("NotificationCenterScreen", () => {
 
     expect(screen.getAllByText("Notifications").length).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("Fake/test invoice ready for review").length,
+      screen.getAllByText("Document extraction ready for review").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText(/corr_demo_invoice_mock/).length,
+      screen.getAllByText(/corr_document_extraction/).length,
     ).toBeGreaterThan(0);
   });
 

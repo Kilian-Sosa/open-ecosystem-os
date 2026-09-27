@@ -31,16 +31,15 @@ type AuditLogScreenProps = {
 
 const mockAuditRecords: AuditRecord[] = [
   {
-    auditId: "aud_demo_invoice_mock",
-    action: "flows.demo_invoice.extracted",
-    resourceType: "demo_invoice_extraction",
-    resourceId: "dinv_demo_invoice_mock",
+    auditId: "aud_document_extraction",
+    action: "flows.document_extraction.completed",
+    resourceType: "document_extraction",
+    resourceId: "extraction_document",
     actorId: "usr_dev_placeholder",
-    correlationId: "corr_demo_invoice_mock",
+    correlationId: "corr_document_extraction",
     outcome: "success",
     attributes: {
-      invoiceNumber: "TEST-INV-2026-0001",
-      isTestData: "true",
+      extractionStatus: "completed",
     },
     occurredAt: "2026-05-25T09:00:10Z",
   },

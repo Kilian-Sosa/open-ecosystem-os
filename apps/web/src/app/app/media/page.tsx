@@ -1,5 +1,4 @@
 import { MediaScreen } from "@/features/media/media-screen";
-import { parseMediaState } from "@/lib/media-mock-data";
 
 type MediaPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -7,7 +6,6 @@ type MediaPageProps = {
 
 export default async function MediaPage({ searchParams }: MediaPageProps) {
   const params = await searchParams;
-  const state = parseMediaState(params?.state);
   const jobId = firstParam(params?.jobId);
   const fileId = firstParam(params?.fileId);
 
@@ -15,7 +13,6 @@ export default async function MediaPage({ searchParams }: MediaPageProps) {
     <MediaScreen
       initialFileId={fileId || undefined}
       initialJobId={jobId || undefined}
-      stateOverride={state}
     />
   );
 }

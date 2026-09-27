@@ -22,6 +22,7 @@ make docker-watch
 make docker-down
 make docker-logs
 make smoke
+make smoke-real-ocr
 make security-scan
 make k8s-validate
 make ci-local
@@ -112,6 +113,16 @@ make obs-ps
 make obs-down
 ```
 
+Real OCR Compose smoke:
+
+```bash
+make smoke-real-ocr
+# PowerShell: .\scripts\smoke-real-ocr.ps1 -StartStack
+# POSIX shell: sh scripts/smoke-real-ocr.sh --start-stack
+```
+
+The smoke uploads only the committed, clearly labelled synthetic fixture and requires a running containerized Tesseract binary with `eng` language data. It asserts persisted structured words, observed extraction fields, and a review-required extraction; it does not exercise a runtime mock.
+
 ## Kubernetes validation commands
 
 ```bash
@@ -120,6 +131,12 @@ kubectl kustomize infra/k8s/overlays/dev | kubeconform -strict -summary
 kubectl kustomize infra/k8s/overlays/prod | kubeconform -strict -summary
 make k8s-validate
 trivy config infra/k8s
+```
+
+On Windows, run the repository PowerShell validator directly:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\k8s-validate.ps1 -KubeconformImage ghcr.io/yannh/kubeconform:latest
 ```
 
 `make k8s-validate` uses local `kubeconform` when installed. If it is not

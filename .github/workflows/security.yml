@@ -29,8 +29,29 @@ jobs:
           scanners: vuln,misconfig
           severity: HIGH,CRITICAL
           exit-code: "1"
-          ignore-unfixed: true
+          ignore-unfixed: false
           skip-dirs: infra/k8s/overlays/dev
+
+  trivy-worker-image:
+    name: Trivy worker image scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build exact worker image
+        run: docker build --pull --no-cache --tag open-ecosystem-worker:${{ github.sha }} apps/worker
+
+      - name: Scan exact worker image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: open-ecosystem-worker:${{ github.sha }}
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: false
 
   frontend-audit:
     name: Frontend pnpm audit

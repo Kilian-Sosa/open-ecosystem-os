@@ -10,7 +10,7 @@ describe("SearchScreen", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders indexed demo invoice results", () => {
+  it("renders indexed document extraction results", () => {
     render(
       <AppProviders>
         <SearchScreen stateOverride="normal" />
@@ -19,29 +19,29 @@ describe("SearchScreen", () => {
 
     expect(screen.getAllByText("Search").length).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("Fake/test invoice TEST-INV-2026-0001").length,
+      screen.getAllByText("Indexed document extraction").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText(/corr_demo_invoice_mock/).length,
+      screen.getAllByText(/corr_document_extraction/).length,
     ).toBeGreaterThan(0);
   });
 
   it("submits a query to the search API", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
-        query: "TEST-INV-2026-0001",
+        query: "project brief",
         backend: "meilisearch",
         results: [
           {
-            id: "srch_demo_test",
-            sourceType: "demo_invoice_extraction",
-            sourceId: "dinv_demo_test",
-            title: "Fake/test invoice TEST-INV-2026-0001",
-            summary: "Seeded invoice result.",
-            resourceHref: "/app/demo/invoice-automation",
-            correlationId: "corr_demo_test",
+            id: "srch_document_test",
+            sourceType: "document_extraction",
+            sourceId: "extraction_test",
+            title: "Indexed document extraction",
+            summary: "A document extraction is ready for workspace review.",
+            resourceHref: "/app/media?jobId=job-test",
+            correlationId: "corr_document_test",
             status: "indexed",
-            metadata: { isTestData: true },
+            metadata: { status: "completed" },
             createdAt: "2026-05-25T09:00:13Z",
           },
         ],
@@ -56,14 +56,14 @@ describe("SearchScreen", () => {
     );
 
     fireEvent.change(screen.getAllByLabelText("Search indexed documents")[0], {
-      target: { value: "TEST-INV-2026-0001" },
+      target: { value: "project brief" },
     });
     fireEvent.click(screen.getAllByRole("button", { name: /^Search$/i })[0]);
 
-    await screen.findAllByText("Fake/test invoice TEST-INV-2026-0001");
+    await screen.findAllByText("Indexed document extraction");
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("/api/search?q=TEST-INV-2026-0001"),
+        expect.stringContaining("/api/search?q=project+brief"),
         expect.any(Object),
       );
     });

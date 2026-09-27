@@ -29,7 +29,7 @@ public class MeilisearchSearchClient {
     this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
   }
 
-  public List<SearchResultResponse> search(String workspaceId, String query)
+  List<SearchCandidate> search(String workspaceId, String query)
       throws IOException, InterruptedException {
     String body = objectMapper.writeValueAsString(Map.of("q", query == null ? "" : query));
     HttpRequest request =
@@ -45,18 +45,18 @@ public class MeilisearchSearchClient {
       throw new IOException("Meilisearch search failed with status " + response.statusCode());
 
     JsonNode hits = objectMapper.readTree(response.body()).path("hits");
-    List<SearchResultResponse> results = new ArrayList<>();
+    List<SearchCandidate> results = new ArrayList<>();
     if (!hits.isArray()) return results;
 
     for (JsonNode hit : hits) {
       if (!workspaceId.equals(hit.path("workspaceId").asText())) continue;
-      results.add(toResult(hit));
+      results.add(toCandidate(hit));
     }
     return results;
   }
 
-  private SearchResultResponse toResult(JsonNode hit) {
-    return new SearchResultResponse(
+  private SearchCandidate toCandidate(JsonNode hit) {
+    return new SearchCandidate(
         hit.path("id").asText(),
         hit.path("sourceType").asText(),
         hit.path("sourceId").asText(),

@@ -19,6 +19,12 @@ class FileUploadedOcrJobServiceTest {
 
   @BeforeEach
   void cleanDatabase() {
+    jdbcTemplate.update("delete from invoice_extraction_field_sources");
+    jdbcTemplate.update("delete from invoice_extraction_fields");
+    jdbcTemplate.update("delete from invoice_extractions");
+    jdbcTemplate.update("delete from ocr_result_words");
+    jdbcTemplate.update("delete from ocr_result_pages");
+    jdbcTemplate.update("delete from ocr_results");
     jdbcTemplate.update("delete from event_consumptions");
     jdbcTemplate.update("delete from ocr_jobs");
     jdbcTemplate.update("delete from event_outbox");
@@ -88,6 +94,19 @@ class FileUploadedOcrJobServiceTest {
   }
 
   private FileUploadedEvent fileUploaded(String eventId, String fileId, String contentType) {
+    jdbcTemplate.update(
+        """
+        insert into drive_files (
+          file_id, workspace_id, owner_id, encrypted_name, content_type, size_bytes,
+          checksum_sha256, storage_key, encryption_algorithm, encryption_key_id,
+          content_iv, name_iv, created_at, updated_at
+        ) values (?, 'wrk_123', 'usr_123', 'encrypted-name', ?, 1024,
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', ?,
+          'AES-256-GCM', 'test-key', 'content-iv', 'name-iv', current_timestamp, current_timestamp)
+        """,
+        fileId,
+        contentType,
+        "workspaces/wrk_123/drive/" + fileId + "/original");
     return new FileUploadedEvent(
         eventId,
         1,

@@ -63,6 +63,8 @@ User uploads invoice PDF
   -> search returns extracted content
 ```
 
+The real OCR smoke uses `apps/worker/src/test/resources/fixtures/fake-scanned-invoice.png`. It is a clearly labelled synthetic, incomplete invoice image and is never runtime seed data. The Compose smoke uploads it through Drive, verifies the worker's containerized Tesseract binary and English language data, then asserts persisted structured words, observed fields, and the required review state. It does not accept a runtime mock provider.
+
 ## Visual/system tests
 
 Later:
@@ -82,5 +84,6 @@ Use seeded fake data only:
 - fake OCR text
 - fake workflows
 - fake notifications
+- clearly labelled synthetic scanned-invoice fixtures
 
 Never commit real personal documents.

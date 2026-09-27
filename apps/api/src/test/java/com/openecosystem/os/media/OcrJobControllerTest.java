@@ -8,8 +8,17 @@ import com.openecosystem.os.OpenEcosystemApiApplication;
 import com.openecosystem.os.common.security.PlaceholderAuthenticationContext;
 import com.openecosystem.os.drive.DriveFileMetadata;
 import com.openecosystem.os.drive.DriveFileRepository;
+import com.openecosystem.os.drive.DriveFileVisibility;
 import com.openecosystem.os.drive.crypto.EncryptedText;
 import com.openecosystem.os.drive.crypto.FileEncryptionService;
+import com.openecosystem.os.invoice.InvoiceExtraction;
+import com.openecosystem.os.invoice.InvoiceExtractionField;
+import com.openecosystem.os.invoice.InvoiceExtractionFieldSource;
+import com.openecosystem.os.invoice.InvoiceExtractionStatus;
+import com.openecosystem.os.invoice.InvoiceExtractionWarning;
+import com.openecosystem.os.invoice.InvoiceFieldStatus;
+import com.openecosystem.os.invoice.JdbcInvoiceExtractionRepository;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -38,17 +47,27 @@ class OcrJobControllerTest {
   @Autowired private DriveFileRepository driveFileRepository;
   @Autowired private FileEncryptionService encryptionService;
   @Autowired private OcrJobRepository ocrJobRepository;
+  @Autowired private JdbcOcrResultRepository ocrResultRepository;
+  @Autowired private JdbcInvoiceExtractionRepository invoiceExtractionRepository;
   @Autowired private ObjectMapper objectMapper;
 
   @BeforeEach
   void cleanDatabase() {
     jdbcTemplate.update("delete from event_consumptions");
-    jdbcTemplate.update("delete from demo_invoice_extractions");
+    jdbcTemplate.update("delete from invoice_extraction_field_sources");
+    jdbcTemplate.update("delete from invoice_extraction_fields");
+    jdbcTemplate.update("delete from invoice_extractions");
     jdbcTemplate.update("delete from search_documents");
     jdbcTemplate.update("delete from knowledge_items");
     jdbcTemplate.update("delete from notifications");
     jdbcTemplate.update("delete from workflow_step_executions");
     jdbcTemplate.update("delete from workflow_executions");
+    jdbcTemplate.update("update workflows set current_version_id = null");
+    jdbcTemplate.update("delete from workflow_versions");
+    jdbcTemplate.update("delete from workflows");
+    jdbcTemplate.update("delete from ocr_result_words");
+    jdbcTemplate.update("delete from ocr_result_pages");
+    jdbcTemplate.update("delete from ocr_results");
     jdbcTemplate.update("delete from ocr_jobs");
     jdbcTemplate.update("delete from event_outbox");
     jdbcTemplate.update("delete from audit_records");
@@ -332,6 +351,320 @@ class OcrJobControllerTest {
     assertThat(response.body()).doesNotContain("corr_trace");
   }
 
+  @Test
+  void hidesPrivateOcrDetailFromAnUnsharedWorkspaceMember() throws Exception {
+    String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
+    seedWorkspaceMember("usr_ocr_unshared", workspaceId, "VIEWER");
+    saveDriveFile("file_private", workspaceId, "Private.pdf", "application/pdf");
+    ocrJobRepository.saveQueued(completedJob("ocr_private", "file_private", workspaceId));
+
+    HttpResponse<String> response =
+        httpClient.send(
+            request("/api/media/ocr-jobs/ocr_private")
+                .header(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_ocr_unshared")
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+                .build(),
+            BodyHandlers.ofString());
+
+    assertThat(response.statusCode()).isEqualTo(404);
+    assertThat(response.body())
+        .doesNotContain("Private.pdf")
+        .doesNotContain("Fake extracted invoice total");
+  }
+
+  @Test
+  void returnsNestedCompletedExtractionDetailsWithAllProvenanceAndMetadataOnlyList()
+      throws Exception {
+    String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
+    saveDriveFile("file_structured", workspaceId, "Structured.pdf", "application/pdf");
+    ocrJobRepository.saveQueued(completedJob("ocr_structured", "file_structured", workspaceId));
+    saveWorkflowDefinition(workspaceId);
+    saveWorkflowExecution(workspaceId);
+    saveStructuredResultAndExtraction(
+        "ocr_structured",
+        "file_structured",
+        workspaceId,
+        InvoiceExtractionStatus.COMPLETED,
+        List.of(),
+        true);
+
+    JsonNode detail = getJobDetail("ocr_structured", workspaceId);
+    HttpResponse<String> listResponse =
+        httpClient.send(
+            request("/api/media/ocr-jobs")
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+                .build(),
+            BodyHandlers.ofString());
+
+    assertThat(detail.path("provider").asText()).isEqualTo("tesseract");
+    assertThat(detail.path("extractedText").asText()).isEqualTo("STRUCTURED_OCR_TEXT");
+    JsonNode ocrResult = detail.path("ocrResult");
+    assertThat(ocrResult.path("ocrResultId").asText()).isEqualTo("ocrr_structured");
+    assertThat(ocrResult.path("provider").asText()).isEqualTo("tesseract");
+    assertThat(ocrResult.path("providerVersion").asText()).isEqualTo("5.5.0");
+    assertThat(ocrResult.path("pageCount").asInt()).isEqualTo(1);
+    assertThat(ocrResult.path("wordCount").asInt()).isEqualTo(2);
+
+    JsonNode extraction = detail.path("extraction");
+    assertThat(extraction.path("extractionId").asText()).isEqualTo("invx_structured");
+    assertThat(extraction.path("extractor").asText()).isEqualTo("heuristic_invoice");
+    assertThat(extraction.path("extractorVersion").asText()).isEqualTo("1");
+    assertThat(extraction.path("status").asText()).isEqualTo("completed");
+    assertThat(extraction.path("reviewRequired").asBoolean()).isFalse();
+    assertThat(extraction.path("confidence").decimalValue()).isEqualByComparingTo("94.00");
+    assertThat(extraction.path("fieldCount").asInt()).isEqualTo(1);
+    assertThat(extraction.path("warningCount").asInt()).isZero();
+    JsonNode field = extraction.path("fields").get(0);
+    assertThat(field.path("fieldKey").asText()).isEqualTo("invoice_number");
+    assertThat(field.path("label").asText()).isEqualTo("Invoice Number");
+    assertThat(field.path("displayValue").asText()).isEqualTo("INV-42");
+    assertThat(field.path("normalizedValue").asText()).isEqualTo("INV-42");
+    assertThat(field.path("status").asText()).isEqualTo("extracted");
+    assertThat(field.path("confidence").decimalValue()).isEqualByComparingTo("94.00");
+    assertThat(field.path("provenance")).hasSize(2);
+    assertThat(field.path("provenance").get(0).path("sourceRole").asText()).isEqualTo("label");
+    assertThat(field.path("provenance").get(0).path("ocrWordId").asText())
+        .isEqualTo("ocrw_invoice_label");
+    assertThat(field.path("provenance").get(0).path("pageNumber").asInt()).isEqualTo(1);
+    assertThat(field.path("provenance").get(0).path("blockNumber").asInt()).isZero();
+    assertThat(field.path("provenance").get(0).path("paragraphNumber").asInt()).isZero();
+    assertThat(field.path("provenance").get(0).path("lineNumber").asInt()).isEqualTo(1);
+    assertThat(field.path("provenance").get(0).path("wordNumber").asInt()).isEqualTo(0);
+    assertThat(field.path("provenance").get(0).path("readingOrder").asInt()).isEqualTo(0);
+    assertThat(field.path("provenance").get(0).path("sourceKind").asText())
+        .isEqualTo("tesseract_tsv");
+    assertThat(field.path("provenance").get(1).path("sourceRole").asText()).isEqualTo("value");
+    assertThat(field.path("provenance").get(1).path("ocrWordId").asText())
+        .isEqualTo("ocrw_invoice_number");
+    assertThat(listResponse.statusCode()).isEqualTo(200);
+    assertThat(listResponse.body())
+        .contains(
+            "\"ocrResultPresent\":true",
+            "\"extractionPresent\":true",
+            "\"extractionStatus\":\"completed\"")
+        .doesNotContain(
+            "INV-42",
+            "STRUCTURED_OCR_TEXT",
+            "displayValue",
+            "normalizedValue",
+            "warnings",
+            "provenance",
+            "\"extraction\":{");
+  }
+
+  @Test
+  void returnsReviewRequiredWarningsWithoutValues() throws Exception {
+    String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
+    saveDriveFile("file_review", workspaceId, "Review.pdf", "application/pdf");
+    ocrJobRepository.saveQueued(completedJob("ocr_review", "file_review", workspaceId));
+    saveWorkflowDefinition(workspaceId);
+    saveWorkflowExecution(workspaceId);
+    saveStructuredResultAndExtraction(
+        "ocr_review",
+        "file_review",
+        workspaceId,
+        InvoiceExtractionStatus.REVIEW_REQUIRED,
+        List.of(
+            new InvoiceExtractionWarning(
+                "missing_due_date", "A required invoice field is missing.")),
+        false);
+
+    JsonNode warning =
+        getJobDetail("ocr_review", workspaceId).path("extraction").path("warnings").get(0);
+
+    assertThat(warning.path("code").asText()).isEqualTo("missing_due_date");
+    assertThat(warning.path("fieldKey").isNull()).isTrue();
+    assertThat(warning.path("message").asText()).isEqualTo("A required invoice field is missing.");
+    assertThat(warning.size()).isEqualTo(3);
+  }
+
+  @Test
+  void returnsStructuredOcrResultWithoutFabricatingAnExtraction() throws Exception {
+    String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
+    saveDriveFile("file_result_only", workspaceId, "Result-only.pdf", "application/pdf");
+    ocrJobRepository.saveQueued(completedJob("ocr_result_only", "file_result_only", workspaceId));
+    saveStructuredResult("ocr_result_only", "file_result_only", workspaceId);
+
+    JsonNode detail = getJobDetail("ocr_result_only", workspaceId);
+
+    assertThat(detail.path("ocrResult").path("ocrResultId").asText()).isEqualTo("ocrr_structured");
+    assertThat(detail.path("extraction").isNull()).isTrue();
+  }
+
+  @Test
+  void preservesLegacyExtractedTextAndReturnsNullForAbsentStructuredRecords() throws Exception {
+    String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
+    saveDriveFile("file_legacy", workspaceId, "Legacy.pdf", "application/pdf");
+    ocrJobRepository.saveQueued(completedJob("ocr_legacy", "file_legacy", workspaceId));
+
+    JsonNode detail = getJobDetail("ocr_legacy", workspaceId);
+
+    assertThat(detail.path("extractedText").asText())
+        .isEqualTo("Fake extracted invoice total and lifecycle_text_secret");
+    assertThat(detail.path("ocrResult").isNull()).isTrue();
+    assertThat(detail.path("extraction").isNull()).isTrue();
+  }
+
+  @Test
+  void doesNotExposeAWorkspaceJobWhoseSourceDriveFileIsMissing() throws Exception {
+    String workspaceId = PlaceholderAuthenticationContext.DEFAULT_WORKSPACE_ID;
+    saveDriveFile("file_missing", workspaceId, "Deleted.pdf", "application/pdf");
+    ocrJobRepository.saveQueued(completedJob("ocr_orphaned", "file_missing", workspaceId));
+    jdbcTemplate.execute("set referential_integrity false");
+    jdbcTemplate.update("delete from drive_files where file_id = 'file_missing'");
+    jdbcTemplate.execute("set referential_integrity true");
+
+    HttpResponse<String> detailResponse =
+        httpClient.send(
+            request("/api/media/ocr-jobs/ocr_orphaned")
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+                .build(),
+            BodyHandlers.ofString());
+    HttpResponse<String> listResponse =
+        httpClient.send(
+            request("/api/media/ocr-jobs")
+                .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
+                .build(),
+            BodyHandlers.ofString());
+
+    assertThat(detailResponse.statusCode()).isEqualTo(404);
+    assertThat(listResponse.statusCode()).isEqualTo(200);
+    assertThat(listResponse.body()).doesNotContain("ocr_orphaned");
+  }
+
+  private void saveStructuredResultAndExtraction(
+      String jobId,
+      String fileId,
+      String workspaceId,
+      InvoiceExtractionStatus status,
+      List<InvoiceExtractionWarning> warnings,
+      boolean includeField) {
+    OcrWord invoiceNumberWord = saveStructuredResult(jobId, fileId, workspaceId);
+    Instant now = Instant.parse("2026-07-11T12:00:00Z");
+    List<InvoiceExtractionField> fields =
+        includeField
+            ? List.of(
+                new InvoiceExtractionField(
+                    "invf_invoice_number",
+                    "invx_structured",
+                    "ocrr_structured",
+                    workspaceId,
+                    "invoice_number",
+                    "INV-42",
+                    "INV-42",
+                    InvoiceFieldStatus.EXTRACTED,
+                    new BigDecimal("94.00"),
+                    1,
+                    0,
+                    0,
+                    1,
+                    now,
+                    List.of(
+                        new InvoiceExtractionFieldSource(
+                            "invf_invoice_number",
+                            "ocrr_structured",
+                            workspaceId,
+                            "ocrw_invoice_label",
+                            "label",
+                            0),
+                        new InvoiceExtractionFieldSource(
+                            "invf_invoice_number",
+                            "ocrr_structured",
+                            workspaceId,
+                            invoiceNumberWord.ocrWordId(),
+                            "value",
+                            1))))
+            : List.of();
+    invoiceExtractionRepository.save(
+        new InvoiceExtraction(
+            "invx_structured",
+            "wfe_trace",
+            "ocrr_structured",
+            jobId,
+            fileId,
+            workspaceId,
+            "heuristic_invoice",
+            "1",
+            status,
+            warnings,
+            new BigDecimal("94.00"),
+            fields,
+            now,
+            now));
+  }
+
+  private OcrWord saveStructuredResult(String jobId, String fileId, String workspaceId) {
+    Instant now = Instant.parse("2026-07-11T12:00:00Z");
+    OcrWord invoiceLabelWord =
+        new OcrWord(
+            "ocrw_invoice_label",
+            "ocrp_structured",
+            "ocrr_structured",
+            workspaceId,
+            0,
+            1,
+            0,
+            0,
+            0,
+            1,
+            0,
+            "Invoice Number",
+            new BigDecimal("99.00"),
+            10,
+            10,
+            100,
+            18,
+            "tesseract_tsv",
+            now);
+    OcrWord invoiceNumberWord =
+        new OcrWord(
+            "ocrw_invoice_number",
+            "ocrp_structured",
+            "ocrr_structured",
+            workspaceId,
+            1,
+            1,
+            1,
+            0,
+            0,
+            1,
+            1,
+            "INV-42",
+            new BigDecimal("94.00"),
+            120,
+            10,
+            80,
+            18,
+            "tesseract_tsv",
+            now);
+    OcrPageResult page =
+        new OcrPageResult(
+            "ocrp_structured",
+            "ocrr_structured",
+            workspaceId,
+            1,
+            "tesseract_tsv",
+            "STRUCTURED_OCR_TEXT",
+            1,
+            now,
+            List.of(invoiceLabelWord, invoiceNumberWord));
+    ocrResultRepository.save(
+        new OcrDocumentResult(
+            "ocrr_structured",
+            jobId,
+            fileId,
+            workspaceId,
+            "tesseract",
+            "5.5.0",
+            "STRUCTURED_OCR_TEXT",
+            1,
+            2,
+            now,
+            now,
+            List.of(page)));
+    return invoiceNumberWord;
+  }
+
   private HttpRequest.Builder request(String path) {
     return HttpRequest.newBuilder(URI.create("http://localhost:" + port + path)).GET();
   }
@@ -362,6 +695,7 @@ class OcrJobControllerTest {
             fileId,
             workspaceId,
             PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID,
+            DriveFileVisibility.PRIVATE,
             encryptedName.ciphertextBase64(),
             contentType,
             1024,
@@ -373,6 +707,28 @@ class OcrJobControllerTest {
             encryptedName.ivBase64(),
             now,
             now));
+  }
+
+  private void seedWorkspaceMember(String actorId, String workspaceId, String role) {
+    jdbcTemplate.update(
+        """
+        insert into identity_users (
+          user_id, display_name, email, avatar_initials, status, is_seeded, created_at, updated_at
+        ) values (?, ?, ?, ?, 'active', false, current_timestamp, current_timestamp)
+        """,
+        actorId,
+        actorId,
+        actorId + "@example.test",
+        "TS");
+    jdbcTemplate.update(
+        """
+        insert into workspace_memberships (
+          workspace_id, user_id, role, is_default, created_at, updated_at
+        ) values (?, ?, ?, false, current_timestamp, current_timestamp)
+        """,
+        workspaceId,
+        actorId,
+        role);
   }
 
   private OcrJob job(String jobId, String fileId, String workspaceId, OcrJobStatus status) {

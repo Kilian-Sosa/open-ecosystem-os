@@ -3,7 +3,6 @@ import {
   Activity,
   Bell,
   Boxes,
-  Bot,
   FileText,
   Folder,
   HelpCircle,
@@ -35,7 +34,6 @@ type NavigationItem = {
 
 const primaryNavigation: NavigationItem[] = [
   { label: "Dashboard", href: "/app/dashboard", icon: Home },
-  { label: "Invoice demo", href: "/app/demo/invoice-automation", icon: Bot },
   { label: "Drive", href: "/app/drive", icon: Folder },
   { label: "Media and OCR", href: "/app/media", icon: UploadCloud },
   { label: "Flows", href: "/app/flows", icon: Workflow },
@@ -51,7 +49,6 @@ const systemNavigation: NavigationItem[] = [
 
 const mobileNavigation: NavigationItem[] = [
   { label: "Home", href: "/app/dashboard", icon: Home },
-  { label: "Demo", href: "/app/demo/invoice-automation", icon: Bot },
   { label: "Search", href: "/app/search", icon: Search },
   { label: "Files", href: "/app/media", icon: FileText },
   { label: "Settings", href: "/app/settings", icon: Settings },

@@ -34,6 +34,10 @@ public class WorkerMetrics {
         duration);
   }
 
+  public void recordOcrCleanupFailure(String stage) {
+    meterRegistry.counter("openecosystem.worker.ocr.cleanup.failures", "stage", stage).increment();
+  }
+
   public void recordSearchIndexingJob(SearchIndexingOutcome outcome, Duration duration) {
     record(
         "openecosystem.worker.search.indexing.jobs",

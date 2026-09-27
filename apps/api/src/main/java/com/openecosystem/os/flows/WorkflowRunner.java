@@ -9,13 +9,19 @@ import com.openecosystem.os.audit.JdbcAuditRecordRepository;
 import com.openecosystem.os.common.events.EventEnvelope;
 import com.openecosystem.os.common.events.JdbcEventOutboxRepository;
 import com.openecosystem.os.common.ids.Ids;
-import com.openecosystem.os.demo.DemoInvoiceExtraction;
-import com.openecosystem.os.demo.DemoInvoiceRun;
-import com.openecosystem.os.demo.JdbcDemoInvoiceRepository;
+import com.openecosystem.os.invoice.InvoiceExtraction;
+import com.openecosystem.os.invoice.InvoiceExtractionField;
+import com.openecosystem.os.invoice.InvoiceExtractionPort;
+import com.openecosystem.os.invoice.InvoiceExtractionRequest;
+import com.openecosystem.os.invoice.InvoiceExtractionStatus;
+import com.openecosystem.os.invoice.JdbcInvoiceExtractionRepository;
 import com.openecosystem.os.knowledge.JdbcKnowledgeItemRepository;
 import com.openecosystem.os.knowledge.KnowledgeItem;
+import com.openecosystem.os.media.JdbcOcrResultRepository;
+import com.openecosystem.os.media.OcrDocumentResult;
 import com.openecosystem.os.media.OcrJob;
 import com.openecosystem.os.media.OcrJobRepository;
+import com.openecosystem.os.media.OcrJobStatus;
 import com.openecosystem.os.notifications.JdbcNotificationRepository;
 import com.openecosystem.os.notifications.NotificationCreatedPayload;
 import com.openecosystem.os.notifications.NotificationRecord;
@@ -26,9 +32,7 @@ import com.openecosystem.os.search.SearchDocument;
 import com.openecosystem.os.search.SearchDocumentStatus;
 import com.openecosystem.os.search.SearchModule;
 import com.openecosystem.os.search.SearchProperties;
-import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -47,15 +51,16 @@ public class WorkflowRunner {
   private static final String NOTIFICATION_CREATED = "NotificationCreated";
   private static final String INDEXING_REQUESTED = "IndexingRequested";
   private static final String RESOURCE_TYPE_WORKFLOW_EXECUTION = "workflow_execution";
-  private static final String SEARCH_SOURCE_TYPE_DEMO_INVOICE_EXTRACTION =
-      "demo_invoice_extraction";
+  private static final String SEARCH_SOURCE_TYPE_INVOICE_EXTRACTION = "invoice_extraction";
 
   private final WorkflowDefinitionValidator definitionValidator;
   private final JdbcWorkflowExecutionRepository executionRepository;
   private final JdbcNotificationRepository notificationRepository;
   private final JdbcKnowledgeItemRepository knowledgeItemRepository;
-  private final JdbcDemoInvoiceRepository demoInvoiceRepository;
+  private final InvoiceExtractionPort invoiceExtractionPort;
+  private final JdbcInvoiceExtractionRepository invoiceExtractionRepository;
   private final OcrJobRepository ocrJobRepository;
+  private final JdbcOcrResultRepository ocrResultRepository;
   private final JdbcSearchDocumentRepository searchDocumentRepository;
   private final JdbcAuditRecordRepository auditRecordRepository;
   private final JdbcEventOutboxRepository eventOutboxRepository;
@@ -68,8 +73,10 @@ public class WorkflowRunner {
       JdbcWorkflowExecutionRepository executionRepository,
       JdbcNotificationRepository notificationRepository,
       JdbcKnowledgeItemRepository knowledgeItemRepository,
-      JdbcDemoInvoiceRepository demoInvoiceRepository,
+      InvoiceExtractionPort invoiceExtractionPort,
+      JdbcInvoiceExtractionRepository invoiceExtractionRepository,
       OcrJobRepository ocrJobRepository,
+      JdbcOcrResultRepository ocrResultRepository,
       JdbcSearchDocumentRepository searchDocumentRepository,
       JdbcAuditRecordRepository auditRecordRepository,
       JdbcEventOutboxRepository eventOutboxRepository,
@@ -80,8 +87,10 @@ public class WorkflowRunner {
     this.executionRepository = executionRepository;
     this.notificationRepository = notificationRepository;
     this.knowledgeItemRepository = knowledgeItemRepository;
-    this.demoInvoiceRepository = demoInvoiceRepository;
+    this.invoiceExtractionPort = invoiceExtractionPort;
+    this.invoiceExtractionRepository = invoiceExtractionRepository;
     this.ocrJobRepository = ocrJobRepository;
+    this.ocrResultRepository = ocrResultRepository;
     this.searchDocumentRepository = searchDocumentRepository;
     this.auditRecordRepository = auditRecordRepository;
     this.eventOutboxRepository = eventOutboxRepository;
@@ -227,20 +236,48 @@ public class WorkflowRunner {
       WorkflowStepDefinition step,
       Instant now) {
     OcrCompletedEvent ocrEvent = requiredOcrEvent(command);
-    Optional<DemoInvoiceExtraction> existing =
-        demoInvoiceRepository.findExtractionByWorkflowExecutionId(execution.executionId());
+    if (!execution.workspaceId().equals(ocrEvent.workspaceId())) {
+      throw new IllegalStateException("Completed OCR event workspace does not match the workflow");
+    }
+    Optional<InvoiceExtraction> existing =
+        invoiceExtractionRepository.findByWorkflowExecutionIdForWorkspace(
+            execution.executionId(), execution.workspaceId());
     if (existing.isPresent()) return extractionOutput(existing.get());
 
     OcrJob ocrJob =
         ocrJobRepository
-            .findByIdForWorkspace(ocrEvent.jobId(), execution.workspaceId())
+            .findDetailByIdForWorkspace(ocrEvent.jobId(), execution.workspaceId())
             .orElseThrow(() -> new IllegalStateException("Completed OCR job was not found"));
-    if (ocrJob.extractedText() == null || ocrJob.extractedText().isBlank())
-      throw new IllegalStateException("Completed OCR job does not contain extracted text");
+    if (ocrJob.status() != OcrJobStatus.COMPLETED
+        || !ocrJob.fileId().equals(ocrEvent.fileId())
+        || !ocrJob.workspaceId().equals(execution.workspaceId())) {
+      throw new IllegalStateException(
+          "Completed OCR event lineage does not match the persisted job");
+    }
 
-    DemoInvoiceExtraction extraction = demoExtraction(ocrJob, execution, now);
-    demoInvoiceRepository.saveExtraction(extraction);
-    return extractionOutput(extraction);
+    OcrDocumentResult result =
+        ocrResultRepository
+            .findByJobIdForWorkspace(ocrJob.jobId(), execution.workspaceId())
+            .orElseThrow(() -> new IllegalStateException("Completed OCR result was not found"));
+    if (!result.jobId().equals(ocrEvent.jobId())
+        || !result.fileId().equals(ocrEvent.fileId())
+        || !result.workspaceId().equals(execution.workspaceId())) {
+      throw new IllegalStateException("Completed OCR result lineage does not match the workflow");
+    }
+
+    InvoiceExtraction extraction =
+        invoiceExtractionPort.extract(
+            new InvoiceExtractionRequest(
+                execution.workspaceId(),
+                result.ocrResultId(),
+                result.jobId(),
+                result.fileId(),
+                execution.executionId(),
+                execution.actorId(),
+                execution.correlationId(),
+                ocrEvent.eventId()),
+            result);
+    return extractionOutput(invoiceExtractionRepository.save(extraction));
   }
 
   private JsonNode requestSearchIndexing(
@@ -248,15 +285,15 @@ public class WorkflowRunner {
       WorkflowExecution execution,
       WorkflowStepDefinition step,
       Instant now) {
-    DemoInvoiceExtraction extraction =
-        demoInvoiceRepository
-            .findExtractionByWorkflowExecutionId(execution.executionId())
-            .orElseThrow(() -> new IllegalStateException("Demo invoice extraction was not found"));
+    InvoiceExtraction extraction =
+        invoiceExtractionRepository
+            .findByWorkflowExecutionIdForWorkspace(execution.executionId(), execution.workspaceId())
+            .orElseThrow(() -> new IllegalStateException("Invoice extraction was not found"));
 
     Optional<SearchDocument> existing =
         searchDocumentRepository.findBySource(
             execution.workspaceId(),
-            SEARCH_SOURCE_TYPE_DEMO_INVOICE_EXTRACTION,
+            SEARCH_SOURCE_TYPE_INVOICE_EXTRACTION,
             extraction.extractionId());
     SearchDocument document = existing.orElseGet(() -> searchDocument(extraction, execution, now));
     if (existing.isEmpty()) {
@@ -319,6 +356,17 @@ public class WorkflowRunner {
     String resourceType =
         optionalActionText(step.action(), "resourceType", RESOURCE_TYPE_WORKFLOW_EXECUTION);
     Map<String, String> attributes = actionAttributes(command, execution, step);
+    invoiceExtractionRepository
+        .findSummaryByWorkflowExecutionIdForWorkspace(
+            execution.executionId(), execution.workspaceId())
+        .ifPresent(
+            extraction -> {
+              attributes.put("extractionId", extraction.extractionId());
+              attributes.put("status", extraction.status().value());
+              attributes.put(
+                  "reviewRequired",
+                  Boolean.toString(extraction.status() == InvoiceExtractionStatus.REVIEW_REQUIRED));
+            });
     String auditId = Ids.newId("aud");
     auditRecordRepository.save(
         new AuditRecord(
@@ -373,76 +421,35 @@ public class WorkflowRunner {
     return output;
   }
 
-  private DemoInvoiceExtraction demoExtraction(
-      OcrJob ocrJob, WorkflowExecution execution, Instant now) {
-    Optional<DemoInvoiceRun> run =
-        demoInvoiceRepository.findRunByFileIdForWorkspace(ocrJob.fileId(), execution.workspaceId());
-    ObjectNode metadata = objectMapper.createObjectNode();
-    metadata.put("isTestData", true);
-    metadata.put("source", "mock_invoice_extractor");
-    metadata.put("testDataNotice", "All invoice fields are fake/test data.");
-    metadata.put(
-        "ocrTextLength", ocrJob.extractedTextLength() == null ? 0 : ocrJob.extractedTextLength());
-    metadata.put("workflowExecutionId", execution.executionId());
-
-    return new DemoInvoiceExtraction(
-        Ids.newId("invx"),
-        run.map(DemoInvoiceRun::runId).orElse(null),
-        execution.workspaceId(),
-        execution.actorId(),
-        ocrJob.fileId(),
-        ocrJob.jobId(),
-        execution.executionId(),
-        "TEST-INV-2026-0001",
-        "Demo Supplies S.L. (fake/test data)",
-        "Test NIF: B00000000 (test data)",
-        "Test IBAN: ES00 0000 0000 0000 0000 0000 (test data)",
-        new BigDecimal("124.00"),
-        "EUR",
-        LocalDate.parse("2026-06-15"),
-        true,
-        metadata,
-        now);
-  }
-
-  private JsonNode extractionOutput(DemoInvoiceExtraction extraction) {
+  private JsonNode extractionOutput(InvoiceExtraction extraction) {
     ObjectNode output = objectMapper.createObjectNode();
     output.put("extractionId", extraction.extractionId());
-    output.put("invoiceNumber", extraction.invoiceNumber());
-    output.put("supplierName", extraction.supplierName());
-    output.put("supplierTestNif", extraction.supplierTestNif());
-    output.put("supplierTestIban", extraction.supplierTestIban());
-    output.put("totalAmount", extraction.totalAmount());
-    output.put("currency", extraction.currency());
-    output.put("dueDate", extraction.dueDate().toString());
-    output.put("isTestData", extraction.testData());
+    output.put("status", extraction.status().value());
+    output.put("fieldCount", extraction.fields().size());
+    output.put("warningCount", extraction.warnings().size());
     return output;
   }
 
   private SearchDocument searchDocument(
-      DemoInvoiceExtraction extraction, WorkflowExecution execution, Instant now) {
+      InvoiceExtraction extraction, WorkflowExecution execution, Instant now) {
     ObjectNode metadata = objectMapper.createObjectNode();
-    metadata.put("isTestData", true);
-    metadata.put("invoiceNumber", extraction.invoiceNumber());
-    metadata.put("supplierName", extraction.supplierName());
-    metadata.put("currency", extraction.currency());
-    metadata.put("totalAmount", extraction.totalAmount());
-    metadata.put("dueDate", extraction.dueDate().toString());
-    metadata.put("runId", extraction.runId());
-    metadata.put("ocrJobId", extraction.ocrJobId());
     metadata.put("fileId", extraction.fileId());
+    addSearchField(metadata, extraction, "invoice_number");
+    addSearchField(metadata, extraction, "supplier_name");
+    addSearchField(metadata, extraction, "total_amount");
+    addSearchField(metadata, extraction, "currency");
+    addSearchField(metadata, extraction, "issue_date");
+    addSearchField(metadata, extraction, "due_date");
 
     return new SearchDocument(
         Ids.newId("srch"),
         execution.workspaceId(),
-        SEARCH_SOURCE_TYPE_DEMO_INVOICE_EXTRACTION,
+        SEARCH_SOURCE_TYPE_INVOICE_EXTRACTION,
         extraction.extractionId(),
-        "Fake/test invoice " + extraction.invoiceNumber(),
-        "Fake/test invoice extraction from " + extraction.supplierName() + ".",
+        "Invoice " + searchField(extraction, "invoice_number"),
+        searchField(extraction, "supplier_name"),
         searchContent(extraction),
-        extraction.runId() == null
-            ? "/app/search?q=" + extraction.invoiceNumber()
-            : "/app/demo/invoice-automation?runId=" + extraction.runId(),
+        "/app/media?jobId=" + extraction.jobId(),
         execution.correlationId(),
         SearchDocumentStatus.PENDING,
         0,
@@ -456,25 +463,35 @@ public class WorkflowRunner {
         null);
   }
 
-  private String searchContent(DemoInvoiceExtraction extraction) {
+  private void addSearchField(ObjectNode metadata, InvoiceExtraction extraction, String fieldKey) {
+    String value = searchField(extraction, fieldKey);
+    if (!value.isBlank()) metadata.put(fieldKey, value);
+  }
+
+  private String searchField(InvoiceExtraction extraction, String fieldKey) {
+    return extraction.fields().stream()
+        .filter(field -> field.fieldKey().equals(fieldKey))
+        .map(InvoiceExtractionField::normalizedValue)
+        .findFirst()
+        .orElse("");
+  }
+
+  private String searchContent(InvoiceExtraction extraction) {
     return """
-    Fake/test invoice result.
     Invoice number: %s
     Supplier: %s
-    %s
-    %s
-    Total: %s %s
+    Total: %s
+    Currency: %s
+    Issue date: %s
     Due date: %s
-    All values are fake/test data.
     """
         .formatted(
-            extraction.invoiceNumber(),
-            extraction.supplierName(),
-            extraction.supplierTestNif(),
-            extraction.supplierTestIban(),
-            extraction.totalAmount(),
-            extraction.currency(),
-            extraction.dueDate())
+            searchField(extraction, "invoice_number"),
+            searchField(extraction, "supplier_name"),
+            searchField(extraction, "total_amount"),
+            searchField(extraction, "currency"),
+            searchField(extraction, "issue_date"),
+            searchField(extraction, "due_date"))
         .trim();
   }
 
@@ -753,8 +770,6 @@ public class WorkflowRunner {
   }
 
   private String sanitizedMessage(RuntimeException exception) {
-    String message = exception.getMessage();
-    if (message == null || message.isBlank()) return "Workflow action failed";
-    return message.length() > 512 ? message.substring(0, 512) : message;
+    return "Workflow action failed.";
   }
 }
