@@ -697,6 +697,9 @@ function ExtractionSummary({ job }: { job: OcrJobSummary }) {
   if (job.extractionStatus === "completed") {
     return <StatusChip status="completed" label="Completed" />;
   }
+  if (job.status === "failed") {
+    return <span className="text-xs text-text-secondary">Not available</span>;
+  }
   return <span className="text-xs text-text-secondary">Pending</span>;
 }
 

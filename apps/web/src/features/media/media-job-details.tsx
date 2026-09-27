@@ -156,6 +156,10 @@ function OcrResultSection({ detail }: { detail: OcrJobDetail }) {
             )}
           </div>
         </>
+      ) : detail.status === "failed" ? (
+        <p className="mt-3 text-sm leading-5 text-text-secondary" role="status">
+          OCR failed before a result was produced.
+        </p>
       ) : (
         <p className="mt-3 text-sm leading-5 text-text-secondary" role="status">
           OCR result is pending. Provider details and extracted text will appear
@@ -210,6 +214,15 @@ function ExtractionSection({ detail }: { detail: OcrJobDetail }) {
           <ExtractionFields fields={extraction.fields} />
           <ExtractionWarnings warnings={extraction.warnings} />
         </>
+      ) : detail.status === "failed" ? (
+        <div className="mt-3" role="status">
+          <h4 className="text-sm font-semibold text-text-primary">
+            Extraction unavailable
+          </h4>
+          <p className="mt-1 text-sm leading-5 text-text-secondary">
+            Structured extraction was not produced because OCR failed.
+          </p>
+        </div>
       ) : detail.status === "completed" ? (
         <div className="mt-3" role="status">
           <h4 className="text-sm font-semibold text-text-primary">

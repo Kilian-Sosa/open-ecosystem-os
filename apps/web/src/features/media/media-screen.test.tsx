@@ -232,6 +232,44 @@ describe("MediaScreen", () => {
     expect(shouldPollOcrJobDetail(detail(), now)).toBe(false);
   });
 
+  it("does not describe failed OCR jobs as pending", async () => {
+    const failedWithoutResults = detail({
+      status: "failed",
+      provider: null,
+      failureCode: "OCR_PROCESS_FAILED",
+      failureMessage: "OCR processing failed.",
+      ocrResultPresent: false,
+      extractionPresent: false,
+      extractionStatus: null,
+      completedAt: null,
+      failedAt: "2026-07-11T11:59:30Z",
+      ocrResult: null,
+      extraction: null,
+    });
+    stubJobsAndDetail([summary(failedWithoutResults)], failedWithoutResults);
+    renderMedia();
+
+    const inspector = await screen.findByLabelText("OCR job detail");
+    expect(
+      await within(inspector).findByText(
+        "OCR failed before a result was produced.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(inspector).getByText("Extraction unavailable"),
+    ).toBeInTheDocument();
+    expect(
+      within(inspector).getByText(
+        "Structured extraction was not produced because OCR failed.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Not available").length).toBeGreaterThan(0);
+    expect(inspector).not.toHaveTextContent("Extraction is pending");
+    expect(inspector).not.toHaveTextContent(
+      "Structured extraction will appear after OCR processing completes.",
+    );
+  });
+
   it("shows an explicit no-fields state without inventing structured values", async () => {
     stubJobsAndDetail(
       [summary()],
