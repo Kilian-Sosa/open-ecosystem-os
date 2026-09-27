@@ -24,6 +24,12 @@ class EventOutboxPublisherTest {
   @BeforeEach
   void cleanDatabase() {
     jdbcTemplate.update("delete from event_consumptions");
+    jdbcTemplate.update("delete from invoice_extraction_field_sources");
+    jdbcTemplate.update("delete from invoice_extraction_fields");
+    jdbcTemplate.update("delete from invoice_extractions");
+    jdbcTemplate.update("delete from ocr_result_words");
+    jdbcTemplate.update("delete from ocr_result_pages");
+    jdbcTemplate.update("delete from ocr_results");
     jdbcTemplate.update("delete from ocr_jobs");
     jdbcTemplate.update("delete from event_outbox");
     jdbcTemplate.update("delete from audit_records");
