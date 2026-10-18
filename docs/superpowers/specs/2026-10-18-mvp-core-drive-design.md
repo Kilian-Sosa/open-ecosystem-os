@@ -1,6 +1,6 @@
 # MVP Core — Drive lifecycle design
 
-**Status:** Revised written design for user review (folders and 30-day Trash, 2026-10-18)
+**Status:** Approved 2026-10-18 (folders and 30-day Trash included)
 **Milestone:** MVP Core
 **Parent:** [MVP milestones](2026-10-18-mvp-milestones-design.md)
 **Retention contract:** [Drive Trash design](2026-10-18-mvp-core-drive-trash-design.md)

@@ -1,6 +1,6 @@
 # MVP milestones and specification architecture
 
-**Status:** Milestone scope approved 2026-10-18; revised Drive/Trash specifications awaiting written review
+**Status:** Milestone scope and Drive/Trash specifications approved 2026-10-18; remaining capability specifications await review
 **Date:** 2026-10-18
 **Evidence baseline:** `origin/develop` at `9d3b856` (merged PR #47)
 

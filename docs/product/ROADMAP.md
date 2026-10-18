@@ -5,7 +5,8 @@ phase catalog below. Proposed acceptance contracts live in
 [MVP milestones](../superpowers/specs/2026-10-18-mvp-milestones-design.md),
 and evidence-backed state is tracked in the
 [implementation inventory](../superpowers/reviews/2026-10-18-mvp-implementation-inventory.md).
-The linked written specs still require user review before implementation plans.
+The milestone and Drive/Trash specs are approved; other capability
+specs still require review before implementation plans.
 
 ## MVP Core: personal, usable and private
 

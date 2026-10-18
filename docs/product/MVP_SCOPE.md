@@ -4,8 +4,9 @@
 [MVP milestones and requirements](../superpowers/specs/2026-10-18-mvp-milestones-design.md)
 are the proposed, reviewable successor to the original MVP blueprint. Read
 the [implementation inventory](../superpowers/reviews/2026-10-18-mvp-implementation-inventory.md)
-for the evidence-backed current status. These specs await user review and
-are not a declaration of implementation completion.
+for the evidence-backed current status. The milestone and Drive/Trash
+contracts have user approval; other capability specs still await review.
+Approval is not a declaration of implementation completion.
 
 ## Current two-milestone definition
 

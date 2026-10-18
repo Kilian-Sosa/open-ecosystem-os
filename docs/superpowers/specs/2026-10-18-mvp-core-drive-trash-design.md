@@ -1,6 +1,6 @@
 # MVP Core — Drive Trash, recovery and retention design
 
-**Status:** Proposed written design for user review (2026-10-18)
+**Status:** Approved 2026-10-18
 **Milestone:** MVP Core
 **Parent:** [MVP milestones](2026-10-18-mvp-milestones-design.md)
 **Depends on:** [Drive lifecycle and folders](2026-10-18-mvp-core-drive-design.md)
