@@ -905,7 +905,7 @@ truthfully.
 - Modify: `docs/architecture/DATA_STRATEGY.md`
 - Modify: `docs/development/SECURITY_AND_VULNERABILITY_CHECKS.md`
 - Modify:
-  `.superpowers/sdd/real-ocr-remediation-verification.md`
+  `docs/superpowers/reviews/real-ocr-remediation-verification.md`
 
 `docs/architecture/SECURITY.md` is absent and must not be invented as part of
 this bounded change. The existing security-check document is the applicable
@@ -1033,7 +1033,7 @@ security documentation.
 
 - [ ] **Step 9: Record truthful CV-04 verification**
 
-  Update `.superpowers/sdd/real-ocr-remediation-verification.md` only after the
+  Update `docs/superpowers/reviews/real-ocr-remediation-verification.md` only after the
   commands run. Record exact commands, exit codes, PostgreSQL version, source
   commit, and this statement only if supported:
 
@@ -1074,7 +1074,7 @@ security documentation.
   Proposed commit:
 
   ```powershell
-  git add -- apps/api/src/main/java/com/openecosystem/os/search/SearchService.java apps/api/src/test apps/web/src docs/architecture docs/development/SECURITY_AND_VULNERABILITY_CHECKS.md .superpowers/sdd/real-ocr-remediation-verification.md
+  git add -- apps/api/src/main/java/com/openecosystem/os/search/SearchService.java apps/api/src/test apps/web/src docs/architecture docs/development/SECURITY_AND_VULNERABILITY_CHECKS.md docs/superpowers/reviews/real-ocr-remediation-verification.md
   git commit -m "fix(search): enforce source file view"
   ```
 
