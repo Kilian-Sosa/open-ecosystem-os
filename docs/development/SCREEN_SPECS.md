@@ -1,5 +1,11 @@
 # Screen Specs
 
+> This file is the broader **screen design catalog**, not proof that these
+> screens exist or requirements that they ship in MVP Core. See
+> [MVP Scope](../product/MVP_SCOPE.md) and
+> [implementation inventory](../superpowers/reviews/2026-10-18-mvp-implementation-inventory.md)
+> for the current milestone boundary and implementation evidence.
+
 Every major screen must support desktop and mobile behavior.
 
 ## Public portfolio

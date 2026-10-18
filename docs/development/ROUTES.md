@@ -1,5 +1,12 @@
 # Route Map
 
+**Milestone boundary:** The planned routes in this catalog are not Core
+acceptance criteria. See
+[MVP scope](../product/MVP_SCOPE.md) and the
+[source-code inventory](../superpowers/reviews/2026-10-18-mvp-implementation-inventory.md).
+The current root `/` redirects to `/app/dashboard`; it is not yet the
+planned public landing page. The invoice-demo route redirects to Media.
+
 This route map combines implemented MVP routes and planned routes. The
 frontend app already exists under `apps/web/src/app`; before adding or changing
 a route, check the current filesystem route and keep names aligned with this

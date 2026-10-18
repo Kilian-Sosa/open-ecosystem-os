@@ -4,17 +4,36 @@ Open Ecosystem OS is a self-hosted, open-source productivity ecosystem designed 
 
 The goal is not to clone existing tools. The goal is to build a coherent ecosystem where files, pages, OCR, AI, automations, search, notifications, audit logs, and admin operations work together through a modular, event-driven architecture.
 
-## Core idea
+## Current MVP direction
+
+The [MVP Core/Complete design](docs/superpowers/specs/2026-10-18-mvp-milestones-design.md)
+defines the proposed release boundaries, and the
+[implementation inventory](docs/superpowers/reviews/2026-10-18-mvp-implementation-inventory.md)
+records what is actually present in code. The written specs are awaiting
+review; their target behavior is **not** all implemented yet.
+
+- **MVP Core:** a genuinely usable private Drive with upload, listing,
+  downloads, previews and deletion; real offline OCR; a predefined ordered
+  image-to-PDF action; a predefined invoice-extraction action with editable
+  drafts and explicit human confirmation; and permission-aware search of
+  filenames/raw OCR plus **confirmed** structured invoice fields.
+- **MVP Complete:** distribution readiness, real authentication,
+  self-hosting/onboarding and a safe public demo.
+- **Post-MVP:** Open Pages, a broader PDF editor, Open Ledger, advanced
+  workflow authoring and additional ecosystem apps.
+
+## Broader product idea
 
 A user should be able to run their own private workspace and automate practical workflows such as:
 
 ```txt
 Upload invoice PDF
   -> OCR extracts text
-  -> AI extracts structured data
-  -> Workflow automation creates a task/page/knowledge item
+  -> Local heuristic produces an editable invoice draft
+  -> User reviews, corrects and confirms fields
+  -> Confirmed structured fields become searchable
   -> Notification is sent
-  -> Audit log records the full chain
+  -> Audit metadata records the chain
 ```
 
 ## Repository strategy
@@ -39,7 +58,7 @@ open-ecosystem-os/
 
 Start together. Deploy separately. Split into independent repositories only when lifecycle, ownership, security, or reuse demands it.
 
-## Recommended first vertical slice
+## Original architectural vertical slice
 
 The first real implementation milestone should be:
 
@@ -47,7 +66,10 @@ The first real implementation milestone should be:
 Drive upload -> Media/OCR worker -> domain event -> Open Ecosystem Flows -> Notification -> Audit log
 ```
 
-This validates the architecture before the project expands.
+This architecture is already represented in the code, but the complete
+private-user journeys listed above still have implementation gaps. In
+particular, the previous automatic extraction-to-indexing workflow must be
+changed to require human confirmation for structured invoice fields.
 
 ## Documents to read first
 

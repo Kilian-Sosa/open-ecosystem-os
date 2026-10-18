@@ -1,5 +1,61 @@
 # MVP Scope
 
+**Current release scope (2026-10-18):**
+[MVP milestones and requirements](../superpowers/specs/2026-10-18-mvp-milestones-design.md)
+are the proposed, reviewable successor to the original MVP blueprint. Read
+the [implementation inventory](../superpowers/reviews/2026-10-18-mvp-implementation-inventory.md)
+for the evidence-backed current status. These specs await user review and
+are not a declaration of implementation completion.
+
+## Current two-milestone definition
+
+### MVP Core — personally usable and private
+
+- Full Drive file lifecycle: upload, list, preview, download and delete.
+- Real local OCR for supported PDFs and images, with accessible results.
+- Drive built-in action to merge an ordered set of images into one saved PDF.
+- Drive built-in invoice extraction from PDF/image, with review, correction
+  and explicit confirmation before structured-field search indexing.
+- File-name search after upload and raw OCR search after processing, even
+  before invoice confirmation; only confirmed invoice fields are searchable
+  as structured data.
+- Retain encrypted storage, permission-aware reads/search, event/worker/audit
+  foundations, reliable private Compose operation and testable error states.
+- Existing seeded development session is allowed **only in a trusted private
+  environment**; it must not be exposed as public authentication.
+
+Core does **not** require a configurable workflow builder, Open Pages, a
+general PDF editor, an operational public landing site or real multiuser
+authentication. Its built-in actions may reuse the Flows engine.
+
+### MVP Complete — distribution and safe public demo
+
+Extend the functional Core with secure real authentication, workspace/user
+onboarding, production-facing permissions, reproducible installation and
+upgrades, restore-tested backup/recovery, meaningful operator controls,
+public documentation and a safe **isolated synthetic-data demo**.
+
+The Complete milestone is release-readiness, not the entire envisioned
+suite of apps. Open Pages, advanced PDF editing, Open Ledger, visual
+workflow authoring and the plugin/community ecosystem remain post-MVP.
+
+## Modular SDD source of truth
+
+- [Drive](../superpowers/specs/2026-10-18-mvp-core-drive-design.md)
+- [OCR](../superpowers/specs/2026-10-18-mvp-core-ocr-design.md)
+- [Image-to-PDF](../superpowers/specs/2026-10-18-mvp-core-image-to-pdf-design.md)
+- [Invoice review/confirmation](../superpowers/specs/2026-10-18-mvp-core-invoice-review-design.md)
+- [Search](../superpowers/specs/2026-10-18-mvp-core-search-design.md)
+- [Shared platform and distribution](../superpowers/specs/2026-10-18-mvp-platform-design.md)
+
+---
+
+## Historical original MVP definition (superseded for release gating)
+
+The following sections document the **original broader MVP vision**. Their
+"must-have", "MVP success", and P0/P1 labels are not current Core or Complete
+acceptance criteria; use the SDD specifications above when planning new work.
+
 ## MVP objective
 
 Ship a coherent vertical slice that proves the ecosystem works end-to-end.
