@@ -12,6 +12,8 @@
 
 **Status:** Proposed implementation plan for user review; not authorized for execution.
 
+**Spec impact:** No spec change. The review revisions below implement the approved Drive requirements for MIME/signature consistency, corrupt-format rejection and safe preview; product scope and acceptance criteria remain unchanged.
+
 ## Global Constraints
 
 - Keep existing GET/POST `/api/drive/files` routes and old file IDs/keys working; omitted folder ID denotes root, including pre-migration files.
@@ -21,12 +23,13 @@
 - Rename and move change only metadata, never file IDs, S3 object keys, OCR associations or invoice provenance. Metadata-only audit events identify mutations; the separately scoped Search plan will add source update/reindexing when its consumer exists.
 - Existing FileUploaded/OCR flows, seeded-private identity, and sharing tests must keep working. Do not implement configurable Flows, public links, PDF editing, Trash, or cloud OCR in this plan.
 - Reuse the Java ZIP library and AWS SDK; impose explicit server-side limits. Use English code comments only.
+- Validate upload bytes against the configured supported formats and declared MIME type before storing an object or publishing `FileUploaded`. A MIME allowlist alone is insufficient. Apply the preview safety check to legacy files too; never execute active document content.
 - Follow RED → GREEN with a scoped test per task and commit after verification. No push, merge, implementation or plan execution until user approves the plan and execution approach.
 
 ## File and interface map
 
 - Schema: create `apps/api/src/main/resources/db/migration/V10__drive_folders.sql`; modify `drive/DriveFileMetadata.java` and `DriveFileRepository.java`; create `drive/DriveFolderMetadata.java` and `DriveFolderRepository.java`.
-- Commands: create `drive/DriveDirectoryNamePolicy.java`, `DriveFolderService.java`, `DriveFolderController.java`, `DriveFolderResponse.java` and `DriveFileMutationService.java`. Modify `DriveUploadService.java`, `DriveFileController.java`, `DriveFileResponse.java`.
+- Commands: create `drive/DriveDirectoryNamePolicy.java`, `DriveUploadContentValidator.java`, `DriveFolderService.java`, `DriveFolderController.java`, `DriveFolderResponse.java` and `DriveFileMutationService.java`. Modify `DriveUploadService.java`, `DriveFileController.java`, `DriveFileResponse.java`.
 - Content: modify `drive/crypto/FileEncryptionService.java`, `drive/storage/FileObjectStorage.java`, `drive/storage/S3FileObjectStorage.java`; add `drive/DriveFileContentService.java` and `DriveFileContent.java`.
 - ZIP: add `drive/DriveArchiveService.java`, `DriveArchiveProperties.java` and `DriveZipArchive.java`. Configure in `apps/api/src/main/resources/application.yml` and `.env.example`.
 - Web: modify `apps/web/src/lib/drive-api.ts`, `features/drive/use-drive-files.ts`, `features/drive/drive-screen.tsx`; add focused `features/drive/drive-folder-explorer.tsx`, `drive-file-actions.tsx`, `drive-folder-actions.tsx`, `drive-preview.tsx` and Vitest tests.
@@ -38,6 +41,7 @@
 3. Folder moved into itself/descendant → cycle rejected and tree preserved even under concurrency; **Task 4**.
 4. Corrupt AES-GCM tag or ZIP name containing ../ / absolute traversal → fail safely with no plaintext/unsafe archive; **Tasks 3, 5**.
 5. Too many ZIP files/bytes, or a denied descendant → no incomplete/partially leaked ZIP response; **Task 5**.
+6. A declared allowed MIME type contains mismatched or corrupt bytes, including a legacy upload → reject new uploads before persistence and fail preview safely; **Tasks 2, 3**.
 
 ---
 
@@ -55,13 +59,15 @@
 
 ### Task 2: Folder creation/navigation and upload placement
 
-**Files:** Create `DriveDirectoryNamePolicy.java`, `DriveFolderService.java`, `DriveFolderController.java`, `DriveFolderResponse.java`; modify `DriveUploadService.java`, `DriveFileController.java`, `DriveFileResponse.java`; test `DriveFolderControllerTest.java` and `DriveFileControllerTest.java`.
+**Files:** Create `DriveDirectoryNamePolicy.java`, `DriveUploadContentValidator.java`, `DriveFolderService.java`, `DriveFolderController.java`, `DriveFolderResponse.java`; modify `DriveUploadService.java`, `DriveFileController.java`, `DriveFileResponse.java`; test `DriveUploadContentValidatorTest.java`, `DriveFolderControllerTest.java` and `DriveFileControllerTest.java`.
 
 **Interfaces:** `DriveDirectoryNamePolicy.normalize(String name): String` uses Unicode NFC and Locale.ROOT case folding for comparisons (never persist plaintext normalizations); rejects blank, path separators, dot/dot-dot, control characters and >255 chars. `DriveFolderService.createFolder(String name, String parentFolderId): DriveFolderResponse`; `listFolderContents(String folderId): DriveDirectoryListResponse` (folders + files). `DriveUploadService.upload(MultipartFile file, String folderId): DriveFileResponse` with existing one-argument overload delegating to root. Add nullable `folderId` to file DTO.
 
-- [ ] **Step 1: Write failing API tests** `createsProjectsInvoices2026AndListsImmediateChildren`, `uploadIntoChildNotRoot`, `conflictingFileAndFolderSiblingNamesReject`, `twoConcurrentCreatesCannotDuplicateName`, `foreignFolderReadForbiddenWithoutNameLeak`. Assert 201, 200, 409 and 404 statuses plus decrypted responses only on allowed reads.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveFolderControllerTest,DriveFileControllerTest test`.
-- [ ] **Step 3: Implement:** HTTP `POST /api/drive/folders` body `{name,parentFolderId}`, `GET /api/drive/folders/contents?folderId=...`, `GET /api/drive/folders/{folderId}`, upload multipart optional `folderId`. Under workspace row lock compare decrypted file and folder sibling names before persist. Keep old flat-list API compatible; UI uses new folder-scoped endpoint.
+`DriveUploadContentValidator.validate(byte[] bytes, String declaredContentType): void` applies bounded format-specific validation for every configured allowed type, including PDF, PNG, JPEG, plain text and allowed Office containers. Define the signature/structure checks and safe text policy explicitly; do not classify solely by extension or trust a matching magic prefix on a truncated file. Reuse existing parsers where suitable and justify any new dependency.
+
+- [ ] **Step 1: Write failing API tests** `createsProjectsInvoices2026AndListsImmediateChildren`, `uploadIntoChildNotRoot`, `conflictingFileAndFolderSiblingNamesReject`, `twoConcurrentCreatesCannotDuplicateName`, `foreignFolderReadForbiddenWithoutNameLeak`, `rejectsDeclaredMimeAndSignatureMismatch`, `rejectsCorruptAllowedFormatsBeforeStorage`, `validSupportedFormatsStillUpload`. Use clearly labelled synthetic fixtures and assert rejected uploads create no object, metadata, audit-success record or outbox event. Assert 201, 200, 409 and 404 statuses plus decrypted responses only on allowed reads.
+- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveUploadContentValidatorTest,DriveFolderControllerTest,DriveFileControllerTest test`.
+- [ ] **Step 3: Implement:** HTTP `POST /api/drive/folders` body `{name,parentFolderId}`, `GET /api/drive/folders/contents?folderId=...`, `GET /api/drive/folders/{folderId}`, upload multipart optional `folderId`. Validate bounded source bytes before object storage, metadata writes or outbox publication. Under workspace row lock compare decrypted file and folder sibling names before persist. Keep old flat-list API compatible; UI uses new folder-scoped endpoint.
 - [ ] **Step 4: Verify GREEN:** same scoped tests and `./mvnw test`; ensure seeded and sharing behavior remain intact.
 - [ ] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): create folders and browse directory contents"`.
 
@@ -71,9 +77,9 @@
 
 **Interfaces:** `FileObjectStorage.getEncryptedObject(String storageKey, long maxCiphertextBytes): byte[]`, `FileEncryptionService.decryptBytes(byte[] ciphertext, String ivBase64): byte[]` (authenticated AES-GCM), `DriveFileContentService.read(String fileId): DriveFileContent(byte[] bytes, String name, String contentType)`. HTTP `GET /api/drive/files/{fileId}/download` and `/preview`; preview only PDF, PNG, JPEG and text.
 
-- [ ] **Step 1: Write failing tests** `originalDownloadBytesMatchUpload`, `previewDeniesUnsupportedOfficeType`, `viewerWithoutFileViewCannotFetchBytes`, `tamperedCiphertextFailsWithoutLeak`, `oversizedObjectRejectedBeforeBuffering`; assert no-store, nosniff and safe Content-Disposition.
+- [ ] **Step 1: Write failing tests** `originalDownloadBytesMatchUpload`, `previewDeniesUnsupportedOfficeType`, `legacyMislabeledOrCorruptContentCannotPreview`, `previewCannotExecuteActiveContent`, `viewerWithoutFileViewCannotFetchBytes`, `tamperedCiphertextFailsWithoutLeak`, `oversizedObjectRejectedBeforeBuffering`; assert no-store, nosniff and safe Content-Disposition.
 - [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveFileContentServiceTest,DriveFileControllerTest test`.
-- [ ] **Step 3: Implement:** authorize file VIEW before loading source metadata/bytes; add bounded S3 GetObject and AES-GCM tag verification, attachment vs inline safe headers and sanitized failures. No plaintext object URL or cache.
+- [ ] **Step 3: Implement:** authorize file VIEW before loading source metadata/bytes; add bounded S3 GetObject and AES-GCM tag verification, attachment vs inline safe headers and sanitized failures. Reuse Task 2 format validation before previewing legacy bytes, and define a viewer isolation/rendering policy that prevents active document content from executing; headers alone are not that policy. Preserve authenticated original attachment downloads without rewriting bytes. No plaintext object URL or cache.
 - [ ] **Step 4: Verify GREEN:** same scoped tests; check byte-for-byte comparison against originals.
 - [ ] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): serve protected original downloads and previews"`.
 
@@ -109,7 +115,7 @@
 
 - [ ] **Step 1: Write failing UI tests** `navigatesNestedFoldersWithBreadcrumbs`, `uploadsIntoCurrentFolder`, `renamesAndMovesFileWithoutLosingSelection`, `previewsPdfImageTextByProtectedFetch`, `downloadsFolderZip`, `mobileFolderPickerAndEmptyState`; stub actual network responses, not static state overrides.
 - [ ] **Step 2: Verify RED:** `cd apps/web && pnpm test -- drive-folder-explorer` then `pnpm test -- drive-screen`.
-- [ ] **Step 3: Implement:** reuse AppShell/Query and existing design components; folder contents not flat workspace list, blob URLs revoked after preview/download, error/loading/denied states and keyboard-accessible controls. Scope query invalidation to affected folder and retain existing snapshot test overrides.
+- [ ] **Step 3: Implement:** reuse AppShell/Query and existing design components; folder contents not flat workspace list, blob URLs revoked after preview/download, error/loading/denied states and keyboard-accessible controls. Implement Task 3's safe viewer policy, render plain text as text, and test active-content isolation in the preview component. Scope query invalidation to affected folder and retain existing snapshot test overrides.
 - [ ] **Step 4: Verify GREEN:** `cd apps/web && pnpm test -- drive && pnpm lint && pnpm typecheck && pnpm build`.
 - [ ] **Step 5: Commit:** `git add apps/web/src && git commit -m "feat(drive): navigate folders and manage files in the UI"`.
 
@@ -127,4 +133,4 @@
 
 ## Self-review and handoff
 
-The seven tasks are deliberately scoped so every implementation/verification gate can be reviewed independently. Full MVP Core still requires the [Trash plan](2026-10-18-mvp-core-drive-trash.md) and later OCR/Search/invoice/image-PDF plans. This plan does not authorize implementation; use an isolated worktree/branch after explicit plan review and execution method selection.
+The seven tasks are deliberately scoped so every implementation/verification gate can be reviewed independently. Confirm approved upload validation and safe preview are covered in both implementation and tests, including legacy files. Full MVP Core still requires the [Trash plan](2026-10-18-mvp-core-drive-trash.md) and later OCR/Search/invoice/image-PDF plans. This plan does not authorize implementation; use an isolated worktree/branch after explicit plan review and execution method selection.
