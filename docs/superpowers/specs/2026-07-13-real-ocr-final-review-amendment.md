@@ -11,7 +11,7 @@
 ## Purpose and authority
 
 This amendment resolves the disputed design findings in
-`.superpowers/sdd/real-ocr-final-review.md` without reopening the completed real-OCR
+`docs/superpowers/reviews/real-ocr-final-review.md` without reopening the completed real-OCR
 architecture. It is a delta to the approved 2026-07-10 design. Requirements in the
 original design remain authoritative unless this amendment explicitly replaces them.
 

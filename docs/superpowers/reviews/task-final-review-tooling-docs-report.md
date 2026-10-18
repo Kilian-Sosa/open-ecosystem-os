@@ -6,7 +6,7 @@
 
 This task remediates I-11, M-03, and M-04 only. CV-04 is closed by the integrated
 source-file `file:view` implementation. The closure report is
-`.superpowers/sdd/task-final-review-file-view-report.md`; it records the owner-only
+`docs/superpowers/reviews/task-final-review-file-view-report.md`; it records the owner-only
 private-file decision, non-enumerating denial, and focused decision, Media/OCR, and Drive test
 coverage. This task does not redesign or reimplement authorization.
 

@@ -594,8 +594,8 @@
 - Modify: `docs/product/USER_JOURNEYS.md`
 - Modify: `docs/development/TEST_COMMANDS.md`
 - Modify formatting only: `docs/superpowers/specs/2026-07-10-real-ocr-invoice-extraction-design.md`
-- Preserve unchanged: `.superpowers/sdd/real-ocr-integration-verification.md`
-- Preserve unchanged: `.superpowers/sdd/real-ocr-final-review.md`
+- Preserve unchanged: `docs/superpowers/reviews/real-ocr-integration-verification.md`
+- Preserve unchanged: `docs/superpowers/reviews/real-ocr-final-review.md`
 
 **Interfaces:**
 
@@ -744,7 +744,7 @@
 - Modify: `scripts/smoke-real-ocr.sh`
 - Create: `.github/workflows/real-ocr-integration.yml`
 - Modify: `.github/workflows/security.yml`
-- Create after commands run: `.superpowers/sdd/real-ocr-remediation-integration-verification.md`
+- Create after commands run: `docs/superpowers/reviews/real-ocr-remediation-verification.md`
 
 **Interfaces:**
 
@@ -848,7 +848,7 @@
 
 - [ ] **Step 8: Create the new truthful integration verification report**
 
-  Write `.superpowers/sdd/real-ocr-remediation-integration-verification.md` with source/base
+  Write `docs/superpowers/reviews/real-ocr-remediation-verification.md` with source/base
   hashes, exact commands, exit codes, PostgreSQL version, image ID/digest, Tesseract version,
   Trivy database freshness, findings disposition, and unavailable evidence. Mark historical
   Task 8 evidence superseded. Include the authorization result and evidence:
@@ -872,7 +872,7 @@
 - [ ] **Step 10: Commit verification infrastructure and evidence only after it is true**
 
   ```powershell
-  git add -- apps/api/pom.xml apps/api/src/test apps/worker/pom.xml apps/worker/src/test scripts .github/workflows .superpowers/sdd/real-ocr-remediation-integration-verification.md
+  git add -- apps/api/pom.xml apps/api/src/test apps/worker/pom.xml apps/worker/src/test scripts .github/workflows docs/superpowers/reviews/real-ocr-remediation-verification.md
   git commit -m "test(ocr): verify remediation on production boundaries"
   ```
 

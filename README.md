@@ -139,24 +139,22 @@ The optional Grafana profile provisions two MVP dashboards:
 
 The observability profile is intentionally not required for core app startup. Loki is provisioned as a datasource, but Docker log shipping is deferred until Alloy/Promtail or OTLP log export is added. RabbitMQ queue depth, DLQ, MinIO storage, and host/container metrics need exporters before those panels and alerts can show real values.
 
-### Flagship invoice automation demo
+### Real invoice OCR smoke test
 
-The seeded flagship demo is available at:
+The invoice workflow processes uploaded documents with local Tesseract OCR, persists structured
+results, and extracts reviewable invoice fields. The old fake-invoice demo route and its
+`seed`/`reset` scripts have been retired.
 
-```txt
-http://localhost:3000/app/demo/invoice-automation
-```
-
-It creates fake/test data only: a placeholder invoice document in Drive, mock OCR output, deterministic fake invoice extraction fields, a workflow notification, audit records, and a Meilisearch indexing request/result. Any NIF or IBAN examples in the seeded data are labelled as test data.
-
-With the Compose stack running, start or reset a demo run from the UI or with:
+To exercise the real pipeline locally using a clearly labelled synthetic invoice fixture, run:
 
 ```bash
-make seed
-make reset
+make smoke-real-ocr
 ```
 
-On Windows, the same Make targets call `scripts/seed-demo-data.ps1` and `scripts/reset-demo-data.ps1`. You can override `API_BASE_URL`, `WORKSPACE_ID`, and `ACTOR_ID` for either shell.
+This target starts the required Docker Compose services and verifies Tesseract-backed OCR,
+structured words, and invoice extraction without installing a mock runtime. The underlying
+scripts are `scripts/smoke-real-ocr.ps1` (Windows) and `scripts/smoke-real-ocr.sh` (POSIX).
+See `docs/development/TEST_COMMANDS.md` for direct invocation.
 
 If Docker volumes already exist, changes to first-boot database or broker initialization options may require recreating local volumes:
 
