@@ -43,5 +43,12 @@
   "engines": {
     "node": "^20.19.0 || ^22.13.0 || >=24"
   },
+  "pnpm": {
+    "auditConfig": {
+      "ignoreCves": [
+        "CVE-2026-93687"
+      ]
+    }
+  },
   "packageManager": "pnpm@10.0.0"
 }

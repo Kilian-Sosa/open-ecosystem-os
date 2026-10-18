@@ -64,12 +64,17 @@ these upstream metadata warnings do not require local adapters, overrides, or
 peer-check bypasses. Installation and lint execution must still succeed.
 See [Next.js ESLint 10 support](https://github.com/vercel/next.js/pull/99628).
 
-After dependency updates, run both audits without advisory suppressions:
+After dependency updates, run both audits:
 
 ```bash
 pnpm audit --prod --audit-level high
 pnpm audit --audit-level high
 ```
+
+Temporary advisory exceptions are listed in
+[SECURITY_EXCEPTIONS.md](../../docs/development/SECURITY_EXCEPTIONS.md).
+The configured braces exception is advisory-specific and must be removed when
+a compatible upstream fix is available.
 
 ## UI rules
 
