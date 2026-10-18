@@ -182,6 +182,17 @@ When finishing a task, summarize:
 
 ## Development quality workflow
 
+**Spec-Driven Development (SDD) is mandatory for all future changes.** Use the
+Superpowers workflow: establish intent and inspect existing behavior, agree on
+acceptance criteria before implementation, then implement against that approved
+contract with tests, review, and verification. For architectural or cross-module
+changes, write and obtain approval for a version-controlled design spec under
+`docs/superpowers/specs/` before writing the task-by-task plan under
+`docs/superpowers/plans/`. For bounded changes, an explicitly approved
+in-chat design and acceptance criteria are sufficient; do not manufacture
+large spec documents for trivial changes. Never treat existing code, mock
+screens, or aspirational roadmap prose as proof that a feature is complete.
+
 For any implementation task, also follow:
 
 - `docs/development/DEVELOPMENT_WORKFLOW.md`
