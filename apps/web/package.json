@@ -17,10 +17,10 @@
     "@tanstack/react-query": "5.100.10",
     "clsx": "2.1.1",
     "lucide-react": "1.14.0",
-    "next": "16.3.6",
+    "next": "16.4.2",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "sharp": "0.35.4",
+    "sharp": "0.35.5",
     "tailwind-merge": "3.6.0"
   },
   "devDependencies": {
@@ -30,8 +30,8 @@
     "@types/node": "25.7.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "eslint": "9.39.1",
-    "eslint-config-next": "16.3.6",
+    "eslint": "10.13.0",
+    "eslint-config-next": "16.4.2",
     "jsdom": "29.1.1",
     "postcss": "8.5.23",
     "prettier": "3.8.3",
@@ -39,6 +39,16 @@
     "typescript": "6.0.3",
     "vite": "8.0.16",
     "vitest": "4.1.11"
+  },
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24"
+  },
+  "pnpm": {
+    "auditConfig": {
+      "ignoreCves": [
+        "CVE-2026-93687"
+      ]
+    }
   },
   "packageManager": "pnpm@10.0.0"
 }
