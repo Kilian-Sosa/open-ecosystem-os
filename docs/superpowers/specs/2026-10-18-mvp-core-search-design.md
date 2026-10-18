@@ -8,7 +8,8 @@
 
 Search private Drive files by filename immediately after successful upload,
 by raw OCR text after OCR succeeds, and by normalized structured invoice
-values only after a user has reviewed and confirmed them.
+values only after a user has reviewed and confirmed them. Search links must
+still work after files or their parent folders are renamed or moved.
 
 ## Verified baseline
 
@@ -57,7 +58,11 @@ Do not conflate a workflow's `completed` status with human confirmation.
    API even if an external search index is stale. Queue idempotent deletion
    from local and external projections; a delayed index retry must not
    resurrect a deleted or superseded source.
-6. Index failures/retries do not prevent original Drive operations from
+6. File rename updates its filename projection; moving or renaming a folder
+   changes navigation/breadcrumbs without changing document identities or
+   exposing former paths. Recursive folder deletion revokes all descendant
+   results, including OCR and confirmed invoice documents, immediately.
+7. Index failures/retries do not prevent original Drive operations from
    succeeding; expose appropriate eventual-consistency state rather than
    claiming immediate remote-index publication.
 
@@ -84,6 +89,9 @@ has metadata-only payload, transactional outbox and a consumer test.
   deleted or revoked file cannot reappear through stale search or retry.
 - Duplicate index messages do not create duplicate results or resurrect
   an obsolete confirmed revision.
+- Renaming a file changes its searchable filename without orphaning OCR and
+  invoice results; moving a parent folder preserves all descendant search
+  links; recursively deleting it removes all descendant results.
 
 ## Non-goals
 

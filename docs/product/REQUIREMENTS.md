@@ -54,6 +54,13 @@ Must include:
 - Activity/Audit Logs
 - Settings/Security
 
+For the current MVP Core, Drive includes persistent nested folder creation,
+navigation, file/folder rename and movement, permission-checked deletion and
+whole-folder ZIP downloads. See the
+[approved-scope milestone design](../superpowers/specs/2026-10-18-mvp-milestones-design.md)
+and the [Drive specification](../superpowers/specs/2026-10-18-mvp-core-drive-design.md)
+for the currently proposed operation contracts.
+
 ## PDF Editor requirements
 
 The PDF editor should support:

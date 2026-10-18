@@ -27,7 +27,8 @@ PDF-assembly worker, or selectable image-to-PDF Drive UX.
    before starting; source files stay unmodified.
 3. Start the predefined operation. Show queued/running/completed/failed state
    and allow returning later without losing the persisted execution record.
-4. On success, create **one new encrypted private PDF in Drive** with a safe,
+4. On success, create **one new encrypted private PDF in Drive**, in the
+   chosen destination folder (default the current folder), with a safe,
    meaningful filename, stable file ID, correct MIME, page count and ordered
    source-file lineage. Provide preview and original download.
 5. Index the generated PDF filename when it is saved. The resulting PDF is
@@ -77,6 +78,8 @@ historical source IDs without exposing inaccessible data.
   plaintext artifacts; already successful output survives later source deletion.
 - Generated PDF is available by filename in Search, independently of invoice
   confirmation.
+- Generated PDF appears in the chosen Drive folder; renaming or moving its
+  parent folder does not affect its preview, bytes or provenance.
 
 ## Non-goals
 

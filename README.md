@@ -12,8 +12,9 @@ defines the proposed release boundaries, and the
 records what is actually present in code. The written specs are awaiting
 review; their target behavior is **not** all implemented yet.
 
-- **MVP Core:** a genuinely usable private Drive with upload, listing,
-  downloads, previews and deletion; real offline OCR; a predefined ordered
+- **MVP Core:** a genuinely usable private Drive with nested folders, file
+  and folder organization, downloads, previews, deletion and ZIP export;
+  real offline OCR; a predefined ordered
   image-to-PDF action; a predefined invoice-extraction action with editable
   drafts and explicit human confirmation; and permission-aware search of
   filenames/raw OCR plus **confirmed** structured invoice fields.

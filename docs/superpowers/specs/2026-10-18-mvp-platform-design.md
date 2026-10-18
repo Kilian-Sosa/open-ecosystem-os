@@ -36,8 +36,9 @@ implementation of unrelated roadmap apps.
 - **One trusted owner, private environment:** allow the existing seeded
   identity only in explicitly local/private configurations. Never describe
   it as secure public login or permit an Internet-facing demo to rely on it.
-- **Drive-first:** built-in OCR, image-to-PDF and invoice extraction launch
-  directly from Drive. Reuse backend modules and existing workflow
+- **Drive-first:** nested folders and file/folder operations make Drive a
+  real organizational workspace. Built-in OCR, image-to-PDF and invoice
+  extraction launch directly from it. Reuse backend modules and existing workflow
   execution/queue contracts; a user-facing arbitrary workflow editor is not
   required for Core. Existing notification/audit screens may remain useful
   auxiliary views but are not separate product-completeness milestones.

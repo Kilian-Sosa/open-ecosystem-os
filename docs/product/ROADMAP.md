@@ -11,7 +11,7 @@ The linked written specs still require user review before implementation plans.
 
 | Sequence                      | Outcome                                                                              | Baseline / next boundary                                                            |
 | ----------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| 1. Drive lifecycle            | Upload, list, download, preview, delete                                              | Upload/list/metadata exist; content delivery, preview and delete missing            |
+| 1. Drive lifecycle            | Upload/list/preview/download/delete files; nested folders, rename/move and ZIP trees | Upload/list/metadata exist; file content operations and folders missing             |
 | 2. Document search foundation | Filename indexed after upload; OCR text indexed after processing                     | Search API/worker exist; these two independent source indexes missing               |
 | 3. Reusable OCR               | Local PDFs/images with visible text/provenance and statuses                          | Real OCR exists; needs Drive-first OCR-only action and E2E verification             |
 | 4. Invoice review             | Built-in extraction, editable draft, explicit confirmation, approved-field indexing  | Heuristic extractor exists; review/confirm missing and current index gate incorrect |

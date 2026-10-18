@@ -1,6 +1,6 @@
 # MVP milestones and specification architecture
 
-**Status:** Proposed written design for user review
+**Status:** Milestone scope approved 2026-10-18; Drive folder amendment awaiting written review
 **Date:** 2026-10-18
 **Evidence baseline:** `origin/develop` at `9d3b856` (merged PR #47)
 
@@ -21,7 +21,9 @@ historical specs, code, and tests remain valuable evidence, but a former
 
 Deliver five end-to-end capabilities:
 
-1. **Drive:** upload, list, download, preview, and delete files.
+1. **Drive:** upload, list, download, preview, rename, move, and delete files;
+   create, navigate, rename, move, and recursively delete nested folders;
+   download whole folders (including their subfolders) as ZIP archives.
 2. **OCR:** process supported PDFs/images and inspect extracted text.
 3. **Images to PDF:** select multiple images, set page order, generate a PDF,
    and save/download the output.
@@ -65,8 +67,9 @@ builder is **not** a Core completion criterion.
 
 ## Core user journeys
 
-1. Upload a private document → see it in Drive → preview/download it → delete
-   it and its derived/searchable data.
+1. Create a folder and nested subfolder → upload/move/rename private files
+   → browse by folder → preview/download a file or download the whole folder
+   as ZIP → delete files or folder trees and their derived/searchable data.
 2. Upload a supported image or PDF → inspect asynchronous OCR state and text
    → search the file and its OCR text.
 3. Select two or more images in Drive → reorder → run the predefined
@@ -85,8 +88,9 @@ builder is **not** a Core completion criterion.
   confirmation, search projections, typed outbox events and audit metadata.
 - **Worker:** bounded, asynchronous OCR and PDF assembly with encrypted
   source retrieval and safe temporary-file cleanup.
-- **PostgreSQL:** transactional source of truth for files, jobs, OCR results,
-  drafts, confirmed extraction records, workflow executions and index states.
+- **PostgreSQL:** transactional source of truth for folders and file placement,
+  files, jobs, OCR results, drafts, confirmed extraction records, workflow
+  executions and index states.
 - **Private MinIO/S3:** encrypted originals and generated documents; avoid
   storing document binaries in database rows.
 - **RabbitMQ:** asynchronous work with idempotent event consumption,
@@ -108,6 +112,9 @@ execution engine, but must not depend on the user composing JSON workflows.
   payloads, or audit attributes.
 - Preserve originals and provenance; generated PDFs are new Drive files with
   lineage, not silent mutations of input files.
+- Use stable file and folder IDs and workspace-scoped parent relationships for
+  nesting: renaming/moving must not change object keys or break OCR/invoice
+  provenance and search links. Reject cyclic folder moves.
 - Validate type/size/page/quantity limits before expensive processing and
   safely reject corrupt or unsupported inputs. File processing is bounded.
 - Failures and retries must not create duplicate output files, OCR results,
@@ -127,7 +134,7 @@ a time:
 
 | Specification                                                  | Contract                                                               |
 | -------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| [Drive](2026-10-18-mvp-core-drive-design.md)                   | Source file lifecycle, authorization and downloads/previews/deletion   |
+| [Drive](2026-10-18-mvp-core-drive-design.md)                   | Files, nested folders, rename/move, ZIP export, authorization/deletion |
 | [OCR](2026-10-18-mvp-core-ocr-design.md)                       | Native-text-first PDF OCR, progress, results and failure boundaries    |
 | [Image-to-PDF](2026-10-18-mvp-core-image-to-pdf-design.md)     | Ordered images, deterministic PDF output and Drive integration         |
 | [Invoice review](2026-10-18-mvp-core-invoice-review-design.md) | Private extraction draft, corrections, confirmation and indexing gate  |

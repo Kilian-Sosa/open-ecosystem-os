@@ -6,6 +6,22 @@ blueprint. The current, user-approved release boundary is defined by the
 First-time **public** user setup belongs to MVP Complete; the Core is a
 privately operated Drive-first document tool.
 
+## Journey 0 — Organize and export documents (MVP Core target)
+
+```txt
+Create nested folders in Drive
+  -> Upload files into a folder
+  -> Rename or move files and folders
+  -> Preview or download individual files
+  -> Download a folder tree as a ZIP archive
+  -> Delete a file or a folder tree with explicit confirmation
+```
+
+This journey is **not yet implemented** in the 2026-10-18 code baseline:
+file upload/listing exist, but folder creation, hierarchy, rename/move,
+content downloads, ZIP export and deletion require new API/UI contracts.
+Folder operations preserve stable file IDs and OCR/invoice/search lineage.
+
 ## Journey 1 — First-time self-hosted setup
 
 ```txt

@@ -113,6 +113,15 @@ Mobile:
 
 ### Drive
 
+MVP Core behavior (target, not yet implemented):
+
+- create folders and nested subfolders; navigate with breadcrumbs
+- rename and move files or whole folder trees, including moves to root
+- preview/download/delete individual files
+- download folders with recursive contents as ZIP archives
+- delete folder trees only after explicit confirmation
+- show only authorized entries and provide useful empty/error/loading states
+
 Desktop:
 
 - folder tree
@@ -120,6 +129,7 @@ Desktop:
 - upload action
 - filters/search
 - selected file inspector panel
+- folder/file actions and a move-to-folder picker
 
 Mobile:
 
@@ -128,6 +138,7 @@ Mobile:
 - folder chips
 - file cards
 - selected file bottom sheet
+- breadcrumb navigation and folder/file action menu
 
 ### PDF Editor
 

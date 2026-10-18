@@ -11,7 +11,9 @@ are not a declaration of implementation completion.
 
 ### MVP Core — personally usable and private
 
-- Full Drive file lifecycle: upload, list, preview, download and delete.
+- Full Drive file lifecycle: upload, list, preview, download, rename, move and
+  delete, plus nested folders (create, navigate, rename, move, recursively
+  delete and download a whole folder tree as ZIP).
 - Real local OCR for supported PDFs and images, with accessible results.
 - Drive built-in action to merge an ordered set of images into one saved PDF.
 - Drive built-in invoice extraction from PDF/image, with review, correction

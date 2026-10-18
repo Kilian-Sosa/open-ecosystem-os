@@ -29,6 +29,9 @@ test was run during this audit.
 | Drive download               | Absent               | No file-content GET controller; metadata GET is not bytes                                       | Authorized plaintext streaming                                             |
 | Drive preview                | Absent               | Metadata inspector only                                                                         | Private PDF/image/text viewers and safe fallback                           |
 | Drive deletion               | Absent               | No DELETE file controller; internal object rollback is not user delete                          | API/UI, cascading derived/index cleanup, race safety                       |
+| Drive nested folders         | Absent               | V1 `drive_files` has no folder relationship; no `drive_folders` table or folder API             | Create/navigate nested folders, breadcrumbs, durable scoped placement      |
+| File/folder rename and move  | Absent               | No folder model or rename/move controllers; object keys are stable file-based IDs               | Permission-checked rename/move, cycle/conflict detection, search updates   |
+| Folder delete / ZIP export   | Absent               | No recursive folder operations or downloadable ZIP endpoint                                     | Recursive safe delete and bounded permission-checked archive generation    |
 | OCR worker                   | Implemented in code  | `TesseractOcrProvider`, `OcrJobProcessor`, `DriveOcrSourceReader`, OCR DB result tables         | End-to-end verification for supported inputs, selectable OCR-only behavior |
 | OCR lifecycle/results UI     | Implemented in code  | `OcrJobController`, `OcrJobQueryService`, `MediaScreen`                                         | Drive action and completed-to-search integration                           |
 | Image set → PDF              | Absent               | No PDF assembly processor/action; `WorkflowDefinitionValidator` has no merge action             | Ordered selection, async assembly, generated file, tests                   |
@@ -79,8 +82,9 @@ test was run during this audit.
 
 ## Core critical path and review evidence needed
 
-1. Drive read/download/preview and deletion lifecycle, including index
-   revocation and worker races.
+1. Drive full organization: nested folders, durable file placement,
+   rename/move, original content preview/download, bounded recursive ZIP
+   export and file/folder deletion with index revocation and worker races.
 2. Independent file-name and raw OCR search projections.
 3. Explicit OCR-only and invoice actions from Drive (reuse existing OCR).
 4. Invoice draft-edit-confirm lifecycle and confirmed-only search.
