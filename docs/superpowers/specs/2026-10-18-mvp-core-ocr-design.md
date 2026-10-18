@@ -46,6 +46,10 @@ an optional downstream action.
    metrics, notification bodies or audit data.
 6. Invoice extraction explicitly reuses a successful OCR result; it must not
    force users to rerun OCR or fabricate missing/ambiguous fields.
+7. OCR results are retained privately while the source is in Trash but are
+   not readable or searchable. Restore makes retained results available
+   again without an unnecessary rerun; expiry or permanent deletion cleans
+   them up. See the [Trash contract](2026-10-18-mvp-core-drive-trash-design.md).
 
 ## Existing-automation compatibility
 
@@ -65,8 +69,9 @@ current event/outbox/idempotency system rather than a parallel queue.
 - Duplicate messages/retries do not duplicate result rows; job limits and
   timeout failures reach a visible terminal/retry state.
 - Workspace and `file:view` authorization applies to job detail/results.
-- Deleting the source makes results inaccessible and removes/revokes indexing
-  even if a worker event arrives after deletion.
+- Moving the source to Trash makes results inaccessible and suppresses
+  indexing even if a worker event arrives afterward. Restoring it brings
+  back retained OCR results; permanent deletion/purge removes them.
 
 ## Non-goals
 

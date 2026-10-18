@@ -71,8 +71,12 @@ from a high-confidence extractor result or a successful background job.
 - Never expose private invoice values in outbox payloads, notification text,
   logs, or audit records. Safe audit: extraction ID, file ID, revision,
   reviewer, action, timestamp and outcome.
-- On deletion/revocation of source access, do not expose its drafts, approved
-  structured search fields or later asynchronous results.
+- While a source or its ancestor folder is in Trash, do not expose its
+  drafts, approved structured search fields or later asynchronous results.
+  Retain review state privately for authorized restore within 30 days;
+  permanent deletion/expiry removes it. Restoring must not auto-confirm
+  draft fields. See the
+  [Trash design](2026-10-18-mvp-core-drive-trash-design.md).
 
 ## Failure and concurrency invariants
 
@@ -86,7 +90,8 @@ from a high-confidence extractor result or a successful background job.
   values. If a new confirmed revision is allowed later, replace/reindex its
   prior search projection without temporarily exposing newer unconfirmed
   edits.
-- A deleted file cannot be confirmed or indexed by a late job.
+- A trashed/expired/permanently deleted file cannot be confirmed or indexed
+  by a late job; restoring the file does not imply confirmation.
 
 ## Acceptance criteria
 

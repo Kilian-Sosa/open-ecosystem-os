@@ -22,25 +22,26 @@ test was run during this audit.
 
 ## Core capability inventory
 
-| Capability                   | Baseline status      | Evidence                                                                                        | Missing for Core                                                           |
-| ---------------------------- | -------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Drive upload                 | Implemented in code  | `DriveFileController`, `DriveUploadService`, `DriveFileRepository`, `DriveScreen`               | Full journey test and production-like verification                         |
-| Drive list/metadata          | Implemented in code  | `GET /api/drive/files`, `GET /api/drive/files/{fileId}`                                         | End-to-end permission/error coverage                                       |
-| Drive download               | Absent               | No file-content GET controller; metadata GET is not bytes                                       | Authorized plaintext streaming                                             |
-| Drive preview                | Absent               | Metadata inspector only                                                                         | Private PDF/image/text viewers and safe fallback                           |
-| Drive deletion               | Absent               | No DELETE file controller; internal object rollback is not user delete                          | API/UI, cascading derived/index cleanup, race safety                       |
-| Drive nested folders         | Absent               | V1 `drive_files` has no folder relationship; no `drive_folders` table or folder API             | Create/navigate nested folders, breadcrumbs, durable scoped placement      |
-| File/folder rename and move  | Absent               | No folder model or rename/move controllers; object keys are stable file-based IDs               | Permission-checked rename/move, cycle/conflict detection, search updates   |
-| Folder delete / ZIP export   | Absent               | No recursive folder operations or downloadable ZIP endpoint                                     | Recursive safe delete and bounded permission-checked archive generation    |
-| OCR worker                   | Implemented in code  | `TesseractOcrProvider`, `OcrJobProcessor`, `DriveOcrSourceReader`, OCR DB result tables         | End-to-end verification for supported inputs, selectable OCR-only behavior |
-| OCR lifecycle/results UI     | Implemented in code  | `OcrJobController`, `OcrJobQueryService`, `MediaScreen`                                         | Drive action and completed-to-search integration                           |
-| Image set → PDF              | Absent               | No PDF assembly processor/action; `WorkflowDefinitionValidator` has no merge action             | Ordered selection, async assembly, generated file, tests                   |
-| Invoice heuristic extraction | Implemented in code  | `HeuristicInvoiceExtractionAdapter`, `InvoiceExtractionPort`, `JdbcInvoiceExtractionRepository` | Explicit Drive action; independent from OCR-only                           |
-| Invoice review/edits/confirm | Absent               | Extraction statuses `completed` / `review_required`; no review-confirm endpoint                 | Draft lifecycle, editable UI, confirmation gate                            |
-| Filename search              | Not evidenced        | `WorkflowRunner` currently creates invoice-extraction search documents                          | Independently index file names on successful upload                        |
-| Raw OCR search               | Not evidenced        | OCR text persisted, but no separate OCR-source SearchDocument producer was found                | Raw OCR indexing after completion                                          |
-| Confirmed structured search  | Partial / wrong gate | `WorkflowRunner.requestSearchIndexing` on seeded V8 OCR flow                                    | Block draft indexing and index latest confirmed edits only                 |
-| Search API and UI            | Implemented in code  | `SearchService`, `SearchController`, `SearchScreen`                                             | New source types, confirmed-only gate, deletion/reindex handling           |
+| Capability                   | Baseline status      | Evidence                                                                                        | Missing for Core                                                               |
+| ---------------------------- | -------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Drive upload                 | Implemented in code  | `DriveFileController`, `DriveUploadService`, `DriveFileRepository`, `DriveScreen`               | Full journey test and production-like verification                             |
+| Drive list/metadata          | Implemented in code  | `GET /api/drive/files`, `GET /api/drive/files/{fileId}`                                         | End-to-end permission/error coverage                                           |
+| Drive download               | Absent               | No file-content GET controller; metadata GET is not bytes                                       | Authorized plaintext streaming                                                 |
+| Drive preview                | Absent               | Metadata inspector only                                                                         | Private PDF/image/text viewers and safe fallback                               |
+| Drive move to Trash          | Absent               | No user deletion/Trash controller; internal object rollback is not user deletion                | Logical tombstone, subtree hiding, retained encrypted bytes, index suppression |
+| Trash restore and purge      | Absent               | No trash lifecycle metadata, restore endpoint or 30-day retention job                           | Restore, explicit permanent deletion, scheduled purge, retry/race safety       |
+| Drive nested folders         | Absent               | V1 `drive_files` has no folder relationship; no `drive_folders` table or folder API             | Create/navigate nested folders, breadcrumbs, durable scoped placement          |
+| File/folder rename and move  | Absent               | No folder model or rename/move controllers; object keys are stable file-based IDs               | Permission-checked rename/move, cycle/conflict detection, search updates       |
+| Folder Trash / ZIP export    | Absent               | No recursive folder Trash operation or downloadable ZIP endpoint                                | Recoverable folder-tree trash, restore and bounded archive generation          |
+| OCR worker                   | Implemented in code  | `TesseractOcrProvider`, `OcrJobProcessor`, `DriveOcrSourceReader`, OCR DB result tables         | End-to-end verification for supported inputs, selectable OCR-only behavior     |
+| OCR lifecycle/results UI     | Implemented in code  | `OcrJobController`, `OcrJobQueryService`, `MediaScreen`                                         | Drive action and completed-to-search integration                               |
+| Image set → PDF              | Absent               | No PDF assembly processor/action; `WorkflowDefinitionValidator` has no merge action             | Ordered selection, async assembly, generated file, tests                       |
+| Invoice heuristic extraction | Implemented in code  | `HeuristicInvoiceExtractionAdapter`, `InvoiceExtractionPort`, `JdbcInvoiceExtractionRepository` | Explicit Drive action; independent from OCR-only                               |
+| Invoice review/edits/confirm | Absent               | Extraction statuses `completed` / `review_required`; no review-confirm endpoint                 | Draft lifecycle, editable UI, confirmation gate                                |
+| Filename search              | Not evidenced        | `WorkflowRunner` currently creates invoice-extraction search documents                          | Independently index file names on successful upload                            |
+| Raw OCR search               | Not evidenced        | OCR text persisted, but no separate OCR-source SearchDocument producer was found                | Raw OCR indexing after completion                                              |
+| Confirmed structured search  | Partial / wrong gate | `WorkflowRunner.requestSearchIndexing` on seeded V8 OCR flow                                    | Block draft indexing and index latest confirmed edits only                     |
+| Search API and UI            | Implemented in code  | `SearchService`, `SearchController`, `SearchScreen`                                             | New source types, confirmed-only gate, deletion/reindex handling               |
 
 ## Existing cross-cutting components
 
@@ -84,7 +85,8 @@ test was run during this audit.
 
 1. Drive full organization: nested folders, durable file placement,
    rename/move, original content preview/download, bounded recursive ZIP
-   export and file/folder deletion with index revocation and worker races.
+   export, 30-day recoverable Trash, immediate permanent deletion and
+   scheduled purge with index suppression and worker-race safety.
 2. Independent file-name and raw OCR search projections.
 3. Explicit OCR-only and invoice actions from Drive (reuse existing OCR).
 4. Invoice draft-edit-confirm lifecycle and confirmed-only search.

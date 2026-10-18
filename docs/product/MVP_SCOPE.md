@@ -11,9 +11,11 @@ are not a declaration of implementation completion.
 
 ### MVP Core — personally usable and private
 
-- Full Drive file lifecycle: upload, list, preview, download, rename, move and
-  delete, plus nested folders (create, navigate, rename, move, recursively
-  delete and download a whole folder tree as ZIP).
+- Full Drive file lifecycle: upload, list, preview, download, rename and
+  move, plus nested folders (create, navigate, rename, move and download
+  a whole folder tree as ZIP). Files and folder trees can be moved to
+  **Trash**, restored within **30 days**, permanently deleted immediately
+  from Trash, or automatically permanently purged after 30 days.
 - Real local OCR for supported PDFs and images, with accessible results.
 - Drive built-in action to merge an ordered set of images into one saved PDF.
 - Drive built-in invoice extraction from PDF/image, with review, correction
@@ -44,6 +46,7 @@ workflow authoring and the plugin/community ecosystem remain post-MVP.
 ## Modular SDD source of truth
 
 - [Drive](../superpowers/specs/2026-10-18-mvp-core-drive-design.md)
+- [Drive Trash and retention](../superpowers/specs/2026-10-18-mvp-core-drive-trash-design.md)
 - [OCR](../superpowers/specs/2026-10-18-mvp-core-ocr-design.md)
 - [Image-to-PDF](../superpowers/specs/2026-10-18-mvp-core-image-to-pdf-design.md)
 - [Invoice review/confirmation](../superpowers/specs/2026-10-18-mvp-core-invoice-review-design.md)

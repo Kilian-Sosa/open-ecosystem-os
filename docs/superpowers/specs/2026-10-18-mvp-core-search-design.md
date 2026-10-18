@@ -54,14 +54,17 @@ Do not conflate a workflow's `completed` status with human confirmation.
 4. The indexing worker must not use extracted unconfirmed structured fields
    to construct snippets or metadata. Field values remain in protected
    data/search storage, never general audit/event/log payloads.
-5. Removal or permission revocation immediately suppresses results at the
-   API even if an external search index is stale. Queue idempotent deletion
-   from local and external projections; a delayed index retry must not
-   resurrect a deleted or superseded source.
+5. Moving a file or ancestor folder to Trash, permanent deletion, expiry
+   or permission revocation immediately suppresses all associated results
+   at the API even if an external search index is stale. Queue idempotent
+   removal from local and external projections; delayed indexing must not
+   resurrect trashed, expired, purged or superseded content.
 6. File rename updates its filename projection; moving or renaming a folder
    changes navigation/breadcrumbs without changing document identities or
-   exposing former paths. Recursive folder deletion revokes all descendant
-   results, including OCR and confirmed invoice documents, immediately.
+   exposing former paths. Moving an entire folder to Trash immediately
+   suppresses all descendant search results, including raw OCR and
+   confirmed invoices. Restoring the folder reindexes authorized filenames,
+   retained OCR and only **confirmed** invoice values.
 7. Index failures/retries do not prevent original Drive operations from
    succeeding; expose appropriate eventual-consistency state rather than
    claiming immediate remote-index publication.
@@ -74,6 +77,8 @@ existing authorization service. Add indexing/deletion handling for
 creation or release by persisted confirmation state. Preserve source
 file lineage and per-source idempotency keys. Any new delete/reindex event
 has metadata-only payload, transactional outbox and a consumer test.
+The [Trash design](2026-10-18-mvp-core-drive-trash-design.md) defines the
+30-day retained but non-searchable state and permanent purge behavior.
 
 ## Acceptance criteria
 
@@ -85,13 +90,16 @@ has metadata-only payload, transactional outbox and a consumer test.
   confirmation; after correction/confirmation, only the corrected value is.
 - Search works through the authorized PostgreSQL fallback when Meilisearch
   is unavailable, without bypassing the confirmation gate.
-- A different actor without `file:view` cannot find or infer the file; a
-  deleted or revoked file cannot reappear through stale search or retry.
+- A different actor without `file:view` cannot find or infer the file;
+  trashed, expired, permanently deleted or revoked content cannot reappear
+  through stale search or retry.
 - Duplicate index messages do not create duplicate results or resurrect
   an obsolete confirmed revision.
 - Renaming a file changes its searchable filename without orphaning OCR and
   invoice results; moving a parent folder preserves all descendant search
-  links; recursively deleting it removes all descendant results.
+  links; trashing it hides all descendant results immediately. Restoring
+  within 30 days reconstructs only allowed search projections; expiry or
+  permanent deletion never reindexes the deleted subtree.
 
 ## Non-goals
 

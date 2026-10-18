@@ -55,10 +55,12 @@ Must include:
 - Settings/Security
 
 For the current MVP Core, Drive includes persistent nested folder creation,
-navigation, file/folder rename and movement, permission-checked deletion and
-whole-folder ZIP downloads. See the
+navigation, file/folder rename and movement, whole-folder ZIP downloads,
+permission-checked Trash/restore for 30 days, immediate permanent deletion
+from Trash and scheduled cleanup of expired items. See the
 [approved-scope milestone design](../superpowers/specs/2026-10-18-mvp-milestones-design.md)
 and the [Drive specification](../superpowers/specs/2026-10-18-mvp-core-drive-design.md)
+and [Trash specification](../superpowers/specs/2026-10-18-mvp-core-drive-trash-design.md)
 for the currently proposed operation contracts.
 
 ## PDF Editor requirements

@@ -60,11 +60,12 @@ PDF-assembly worker, or selectable image-to-PDF Drive UX.
 
 Failures return a safe error with the operation ID, leave original images
 intact and do not expose a partially assembled PDF. Retrying an operation
-cannot silently duplicate generated files. If a source image is deleted
-before assembly completes, the job must fail safely rather than read
-unauthorized/stale bytes. If it is deleted **after** successful generation,
-the independent generated PDF remains available; stored lineage refers to
-historical source IDs without exposing inaccessible data.
+cannot silently duplicate generated files. If a source image is moved to
+Trash, expires or is permanently deleted before assembly completes, the
+job must fail safely rather than read unauthorized/stale bytes. Moving a
+source image to Trash **after** successful generation does not remove the
+independent generated PDF; stored lineage refers to historical source IDs
+without exposing inaccessible data.
 
 ## Acceptance criteria
 
@@ -74,8 +75,9 @@ historical source IDs without exposing inaccessible data.
 - Unsupported/corrupt/missing/inaccessible image or empty selection gives a
   user-readable failure and no output artifact.
 - Duplicate event delivery and retry do not create multiple PDF files.
-- Concurrent removal of a selected source cannot bypass permissions or leave
-  plaintext artifacts; already successful output survives later source deletion.
+- Concurrent moving-to-Trash or permanent removal of a selected source
+  cannot bypass permissions or leave plaintext artifacts; already
+  successful output survives later source deletion.
 - Generated PDF is available by filename in Search, independently of invoice
   confirmation.
 - Generated PDF appears in the chosen Drive folder; renaming or moving its

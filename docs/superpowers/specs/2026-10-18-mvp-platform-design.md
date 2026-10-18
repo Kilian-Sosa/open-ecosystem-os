@@ -42,6 +42,10 @@ implementation of unrelated roadmap apps.
   execution/queue contracts; a user-facing arbitrary workflow editor is not
   required for Core. Existing notification/audit screens may remain useful
   auxiliary views but are not separate product-completeness milestones.
+- **Recovery:** Drive Trash retains removed files and folder trees for
+  30 days, supports restore and immediate user-triggered permanent deletion,
+  and automatically purges expired content. Scheduled cleanup is durable,
+  bounded, idempotent and observable; backups are a separate Complete concern.
 - **Operationally useful:** configure via documented local environment,
   run a repeatable Compose startup, inspect job failures and service health,
   restart without losing completed files/results, and have a documented

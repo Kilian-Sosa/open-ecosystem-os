@@ -117,9 +117,10 @@ MVP Core behavior (target, not yet implemented):
 
 - create folders and nested subfolders; navigate with breadcrumbs
 - rename and move files or whole folder trees, including moves to root
-- preview/download/delete individual files
+- preview/download individual files; move files and folders to Trash
 - download folders with recursive contents as ZIP archives
-- delete folder trees only after explicit confirmation
+- use a separate Trash view to restore items within 30 days or permanently
+  delete immediately (with confirmation); show automatic purge dates
 - show only authorized entries and provide useful empty/error/loading states
 
 Desktop:
@@ -129,7 +130,7 @@ Desktop:
 - upload action
 - filters/search
 - selected file inspector panel
-- folder/file actions and a move-to-folder picker
+- folder/file actions, a move-to-folder picker and a Trash entry point
 
 Mobile:
 
@@ -138,7 +139,7 @@ Mobile:
 - folder chips
 - file cards
 - selected file bottom sheet
-- breadcrumb navigation and folder/file action menu
+- breadcrumb navigation, folder/file action menu and Trash controls
 
 ### PDF Editor
 

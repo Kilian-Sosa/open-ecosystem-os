@@ -14,12 +14,15 @@ Create nested folders in Drive
   -> Rename or move files and folders
   -> Preview or download individual files
   -> Download a folder tree as a ZIP archive
-  -> Delete a file or a folder tree with explicit confirmation
+  -> Move a file or a whole folder tree to Trash
+  -> Restore within 30 days or permanently delete immediately from Trash
+  -> Remaining trashed content is automatically purged after 30 days
 ```
 
 This journey is **not yet implemented** in the 2026-10-18 code baseline:
 file upload/listing exist, but folder creation, hierarchy, rename/move,
-content downloads, ZIP export and deletion require new API/UI contracts.
+content downloads, ZIP export, Trash, restore and permanent deletion
+require new API/UI contracts.
 Folder operations preserve stable file IDs and OCR/invoice/search lineage.
 
 ## Journey 1 — First-time self-hosted setup

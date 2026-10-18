@@ -1,6 +1,6 @@
 # MVP milestones and specification architecture
 
-**Status:** Milestone scope approved 2026-10-18; Drive folder amendment awaiting written review
+**Status:** Milestone scope approved 2026-10-18; revised Drive/Trash specifications awaiting written review
 **Date:** 2026-10-18
 **Evidence baseline:** `origin/develop` at `9d3b856` (merged PR #47)
 
@@ -21,9 +21,11 @@ historical specs, code, and tests remain valuable evidence, but a former
 
 Deliver five end-to-end capabilities:
 
-1. **Drive:** upload, list, download, preview, rename, move, and delete files;
-   create, navigate, rename, move, and recursively delete nested folders;
-   download whole folders (including their subfolders) as ZIP archives.
+1. **Drive:** upload, list, download, preview, rename and move files;
+   create, navigate, rename and move nested folders; download entire folder
+   trees as ZIP archives. Deleting files or folders moves them to **Trash
+   for 30 days**, with restore and immediate permanent-deletion options.
+   Expired Trash items are automatically permanently removed.
 2. **OCR:** process supported PDFs/images and inspect extracted text.
 3. **Images to PDF:** select multiple images, set page order, generate a PDF,
    and save/download the output.
@@ -69,7 +71,8 @@ builder is **not** a Core completion criterion.
 
 1. Create a folder and nested subfolder → upload/move/rename private files
    → browse by folder → preview/download a file or download the whole folder
-   as ZIP → delete files or folder trees and their derived/searchable data.
+   as ZIP → move files or folder trees to Trash → restore within 30 days or
+   permanently delete immediately from Trash.
 2. Upload a supported image or PDF → inspect asynchronous OCR state and text
    → search the file and its OCR text.
 3. Select two or more images in Drive → reorder → run the predefined
@@ -115,6 +118,10 @@ execution engine, but must not depend on the user composing JSON workflows.
 - Use stable file and folder IDs and workspace-scoped parent relationships for
   nesting: renaming/moving must not change object keys or break OCR/invoice
   provenance and search links. Reject cyclic folder moves.
+- Trash uses logical deletion immediately to hide files and descendants from
+  Drive, derived views and Search while preserving encrypted recoverable data
+  for 30 days. Restore is permission checked; expiry and explicit permanent
+  deletion make recovery unavailable and trigger durable physical cleanup.
 - Validate type/size/page/quantity limits before expensive processing and
   safely reject corrupt or unsupported inputs. File processing is bounded.
 - Failures and retries must not create duplicate output files, OCR results,
@@ -135,6 +142,7 @@ a time:
 | Specification                                                  | Contract                                                               |
 | -------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | [Drive](2026-10-18-mvp-core-drive-design.md)                   | Files, nested folders, rename/move, ZIP export, authorization/deletion |
+| [Trash](2026-10-18-mvp-core-drive-trash-design.md)             | 30-day retention, folder-tree restore, immediate permanent deletion    |
 | [OCR](2026-10-18-mvp-core-ocr-design.md)                       | Native-text-first PDF OCR, progress, results and failure boundaries    |
 | [Image-to-PDF](2026-10-18-mvp-core-image-to-pdf-design.md)     | Ordered images, deterministic PDF output and Drive integration         |
 | [Invoice review](2026-10-18-mvp-core-invoice-review-design.md) | Private extraction draft, corrections, confirmation and indexing gate  |

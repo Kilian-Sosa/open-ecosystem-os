@@ -13,7 +13,8 @@ records what is actually present in code. The written specs are awaiting
 review; their target behavior is **not** all implemented yet.
 
 - **MVP Core:** a genuinely usable private Drive with nested folders, file
-  and folder organization, downloads, previews, deletion and ZIP export;
+  and folder organization, downloads, previews, ZIP export, 30-day
+  recoverable Trash, immediate permanent deletion and scheduled purge;
   real offline OCR; a predefined ordered
   image-to-PDF action; a predefined invoice-extraction action with editable
   drafts and explicit human confirmation; and permission-aware search of
