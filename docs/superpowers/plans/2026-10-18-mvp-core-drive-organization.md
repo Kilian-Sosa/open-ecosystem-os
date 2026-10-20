@@ -11,7 +11,7 @@
 **Spec:** [Drive lifecycle](../specs/2026-10-18-mvp-core-drive-design.md) and [MVP milestones](../specs/2026-10-18-mvp-milestones-design.md). Dependent plan: [Drive Trash](2026-10-18-mvp-core-drive-trash.md).
 
 **Status:** Execution started 2026-10-20 following the user's instruction to start
-this plan. Task 1 is the first bounded implementation slice; Tasks 2–7 remain
+this plan. Tasks 1–2 are complete; Tasks 3–7 remain
 pending.
 
 **Spec impact:** No spec change. The review revisions below implement the approved Drive requirements for MIME/signature consistency, corrupt-format rejection and safe preview; product scope and acceptance criteria remain unchanged.
@@ -61,6 +61,35 @@ test` passed (13 tests; zero failures/errors/skips), including PostgreSQL 16
 - Next checkpoint: Task 2. Keep upload placement, sibling-name validation and
   content validation together; Task 1 alone does not expose folder operations.
 
+## Task 2 execution record — 2026-10-20
+
+- User explicitly requested Task 2. Base: Task 1 commit `f8e847c`; isolated
+  app-managed worktree on `feat/drive-folder-navigation`. Execute inline and
+  retain this tracked execution record instead of POSIX bookkeeping scripts.
+- Spec impact: **no spec change**. Folder APIs, upload placement, private
+  access, sibling conflicts and content validation implement approved behavior.
+- RED: policy/validator tests failed on missing types. GREEN: focused real
+  HTTP/database/encryption/authorization tests passed with fake object storage.
+  Additional RED/GREEN regressions cover central ZIP checksum disagreement,
+  blank upload names and legacy names exceeding the new 255-character limit.
+- Rulings: reuse PDFBox 3.0.4 from the worker helper for strict PDF structural
+  validation; retain the workspace lock through S3 writes for collision safety;
+  compare legacy names without applying new-name validation. The referenced
+  endpoint-naming instruction file is absent, so use existing REST conventions.
+- Verification: `mvnw.cmd spotless:apply verify` passed, including all 164 API
+  tests with zero failures/errors/skips, PostgreSQL Testcontainers checks,
+  Spotless and JAR packaging. Docker was already running and remains running.
+- Owner self-review checked requirements against tests and implementation,
+  including authorization before filename decryption and concurrent uploads.
+  No independent reviewer was launched. No UI, schema or worker changes.
+- FileUploaded v1 remains unchanged; folder creation writes metadata-only
+  audit records without introducing an unconsumed event.
+- See [validation policy](../../development/DRIVE_UPLOAD_VALIDATION.md) for the
+  API contract, parser limits, dependency rationale and remaining parser
+  isolation limitations. Preview safety and legacy preview validation remain
+  Task 3; frontend and responsive changes remain Task 6.
+- Next checkpoint: Task 3, authenticated original download and safe preview.
+
 ## File and interface map
 
 - Schema: create `apps/api/src/main/resources/db/migration/V10__drive_folders.sql`; modify `drive/DriveFileMetadata.java` and `DriveFileRepository.java`; create `drive/DriveFolderMetadata.java` and `DriveFolderRepository.java`.
@@ -100,11 +129,11 @@ test` passed (13 tests; zero failures/errors/skips), including PostgreSQL 16
 
 `DriveUploadContentValidator.validate(byte[] bytes, String declaredContentType): void` applies bounded format-specific validation for every configured allowed type, including PDF, PNG, JPEG, plain text and allowed Office containers. Define the signature/structure checks and safe text policy explicitly; do not classify solely by extension or trust a matching magic prefix on a truncated file. Reuse existing parsers where suitable and justify any new dependency.
 
-- [ ] **Step 1: Write failing API tests** `createsProjectsInvoices2026AndListsImmediateChildren`, `uploadIntoChildNotRoot`, `conflictingFileAndFolderSiblingNamesReject`, `twoConcurrentCreatesCannotDuplicateName`, `foreignFolderReadForbiddenWithoutNameLeak`, `rejectsDeclaredMimeAndSignatureMismatch`, `rejectsCorruptAllowedFormatsBeforeStorage`, `validSupportedFormatsStillUpload`. Use clearly labelled synthetic fixtures and assert rejected uploads create no object, metadata, audit-success record or outbox event. Assert 201, 200, 409 and 404 statuses plus decrypted responses only on allowed reads.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveUploadContentValidatorTest,DriveFolderControllerTest,DriveFileControllerTest test`.
-- [ ] **Step 3: Implement:** HTTP `POST /api/drive/folders` body `{name,parentFolderId}`, `GET /api/drive/folders/contents?folderId=...`, `GET /api/drive/folders/{folderId}`, upload multipart optional `folderId`. Validate bounded source bytes before object storage, metadata writes or outbox publication. Under workspace row lock compare decrypted file and folder sibling names before persist. Keep old flat-list API compatible; UI uses new folder-scoped endpoint.
-- [ ] **Step 4: Verify GREEN:** same scoped tests and `./mvnw test`; ensure seeded and sharing behavior remain intact.
-- [ ] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): create folders and browse directory contents"`.
+- [x] **Step 1: Write failing API tests** `createsProjectsInvoices2026AndListsImmediateChildren`, `uploadIntoChildNotRoot`, `conflictingFileAndFolderSiblingNamesReject`, `twoConcurrentCreatesCannotDuplicateName`, `foreignFolderReadForbiddenWithoutNameLeak`, `rejectsDeclaredMimeAndSignatureMismatch`, `rejectsCorruptAllowedFormatsBeforeStorage`, `validSupportedFormatsStillUpload`. Use clearly labelled synthetic fixtures and assert rejected uploads create no object, metadata, audit-success record or outbox event. Assert 201, 200, 409 and 404 statuses plus decrypted responses only on allowed reads.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveUploadContentValidatorTest,DriveFolderControllerTest,DriveFileControllerTest test`.
+- [x] **Step 3: Implement:** HTTP `POST /api/drive/folders` body `{name,parentFolderId}`, `GET /api/drive/folders/contents?folderId=...`, `GET /api/drive/folders/{folderId}`, upload multipart optional `folderId`. Validate bounded source bytes before object storage, metadata writes or outbox publication. Under workspace row lock compare decrypted file and folder sibling names before persist. Keep old flat-list API compatible; UI uses new folder-scoped endpoint.
+- [x] **Step 4: Verify GREEN:** same scoped tests and `./mvnw test`; ensure seeded and sharing behavior remain intact.
+- [x] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): create folders and browse directory contents"`.
 
 ### Task 3: Authenticated original file download and preview
 

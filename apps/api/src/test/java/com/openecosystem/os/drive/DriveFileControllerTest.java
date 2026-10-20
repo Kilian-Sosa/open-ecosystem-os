@@ -53,7 +53,7 @@ class DriveFileControllerTest {
 
   @Test
   void uploadStoresEncryptedObjectMetadataAuditAndFileUploadedOutboxEvent() throws Exception {
-    byte[] plaintext = "%PDF-1.7 fake invoice".getBytes(StandardCharsets.UTF_8);
+    byte[] plaintext = SyntheticDriveFiles.pdf();
 
     HttpResponse<String> response =
         httpClient.send(
@@ -71,7 +71,7 @@ class DriveFileControllerTest {
     assertThat(response.statusCode()).isEqualTo(201);
     assertThat(response.body()).contains("\"name\":\"invoice.pdf\"");
     assertThat(response.body()).contains("\"contentType\":\"application/pdf\"");
-    assertThat(response.body()).contains("\"sizeBytes\":21");
+    assertThat(response.body()).contains("\"sizeBytes\":" + plaintext.length);
     assertThat(response.body()).contains("\"encrypted\":true");
     assertThat(response.body()).contains("\"visibility\":\"private\"");
 
@@ -120,20 +120,14 @@ class DriveFileControllerTest {
 
     HttpResponse<String> workspaceAUpload =
         httpClient.send(
-            uploadRequest(
-                    "workspace-a.pdf",
-                    "application/pdf",
-                    "%PDF-1.7 workspace A".getBytes(StandardCharsets.UTF_8))
+            uploadRequest("workspace-a.pdf", "application/pdf", SyntheticDriveFiles.pdf())
                 .header(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_workspace_a")
                 .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, "wrk_workspace_a")
                 .build(),
             BodyHandlers.ofString());
     HttpResponse<String> workspaceBUpload =
         httpClient.send(
-            uploadRequest(
-                    "workspace-b.pdf",
-                    "application/pdf",
-                    "%PDF-1.7 workspace B".getBytes(StandardCharsets.UTF_8))
+            uploadRequest("workspace-b.pdf", "application/pdf", SyntheticDriveFiles.pdf())
                 .header(PlaceholderAuthenticationContext.ACTOR_HEADER, "usr_workspace_b")
                 .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, "wrk_workspace_b")
                 .build(),
@@ -164,10 +158,7 @@ class DriveFileControllerTest {
 
     HttpResponse<String> uploadResponse =
         httpClient.send(
-            uploadRequest(
-                    "private.pdf",
-                    "application/pdf",
-                    "%PDF-1.7 private".getBytes(StandardCharsets.UTF_8))
+            uploadRequest("private.pdf", "application/pdf", SyntheticDriveFiles.pdf())
                 .header(
                     PlaceholderAuthenticationContext.ACTOR_HEADER,
                     PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID)
@@ -461,7 +452,7 @@ class DriveFileControllerTest {
       throws Exception {
     HttpResponse<String> response =
         httpClient.send(
-            uploadRequest(filename, "application/pdf", ("%PDF-1.7 " + filename).getBytes())
+            uploadRequest(filename, "application/pdf", SyntheticDriveFiles.pdf())
                 .header(PlaceholderAuthenticationContext.ACTOR_HEADER, actorId)
                 .header(PlaceholderAuthenticationContext.WORKSPACE_HEADER, workspaceId)
                 .build(),
@@ -509,6 +500,20 @@ class DriveFileControllerTest {
     assertThat(response.statusCode()).isEqualTo(400);
     assertThat(response.body()).contains("\"error\":\"BAD_REQUEST\"");
     assertThat(objectStorage.objectCount()).isZero();
+  }
+
+  @Test
+  void rejectsBlankAndPathUploadNamesBeforeStorage() throws Exception {
+    for (String name : new String[] {" ", "../synthetic.txt", "a/b.txt", "..", "x".repeat(256)}) {
+      var response =
+          httpClient.send(
+              uploadRequest(name, "text/plain", "synthetic".getBytes()).build(),
+              BodyHandlers.ofString());
+      assertThat(response.statusCode()).as(name).isEqualTo(400);
+    }
+    assertThat(objectStorage.objectCount()).isZero();
+    assertThat(jdbcTemplate.queryForObject("select count(*) from drive_files", Integer.class))
+        .isZero();
   }
 
   @Test

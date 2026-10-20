@@ -31,7 +31,6 @@ import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -50,6 +49,10 @@ public class DriveUploadService {
   private final FileEncryptionService encryptionService;
   private final TransactionTemplate transactionTemplate;
   private final ResourceAuthorizationService authorizationService;
+  private final DriveFolderService folderService;
+  private final DriveFolderRepository folderRepository;
+  private final DriveUploadContentValidator contentValidator;
+  private final DriveDirectoryNamePolicy namePolicy;
 
   public DriveUploadService(
       AuthenticationContext authenticationContext,
@@ -60,7 +63,11 @@ public class DriveUploadService {
       FileObjectStorage objectStorage,
       FileEncryptionService encryptionService,
       TransactionTemplate transactionTemplate,
-      ResourceAuthorizationService authorizationService) {
+      ResourceAuthorizationService authorizationService,
+      DriveFolderService folderService,
+      DriveFolderRepository folderRepository,
+      DriveUploadContentValidator contentValidator,
+      DriveDirectoryNamePolicy namePolicy) {
     this.authenticationContext = authenticationContext;
     this.driveProperties = driveProperties;
     this.driveFileRepository = driveFileRepository;
@@ -70,9 +77,17 @@ public class DriveUploadService {
     this.encryptionService = encryptionService;
     this.transactionTemplate = transactionTemplate;
     this.authorizationService = authorizationService;
+    this.folderService = folderService;
+    this.folderRepository = folderRepository;
+    this.contentValidator = contentValidator;
+    this.namePolicy = namePolicy;
   }
 
   public DriveFileResponse upload(MultipartFile file) {
+    return upload(file, null);
+  }
+
+  public DriveFileResponse upload(MultipartFile file, String folderId) {
     AuthenticatedPrincipal principal = authenticationContext.currentPrincipal();
     String correlationId = CorrelationContext.currentOrCreate();
     ValidatedUpload upload = validate(file);
@@ -81,6 +96,8 @@ public class DriveUploadService {
     Instant now = Instant.now();
 
     byte[] plaintext = fileBytes(file);
+    contentValidator.validate(plaintext, upload.contentType());
+    String destinationFolderId = DriveFolderService.rootOrId(folderId);
     String checksumSha256 = sha256Hex(plaintext);
     EncryptedText encryptedName = encryptionService.encryptText(upload.name());
     EncryptedBytes encryptedContent = encryptionService.encryptBytes(plaintext);
@@ -91,7 +108,7 @@ public class DriveUploadService {
             principal.workspaceId(),
             principal.actorId(),
             DriveFileVisibility.PRIVATE,
-            null,
+            destinationFolderId,
             encryptedName.ciphertextBase64(),
             upload.contentType(),
             plaintext.length,
@@ -104,16 +121,20 @@ public class DriveUploadService {
             now,
             now);
 
-    boolean objectStored = false;
+    boolean[] objectStored = {false};
     try {
-      objectStorage.putEncryptedObject(
-          storageKey,
-          encryptedContent.ciphertext(),
-          upload.contentType(),
-          encryptedContent.ivBase64());
-      objectStored = true;
       transactionTemplate.executeWithoutResult(
           status -> {
+            folderRepository.lockWorkspaceForMutation(principal.workspaceId());
+            folderService.requireOwner(destinationFolderId, principal);
+            folderService.assertAvailable(
+                upload.name(), destinationFolderId, principal.workspaceId());
+            objectStored[0] = true;
+            objectStorage.putEncryptedObject(
+                storageKey,
+                encryptedContent.ciphertext(),
+                upload.contentType(),
+                encryptedContent.ivBase64());
             driveFileRepository.save(metadata);
             auditRecordRepository.save(uploadAuditRecord(metadata, principal, correlationId, now));
             eventOutboxRepository.save(
@@ -121,7 +142,7 @@ public class DriveUploadService {
           });
       return toResponse(metadata);
     } catch (RuntimeException exception) {
-      if (objectStored) {
+      if (objectStored[0]) {
         objectStorage.deleteObjectIfExists(storageKey);
       }
       throw exception;
@@ -191,7 +212,20 @@ public class DriveUploadService {
 
   private byte[] fileBytes(MultipartFile file) {
     try {
-      return file.getBytes();
+      try (var input = file.getInputStream()) {
+        byte[] bytes =
+            input.readNBytes(
+                (int) Math.min(driveProperties.maxUploadBytes(), 25L * 1024 * 1024) + 1);
+        if (bytes.length == 0
+            || bytes.length > driveProperties.maxUploadBytes()
+            || bytes.length > 25 * 1024 * 1024) {
+          throw new ApiException(
+              HttpStatus.BAD_REQUEST,
+              ApiErrorCode.BAD_REQUEST,
+              "Uploaded file exceeds the configured Drive size limit");
+        }
+        return bytes;
+      }
     } catch (IOException exception) {
       throw new ApiException(
           HttpStatus.BAD_REQUEST, ApiErrorCode.BAD_REQUEST, "Uploaded file could not be read");
@@ -199,19 +233,8 @@ public class DriveUploadService {
   }
 
   private String safeFileName(String originalFilename) {
-    String filename =
-        originalFilename == null || originalFilename.isBlank() ? "uploaded-file" : originalFilename;
-    filename = filename.replace('\\', '/');
-    int slashIndex = filename.lastIndexOf('/');
-    if (slashIndex >= 0) {
-      filename = filename.substring(slashIndex + 1);
-    }
-    filename = StringUtils.cleanPath(filename).trim();
-    if (filename.isBlank() || filename.contains("..")) {
-      throw new ApiException(
-          HttpStatus.BAD_REQUEST, ApiErrorCode.BAD_REQUEST, "Uploaded file name is invalid");
-    }
-    return filename.length() > 512 ? filename.substring(0, 512) : filename;
+    namePolicy.normalize(originalFilename);
+    return originalFilename;
   }
 
   private AuditRecord uploadAuditRecord(
@@ -272,6 +295,7 @@ public class DriveUploadService {
     return new DriveFileResponse(
         metadata.fileId(),
         metadata.visibility().value(),
+        metadata.folderId(),
         encryptionService.decryptText(metadata.encryptedName(), metadata.nameIv()),
         metadata.contentType(),
         metadata.sizeBytes(),
