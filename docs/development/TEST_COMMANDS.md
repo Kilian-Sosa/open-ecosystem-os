@@ -62,6 +62,19 @@ Expected under `apps/api`:
 ./mvnw spring-boot:run
 ```
 
+Invoice seed migration isolation regression, from `apps/api`:
+
+```powershell
+.\mvnw.cmd -o '-Dtest=JdbcInvoiceExtractionRepositoryTest,InvoiceAutomationSeedMigrationTest' '-Dsurefire.runOrder=reversealphabetical' test
+.\mvnw.cmd -o '-Dtest=JdbcInvoiceExtractionRepositoryTest,InvoiceAutomationSeedMigrationTest' '-Dsurefire.runOrder=alphabetical' test
+```
+
+The migration test uses a dedicated H2 database so repository/controller cleanup
+cannot remove its migrated seed rows. Both orders must pass in a shared test JVM;
+the reverse order reproduces the original failure without isolation. Keep the
+seed assertions and Flyway migrations intact. Spec impact: **no spec change**;
+this fixes test isolation without changing application behavior.
+
 Recommended Maven profiles later:
 
 ```bash
