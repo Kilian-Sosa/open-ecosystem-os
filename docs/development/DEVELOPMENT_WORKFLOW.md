@@ -45,18 +45,27 @@ Build the whole Drive, PDF editor, automations, AI assistant, and admin dashboar
 
 ## Mandatory workflow per task
 
-Must follow this sequence:
+Must follow the Superpowers Spec-Driven Development (SDD) sequence for every
+change. Scale the documentation to the task, but never skip understanding and
+approval of intended behavior:
 
-1. Restate the task in implementation terms.
-2. Inspect relevant files.
-3. Identify affected modules.
-4. Produce a short implementation plan.
-5. Make the smallest coherent code changes.
-6. Add or update tests.
-7. Run the narrowest relevant checks first.
-8. Run broader checks when the narrow checks pass.
-9. Update docs if behavior, architecture, commands, events, permissions, or deployment changed.
-10. Summarize changed files, checks run, results, and remaining risks.
+1. Establish intent, constraints, and success criteria; inspect relevant code,
+   tests, docs, and previously approved decisions.
+2. Classify the task using Superpowers: bounded changes get an approved
+   in-chat design; architectural/cross-module changes require an approved,
+   version-controlled spec in `docs/superpowers/specs/`.
+3. Record functional behavior, interfaces, edge cases, security/permission
+   implications, and observable acceptance criteria. Clearly separate what is
+   implemented, planned, and explicitly excluded.
+4. For architectural changes, obtain approval of the written spec, then create
+   and obtain approval of a testable implementation plan in
+   `docs/superpowers/plans/`. Do not start implementation before these gates.
+5. Implement a small vertical slice using test-driven development: establish
+   the failing test, implement the smallest change, then make the test pass.
+6. Run focused checks, then relevant broader quality/security gates.
+7. Review the delivered behavior against the approved spec, document any
+   deviations or deferred proof, and update durable docs as needed.
+8. Summarize commits/files, tests, results, remaining risks, and spec coverage.
 
 ## Planning rule
 

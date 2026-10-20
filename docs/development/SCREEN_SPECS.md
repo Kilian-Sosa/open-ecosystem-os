@@ -1,5 +1,11 @@
 # Screen Specs
 
+> This file is the broader **screen design catalog**, not proof that these
+> screens exist or requirements that they ship in MVP Core. See
+> [MVP Scope](../product/MVP_SCOPE.md) and
+> [implementation inventory](../superpowers/reviews/2026-10-18-mvp-implementation-inventory.md)
+> for the current milestone boundary and implementation evidence.
+
 Every major screen must support desktop and mobile behavior.
 
 ## Public portfolio
@@ -107,6 +113,16 @@ Mobile:
 
 ### Drive
 
+MVP Core behavior (target, not yet implemented):
+
+- create folders and nested subfolders; navigate with breadcrumbs
+- rename and move files or whole folder trees, including moves to root
+- preview/download individual files; move files and folders to Trash
+- download folders with recursive contents as ZIP archives
+- use a separate Trash view to restore items within 30 days or permanently
+  delete immediately (with confirmation); show automatic purge dates
+- show only authorized entries and provide useful empty/error/loading states
+
 Desktop:
 
 - folder tree
@@ -114,6 +130,7 @@ Desktop:
 - upload action
 - filters/search
 - selected file inspector panel
+- folder/file actions, a move-to-folder picker and a Trash entry point
 
 Mobile:
 
@@ -122,6 +139,7 @@ Mobile:
 - folder chips
 - file cards
 - selected file bottom sheet
+- breadcrumb navigation, folder/file action menu and Trash controls
 
 ### PDF Editor
 

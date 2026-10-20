@@ -1,5 +1,13 @@
 # Product Requirements
 
+> This document catalogs the **full product vision**, including capabilities
+> that are not part of the currently agreed MVP. For the binding milestone
+> boundary and reviewed feature design, use
+> [MVP Scope](MVP_SCOPE.md) and
+> [modular MVP specifications](../superpowers/specs/2026-10-18-mvp-milestones-design.md).
+> In particular, Open Pages, the general PDF editor and configurable workflow
+> authoring are **not MVP Core requirements**.
+
 ## Core requirements
 
 Open Ecosystem OS must provide:
@@ -45,6 +53,15 @@ Must include:
 - Notifications
 - Activity/Audit Logs
 - Settings/Security
+
+For the current MVP Core, Drive includes persistent nested folder creation,
+navigation, file/folder rename and movement, whole-folder ZIP downloads,
+permission-checked Trash/restore for 30 days, immediate permanent deletion
+from Trash and scheduled cleanup of expired items. See the
+[approved-scope milestone design](../superpowers/specs/2026-10-18-mvp-milestones-design.md)
+and the [Drive specification](../superpowers/specs/2026-10-18-mvp-core-drive-design.md)
+and [Trash specification](../superpowers/specs/2026-10-18-mvp-core-drive-trash-design.md)
+for the currently proposed operation contracts.
 
 ## PDF Editor requirements
 

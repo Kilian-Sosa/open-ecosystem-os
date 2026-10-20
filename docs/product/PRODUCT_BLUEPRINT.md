@@ -1,5 +1,12 @@
 # Product Blueprint — Open Ecosystem OS
 
+> This is the **long-term product vision**, not the current MVP release scope.
+> [MVP Core/Complete milestones](../superpowers/specs/2026-10-18-mvp-milestones-design.md)
+> and the [implementation inventory](../superpowers/reviews/2026-10-18-mvp-implementation-inventory.md)
+> distinguish approved next requirements from implemented behavior. In
+> particular, the original flagship diagram below proposes later Kanban and
+> Open Pages integrations that are **not part of MVP Core**.
+
 ## Product vision
 
 Open Ecosystem OS is a self-hosted, open-source productivity ecosystem where users own their files, pages, automations, media processing, search, AI workflows, and operational data.
