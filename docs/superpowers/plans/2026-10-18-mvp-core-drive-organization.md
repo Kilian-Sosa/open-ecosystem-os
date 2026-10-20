@@ -11,7 +11,7 @@
 **Spec:** [Drive lifecycle](../specs/2026-10-18-mvp-core-drive-design.md) and [MVP milestones](../specs/2026-10-18-mvp-milestones-design.md). Dependent plan: [Drive Trash](2026-10-18-mvp-core-drive-trash.md).
 
 **Status:** Execution started 2026-10-20 following the user's instruction to start
-this plan. Tasks 1–4 are complete; Tasks 5–7 remain
+this plan. Tasks 1–5 are complete; Tasks 6–7 remain
 pending.
 
 **Spec impact:** No spec change. The review revisions below implement the approved Drive requirements for MIME/signature consistency, corrupt-format rejection and safe preview; product scope and acceptance criteria remain unchanged.
@@ -169,6 +169,50 @@ test` passed (13 tests; zero failures/errors/skips), including PostgreSQL 16
   The endpoint-naming instruction file remains absent; routes follow this
   approved plan. Task 4: complete. Next checkpoint: Task 5, bounded folder ZIP.
 
+## Task 5 execution record — 2026-10-20
+
+- User explicitly requested Task 5. Base: Task 4 commit `b318372`; branch
+  `feat/drive-folder-zip` in the primary checkout, continuing Tasks 3–4's
+  arrangement. One production-code owner, inline execution; retain this
+  tracked checkpoint instead of POSIX bookkeeping scripts. No push or merge.
+- Spec impact: **no spec change**. Implements approved bounded recursive
+  folder downloads with original bytes and all-or-nothing authorization.
+  No frontend, worker, schema, event, audit or original-file contract changes.
+- RED: archive tests failed compilation on missing types. Bounded repository
+  tests separately failed on missing limit overloads. GREEN: scoped tests
+  verified real ZIP entries, exact source bytes, empty directories, denied
+  descendants, traversal/collision rejection, count/byte/time limits and cleanup.
+  Corrected test fixtures for Mockito re-stubbing and the folder-owner FK.
+- Additional RED/GREEN: a fatal content-read Error left its temporary workspace
+  behind; cleanup in `finally` now removes it. A transaction-failure test also
+  proves that no archive is created before the snapshot commits.
+- Ruling: snapshot/authorize under the existing workspace mutation lock, then
+  commit before compression. This avoids long mutation locks and commit-time
+  temporary-file leaks; later additions are excluded and snapshot paths remain
+  stable. Per-file content reads recheck VIEW. Cost: the ZIP represents the
+  authorization snapshot rather than a live directory at transfer time.
+- Ruling: count directories as entries, cap SQL child reads to the remaining
+  allowance plus one, and reject unsafe portable segments/collisions or paths
+  over 4096 UTF-8 bytes. Cost: some legacy names or very deep trees require
+  rename/reorganization before export; original downloads remain available.
+- Ruling: spool only a permission-restricted ZIP within the spec's controlled
+  temporary boundary, using atomic POSIX/Windows permission attributes and
+  finally-based ownership cleanup. The preparation budget is cooperative;
+  blocked I/O can delay cancellation. Cost: operators must use controlled
+  ephemeral storage for crash leftovers; this is not a hard deadline or
+  process-crash erasure guarantee. No loose plaintext source files are created.
+- Verification: `mvnw.cmd -o spotless:apply verify` passed: **214 API tests,
+  zero failures/errors/skips**, including PostgreSQL 16 migration/locking checks,
+  Spotless and JAR packaging. Offline mode avoided a Maven cache metadata write;
+  HTTP/Mockito/Docker checks ran outside the sandbox after concrete restrictions.
+  Docker was already running and remains running. Existing Flyway/H2 and JVM
+  warnings remain. No dependencies or global/service configuration changed.
+- Owner self-review applied the Spring/security checklists and checked both
+  requirements-to-tests and behavior-to-spec alignment. No independent reviewer
+  was launched, per the user's bounded-slice policy. No live MinIO/browser or
+  crash-recovery proof is claimed. See the [archive contract](../../development/DRIVE_FOLDER_ARCHIVES.md).
+- Task 5: complete. Next checkpoint: Task 6, the Drive folder explorer UI.
+
 ## File and interface map
 
 - Schema: create `apps/api/src/main/resources/db/migration/V10__drive_folders.sql`; modify `drive/DriveFileMetadata.java` and `DriveFileRepository.java`; create `drive/DriveFolderMetadata.java` and `DriveFolderRepository.java`.
@@ -244,11 +288,11 @@ test` passed (13 tests; zero failures/errors/skips), including PostgreSQL 16
 
 **Interfaces:** `DriveArchiveService.prepareZip(String folderId): DriveZipArchive`; result is an owned temporary ZIP path and a safe filename with `close()` deleting it. HTTP `GET /api/drive/folders/{folderId}/download`. Defaults: max **1,000 entries, 512 MiB uncompressed, 2-minute preparation**; configurable and enforced server-side.
 
-- [ ] **Step 1: Write failing tests** `zipPreservesSubfoldersEmptyDirsAndExactSourceBytes`, `rejectDotDotAndAbsoluteArchiveEntries`, `rejectAnyDeniedDescendant`, `tooManyFilesOrBytesFailsBeforeResponse`, `failedOrCancelledArchiveCleansTemporaryFiles`.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveArchiveServiceTest,DriveFolderControllerTest test`.
-- [ ] **Step 3: Implement:** snapshot/authorize complete subtree including each file VIEW, preflight limits and normalized relative paths before returning a response. Build with `ZipOutputStream` to permission-restricted temp; clean on all paths; stream already-complete ZIP with `finally` close. Never publish partial or plaintext temp files.
-- [ ] **Step 4: Verify GREEN:** same tests; verify the ZIP is readable and every entry's decompressed bytes match its source.
-- [ ] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test .env.example && git commit -m "feat(drive): export authorized folder trees as ZIP"`.
+- [x] **Step 1: Write failing tests** `zipPreservesSubfoldersEmptyDirsAndExactSourceBytes`, `rejectDotDotAndAbsoluteArchiveEntries`, `rejectAnyDeniedDescendant`, `tooManyFilesOrBytesFailsBeforeResponse`, `failedOrCancelledArchiveCleansTemporaryFiles`.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveArchiveServiceTest,DriveFolderControllerTest test`.
+- [x] **Step 3: Implement:** snapshot/authorize complete subtree including each file VIEW, preflight limits and normalized relative paths before returning a response. Build with `ZipOutputStream` to permission-restricted temp; clean on all paths; stream already-complete ZIP with `finally` close. Never publish partial or plaintext temp files.
+- [x] **Step 4: Verify GREEN:** same tests; verify the ZIP is readable and every entry's decompressed bytes match its source.
+- [x] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test .env.example && git commit -m "feat(drive): export authorized folder trees as ZIP"`.
 
 ### Task 6: Drive folder explorer and file actions
 

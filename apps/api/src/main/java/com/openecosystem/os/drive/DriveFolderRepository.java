@@ -57,15 +57,19 @@ public class DriveFolderRepository {
   }
 
   public List<DriveFolderMetadata> listChildren(String workspaceId, String parentId) {
+    return listChildren(workspaceId, parentId, Integer.MAX_VALUE);
+  }
+
+  public List<DriveFolderMetadata> listChildren(String workspaceId, String parentId, int limit) {
     String query =
         "select "
             + METADATA_COLUMNS
             + " from drive_folders where workspace_id = ? and parent_folder_id "
             + (parentId == null ? "is null" : "= ?")
-            + " order by created_at, folder_id";
+            + " order by created_at, folder_id limit ?";
     return parentId == null
-        ? jdbcTemplate.query(query, ROW_MAPPER, workspaceId)
-        : jdbcTemplate.query(query, ROW_MAPPER, workspaceId, parentId);
+        ? jdbcTemplate.query(query, ROW_MAPPER, workspaceId, limit)
+        : jdbcTemplate.query(query, ROW_MAPPER, workspaceId, parentId, limit);
   }
 
   // The caller must retain the surrounding transaction through the directory mutation.

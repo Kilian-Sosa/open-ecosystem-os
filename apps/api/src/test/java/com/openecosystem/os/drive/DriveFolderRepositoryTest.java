@@ -51,6 +51,18 @@ class DriveFolderRepositoryTest {
   }
 
   @Test
+  void archiveChildReadsAreBoundedAndWorkspaceScoped() {
+    repository.save(folder("folder_a", "wrk_dev_placeholder", null));
+    repository.save(folder("folder_b", "wrk_dev_placeholder", null));
+    repository.save(folder("folder_c", "wrk_dev_placeholder", "folder_a"));
+    assertThat(repository.listChildren("wrk_dev_placeholder", null, 1)).hasSize(1);
+    assertThat(repository.listChildren("wrk_dev_placeholder", "folder_a", 1))
+        .extracting(DriveFolderMetadata::folderId)
+        .containsExactly("folder_c");
+    assertThat(repository.listChildren("wrk_other", null, 1)).isEmpty();
+  }
+
+  @Test
   void existingFilesMigrateIntoRoot() {
     var dataSource = database();
     Flyway.configure()

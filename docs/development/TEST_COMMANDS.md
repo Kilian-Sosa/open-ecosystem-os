@@ -81,6 +81,15 @@ Drive metadata rename/move (Task 4), from `apps/api`:
 See [the mutation contract](DRIVE_FILE_MUTATIONS.md) for request bodies,
 authorization, concurrency, compatibility and deferred Search behavior.
 
+Drive folder ZIP downloads (Task 5), from `apps/api`:
+
+```powershell
+.\mvnw.cmd -o '-Dtest=DriveArchiveServiceTest,DriveFolderControllerTest,DriveFolderRepositoryTest,DriveFileRepositoryTest' test
+```
+
+See [the archive contract](DRIVE_FOLDER_ARCHIVES.md) for authorization,
+snapshot semantics, limits, temporary-storage requirements and cleanup.
+
 Recommended Maven profiles later:
 
 ```bash

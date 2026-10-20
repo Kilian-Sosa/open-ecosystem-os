@@ -26,6 +26,20 @@ class DriveFileRepositoryTest {
   }
 
   @Test
+  void archiveFileReadsAreBoundedAndWorkspaceScoped() {
+    Instant now = Instant.parse("2026-10-20T08:00:00Z");
+    repository.save(file("file_a", "wrk_123", "encrypted-a", now));
+    repository.save(file("file_b", "wrk_123", "encrypted-b", now.plusSeconds(1)));
+    repository.save(file("file_c", "wrk_other", "encrypted-c", now));
+    assertThat(repository.listByFolder("wrk_123", null, 1))
+        .extracting(DriveFileMetadata::fileId)
+        .containsExactly("file_b");
+    assertThat(repository.listByFolder("wrk_other", null, 1))
+        .extracting(DriveFileMetadata::fileId)
+        .containsExactly("file_c");
+  }
+
+  @Test
   void persistsEncryptedMetadataAndListsNewestFilesByWorkspace() {
     Instant older = Instant.parse("2026-05-22T08:00:00Z");
     Instant newer = Instant.parse("2026-05-22T09:00:00Z");

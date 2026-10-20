@@ -86,15 +86,19 @@ public class DriveFileRepository {
   }
 
   public List<DriveFileMetadata> listByFolder(String workspaceId, String folderId) {
+    return listByFolder(workspaceId, folderId, Integer.MAX_VALUE);
+  }
+
+  public List<DriveFileMetadata> listByFolder(String workspaceId, String folderId, int limit) {
     String query =
         "select "
             + METADATA_COLUMNS
             + " from drive_files where workspace_id = ? and folder_id "
             + (folderId == null ? "is null" : "= ?")
-            + " order by created_at desc";
+            + " order by created_at desc limit ?";
     return folderId == null
-        ? jdbcTemplate.query(query, ROW_MAPPER, workspaceId)
-        : jdbcTemplate.query(query, ROW_MAPPER, workspaceId, folderId);
+        ? jdbcTemplate.query(query, ROW_MAPPER, workspaceId, limit)
+        : jdbcTemplate.query(query, ROW_MAPPER, workspaceId, folderId, limit);
   }
 
   public boolean updateFolder(String workspaceId, String fileId, String folderId, Instant when) {

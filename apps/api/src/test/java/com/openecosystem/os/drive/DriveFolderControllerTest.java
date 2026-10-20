@@ -26,14 +26,102 @@ import tools.jackson.databind.json.JsonMapper;
       OpenEcosystemApiApplication.class,
       DriveFileControllerTest.DriveFileControllerTestConfiguration.class
     },
+    properties = {
+      "openecosystem.drive.archive.max-entries=3",
+      "openecosystem.drive.archive.max-uncompressed-size=64B"
+    },
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class DriveFolderControllerTest {
+  @org.junit.jupiter.api.io.TempDir static java.nio.file.Path archiveTemporary;
+
+  @org.springframework.test.context.DynamicPropertySource
+  static void archiveProperties(org.springframework.test.context.DynamicPropertyRegistry registry) {
+    registry.add(
+        "openecosystem.drive.archive.temporary-directory", () -> archiveTemporary.toString());
+  }
+
   @LocalServerPort int port;
   @Autowired JdbcTemplate jdbc;
   @Autowired DriveFileControllerTest.FakeFileObjectStorage storage;
   @Autowired com.openecosystem.os.drive.crypto.FileEncryptionService encryption;
   final HttpClient client = HttpClient.newHttpClient();
   final JsonMapper json = JsonMapper.builder().build();
+
+  @Test
+  void downloadsCompleteZipWithProtectedHeadersAndCleansTemporaryStorage() throws Exception {
+    String root = create("Synthetic projects", null), child = create("Invoices", root);
+    create("Empty", root);
+    uploadedFile("synthetic.txt", child);
+    var response =
+        client.send(
+            request("/" + root + "/download").GET().build(),
+            HttpResponse.BodyHandlers.ofByteArray());
+    assertThat(response.statusCode()).isEqualTo(200);
+    assertThat(response.headers().firstValue("Content-Type")).hasValue("application/zip");
+    assertThat(response.headers().firstValue("Cache-Control")).hasValue("no-store");
+    assertThat(response.headers().firstValue("X-Content-Type-Options")).hasValue("nosniff");
+    assertThat(response.headers().firstValue("Content-Disposition").orElseThrow())
+        .contains("attachment", "Synthetic");
+    assertThat(response.headers().firstValue("Content-Length"))
+        .hasValue(Integer.toString(response.body().length));
+    var entries = DriveArchiveServiceTest.unzip(response.body());
+    assertThat(entries.keySet())
+        .containsExactlyInAnyOrder("Invoices/", "Empty/", "Invoices/synthetic.txt");
+    assertThat(entries.get("Invoices/synthetic.txt"))
+        .isEqualTo("synthetic text".getBytes(StandardCharsets.UTF_8));
+    assertArchiveTemporaryClean();
+  }
+
+  @Test
+  void zipRejectsDeniedDescendantsAndForeignOrMissingRootsWithoutPartialContent() throws Exception {
+    String root = create("Synthetic secret", null);
+    String file = uploadedFile("synthetic-private.txt", root);
+    jdbc.update(
+        "update drive_files set owner_id='usr_other_synthetic', encrypted_name='invalid-ciphertext'"
+            + " where file_id=?",
+        file);
+    var denied = get("/" + root + "/download", null);
+    assertThat(denied.statusCode()).isEqualTo(404);
+    assertThat(denied.body())
+        .doesNotContain("Synthetic secret", "synthetic-private", "invalid-ciphertext");
+    assertThat(denied.headers().firstValue("Content-Disposition")).isEmpty();
+    assertThat(get("/missing/download", null).statusCode()).isEqualTo(404);
+    jdbc.update(
+        "insert into identity_users"
+            + " (user_id,display_name,email,avatar_initials,status,is_seeded,created_at,updated_at)"
+            + " values"
+            + " ('usr_task5_foreign','Synthetic','task5@example.test','TS','active',false,current_timestamp,current_timestamp)");
+    jdbc.update("update drive_folders set owner_id='usr_task5_foreign' where folder_id=?", root);
+    assertThat(get("/" + root + "/download", null).statusCode()).isEqualTo(404);
+    assertArchiveTemporaryClean();
+  }
+
+  @Test
+  void zipLimitsAndTamperedContentFailBeforeDownloadHeaders() throws Exception {
+    String root = create("Synthetic root", null);
+    for (int i = 0; i < 4; i++) create("Empty " + i, root);
+    var countFailure = get("/" + root + "/download", null);
+    assertThat(countFailure.statusCode()).isEqualTo(413);
+    assertThat(countFailure.headers().firstValue("Content-Disposition")).isEmpty();
+    String large = create("Synthetic large", null);
+    upload("synthetic.txt", "text/plain", "x".repeat(65).getBytes(StandardCharsets.UTF_8), large);
+    assertThat(get("/" + large + "/download", null).statusCode()).isEqualTo(413);
+    String damaged = create("Synthetic damaged", null),
+        file = uploadedFile("synthetic.txt", damaged);
+    var wrongIv = encryption.encryptBytes(new byte[] {1}).ivBase64();
+    jdbc.update("update drive_files set content_iv=? where file_id=?", wrongIv, file);
+    var failure = get("/" + damaged + "/download", null);
+    assertThat(failure.statusCode()).isEqualTo(500);
+    assertThat(failure.headers().firstValue("Content-Disposition")).isEmpty();
+    assertThat(failure.body()).doesNotContain("synthetic.txt", "Synthetic damaged", "storage_key");
+    assertArchiveTemporaryClean();
+  }
+
+  void assertArchiveTemporaryClean() throws Exception {
+    try (var paths = java.nio.file.Files.list(archiveTemporary)) {
+      assertThat(paths.toList()).isEmpty();
+    }
+  }
 
   @BeforeEach
   void clean() {

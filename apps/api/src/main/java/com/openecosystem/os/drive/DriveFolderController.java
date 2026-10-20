@@ -1,6 +1,12 @@
 package com.openecosystem.os.drive;
 
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -15,9 +21,34 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/drive/folders")
 public class DriveFolderController {
   private final DriveFolderService service;
+  private final DriveArchiveService archives;
 
-  public DriveFolderController(DriveFolderService service) {
+  public DriveFolderController(DriveFolderService service, DriveArchiveService archives) {
     this.service = service;
+    this.archives = archives;
+  }
+
+  @GetMapping("/{folderId}/download")
+  public void downloadFolder(@PathVariable String folderId, HttpServletResponse response)
+      throws IOException {
+    try (var archive = archives.prepareZip(folderId)) {
+      response.setContentType("application/zip");
+      response.setContentLengthLong(Files.size(archive.path()));
+      response.setHeader(
+          HttpHeaders.CONTENT_DISPOSITION,
+          ContentDisposition.attachment()
+              .filename(archive.filename(), StandardCharsets.UTF_8)
+              .build()
+              .toString());
+      response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+      response.setHeader("X-Content-Type-Options", "nosniff");
+      response.setHeader(
+          "Content-Security-Policy", "sandbox; default-src 'none'; frame-ancestors 'self'");
+      response.setHeader("Referrer-Policy", "no-referrer");
+      try (var input = Files.newInputStream(archive.path())) {
+        input.transferTo(response.getOutputStream());
+      }
+    }
   }
 
   @PostMapping
