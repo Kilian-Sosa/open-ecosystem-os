@@ -62,6 +62,16 @@ Expected under `apps/api`:
 ./mvnw spring-boot:run
 ```
 
+Protected Drive original downloads and safe previews (Task 3), from `apps/api`:
+
+```powershell
+.\mvnw.cmd '-Dtest=DriveFileContentServiceTest,DriveFileControllerTest,S3FileObjectStorageTest' test
+```
+
+See [the content and viewer contract](DRIVE_FILE_CONTENT.md) for scope, bounds,
+synthetic fixtures and browser integration requirements. Run `mvnw.cmd verify`
+for the full API suite, PostgreSQL migration tests, formatting and packaging.
+
 Recommended Maven profiles later:
 
 ```bash

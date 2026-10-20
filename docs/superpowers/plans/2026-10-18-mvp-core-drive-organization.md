@@ -11,7 +11,7 @@
 **Spec:** [Drive lifecycle](../specs/2026-10-18-mvp-core-drive-design.md) and [MVP milestones](../specs/2026-10-18-mvp-milestones-design.md). Dependent plan: [Drive Trash](2026-10-18-mvp-core-drive-trash.md).
 
 **Status:** Execution started 2026-10-20 following the user's instruction to start
-this plan. Tasks 1–2 are complete; Tasks 3–7 remain
+this plan. Tasks 1–3 are complete; Tasks 4–7 remain
 pending.
 
 **Spec impact:** No spec change. The review revisions below implement the approved Drive requirements for MIME/signature consistency, corrupt-format rejection and safe preview; product scope and acceptance criteria remain unchanged.
@@ -90,6 +90,45 @@ test` passed (13 tests; zero failures/errors/skips), including PostgreSQL 16
   Task 3; frontend and responsive changes remain Task 6.
 - Next checkpoint: Task 3, authenticated original download and safe preview.
 
+## Task 3 execution record — 2026-10-20
+
+- User explicitly requested Task 3. Base: Task 2 commit `c3836a7`; branch
+  `feat/drive-protected-content` in the primary checkout. The linked Task 2
+  worktree was inaccessible in the sandbox, so continue from its committed
+  branch snapshot without changing that worktree. One implementation owner,
+  inline execution; retain this tracked checkpoint as in Tasks 1–2.
+- Spec impact: **no spec change**. Implements approved original download,
+  bounded safe preview and source-file authorization. No frontend, worker,
+  migration, event, audit or upload-contract changes.
+- Baseline: 11 controller tests passed. RED: the new service/storage tests
+  failed compilation on the absent content types and bounded read method.
+  GREEN: focused service/controller/storage tests passed. Corrected test
+  fixtures to respect paired grant-revocation fields and inspect the PDF
+  action dictionary directly (the PDFBox getter creates a wrapper).
+- Ruling: rebuild PDF previews as raster-only PDFs with no copied source
+  objects, instead of embedding source PDFs behind headers. The cost is loss
+  of interactive/text/vector/accessibility features in previews; originals
+  remain byte-exact attachments. Task 6 must implement the documented safe
+  viewer contexts and fallback. No additional dependency was introduced.
+- Ruling: keep a 25 MiB source cap, bounded S3 reads and explicit PDF
+  page/pixel/output limits. The 30-second render budget is cooperative and
+  PDFBox is not process-isolated; this is bounded private-Core functionality,
+  not proof of public adversarial-parser resource isolation. Lowering the
+  configured upload limit can also restrict legacy downloads.
+- Verification: `mvnw.cmd spotless:apply verify` passed: **181 API tests,
+  zero failures/errors/skips**, including PostgreSQL Testcontainers migration
+  tests, Spotless and JAR packaging. HTTP tests ran outside the sandbox after
+  a sandbox loopback denial. Existing H2/Flyway version and JVM-agent warnings
+  remain. Docker was already running and remains running.
+- Owner self-review applied the Spring/security checklists and checked
+  requirements-to-tests and behavior-to-spec alignment. No independent
+  reviewer was launched, per the user's bounded-slice policy. S3 adapter
+  tests use controlled SDK streams; no live MinIO/browser proof is claimed.
+- See [content and viewer contract](../../development/DRIVE_FILE_CONTENT.md)
+  for endpoint statuses, authenticated read limits, preview transformation,
+  tradeoffs and Task 6 integration requirements.
+- Next checkpoint: Task 4, metadata-only rename and move.
+
 ## File and interface map
 
 - Schema: create `apps/api/src/main/resources/db/migration/V10__drive_folders.sql`; modify `drive/DriveFileMetadata.java` and `DriveFileRepository.java`; create `drive/DriveFolderMetadata.java` and `DriveFolderRepository.java`.
@@ -141,11 +180,11 @@ test` passed (13 tests; zero failures/errors/skips), including PostgreSQL 16
 
 **Interfaces:** `FileObjectStorage.getEncryptedObject(String storageKey, long maxCiphertextBytes): byte[]`, `FileEncryptionService.decryptBytes(byte[] ciphertext, String ivBase64): byte[]` (authenticated AES-GCM), `DriveFileContentService.read(String fileId): DriveFileContent(byte[] bytes, String name, String contentType)`. HTTP `GET /api/drive/files/{fileId}/download` and `/preview`; preview only PDF, PNG, JPEG and text.
 
-- [ ] **Step 1: Write failing tests** `originalDownloadBytesMatchUpload`, `previewDeniesUnsupportedOfficeType`, `legacyMislabeledOrCorruptContentCannotPreview`, `previewCannotExecuteActiveContent`, `viewerWithoutFileViewCannotFetchBytes`, `tamperedCiphertextFailsWithoutLeak`, `oversizedObjectRejectedBeforeBuffering`; assert no-store, nosniff and safe Content-Disposition.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveFileContentServiceTest,DriveFileControllerTest test`.
-- [ ] **Step 3: Implement:** authorize file VIEW before loading source metadata/bytes; add bounded S3 GetObject and AES-GCM tag verification, attachment vs inline safe headers and sanitized failures. Reuse Task 2 format validation before previewing legacy bytes, and define a viewer isolation/rendering policy that prevents active document content from executing; headers alone are not that policy. Preserve authenticated original attachment downloads without rewriting bytes. No plaintext object URL or cache.
-- [ ] **Step 4: Verify GREEN:** same scoped tests; check byte-for-byte comparison against originals.
-- [ ] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): serve protected original downloads and previews"`.
+- [x] **Step 1: Write failing tests** `originalDownloadBytesMatchUpload`, `previewDeniesUnsupportedOfficeType`, `legacyMislabeledOrCorruptContentCannotPreview`, `previewCannotExecuteActiveContent`, `viewerWithoutFileViewCannotFetchBytes`, `tamperedCiphertextFailsWithoutLeak`, `oversizedObjectRejectedBeforeBuffering`; assert no-store, nosniff and safe Content-Disposition.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveFileContentServiceTest,DriveFileControllerTest test`.
+- [x] **Step 3: Implement:** authorize file VIEW before loading source metadata/bytes; add bounded S3 GetObject and AES-GCM tag verification, attachment vs inline safe headers and sanitized failures. Reuse Task 2 format validation before previewing legacy bytes, and define a viewer isolation/rendering policy that prevents active document content from executing; headers alone are not that policy. Preserve authenticated original attachment downloads without rewriting bytes. No plaintext object URL or cache.
+- [x] **Step 4: Verify GREEN:** same scoped tests; check byte-for-byte comparison against originals.
+- [x] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): serve protected original downloads and previews"`.
 
 ### Task 4: Metadata-only rename and move
 
