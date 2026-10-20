@@ -11,7 +11,7 @@
 **Spec:** [Drive lifecycle](../specs/2026-10-18-mvp-core-drive-design.md) and [MVP milestones](../specs/2026-10-18-mvp-milestones-design.md). Dependent plan: [Drive Trash](2026-10-18-mvp-core-drive-trash.md).
 
 **Status:** Execution started 2026-10-20 following the user's instruction to start
-this plan. Tasks 1–3 are complete; Tasks 4–7 remain
+this plan. Tasks 1–4 are complete; Tasks 5–7 remain
 pending.
 
 **Spec impact:** No spec change. The review revisions below implement the approved Drive requirements for MIME/signature consistency, corrupt-format rejection and safe preview; product scope and acceptance criteria remain unchanged.
@@ -129,6 +129,46 @@ test` passed (13 tests; zero failures/errors/skips), including PostgreSQL 16
   tradeoffs and Task 6 integration requirements.
 - Next checkpoint: Task 4, metadata-only rename and move.
 
+## Task 4 execution record — 2026-10-20
+
+- User explicitly requested Task 4. Base: Task 3 commit `a9432b1`; branch
+  `feat/drive-rename-move` in the primary checkout, continuing Task 3's
+  checkout arrangement. One production-code owner, inline execution; retain
+  this tracked checkpoint instead of POSIX bookkeeping scripts. No push or
+  merge is authorized by this task.
+- Spec impact: **no spec change**. Implements approved metadata-only
+  rename/move, active-owner authorization, normalized sibling conflicts and
+  concurrent cycle prevention. Search projections remain explicitly deferred
+  to the Search plan. No frontend, worker, schema or event contract changes.
+- Baseline: 15 existing folder/controller and file-repository tests passed.
+  RED: new mutation tests failed compilation on the missing service/update
+  methods. GREEN: focused mutation/controller/repository checks passed.
+- Ruling: moves use comparison-only name checks so existing legacy names can
+  move without being renamed; new names still use full validation. A regression
+  first reproduced the incorrect 400 response, then passed with preserved name
+  ciphertext and cross-kind collision checks. This retains Task 2's legacy-name
+  compatibility without accepting invalid new names.
+- Owner integration review found that CORS blocked PATCH. A preflight regression
+  reproduced 403 for the configured frontend origin. Ruling: permit PATCH in
+  the existing method allowlist while retaining the origin allowlist; all four
+  mutation routes now pass preflight and untrusted origins remain denied.
+- Verification: `mvnw.cmd spotless:apply verify` passed: **196 API tests,
+  zero failures/errors/skips**, PostgreSQL Testcontainers migration/locking
+  checks, Spotless and JAR packaging. Tests requiring HTTP/Docker ran outside
+  the sandbox after concrete loopback/pipe access denials. Docker was already
+  running and remains running; no user-level service configuration changed.
+- Owner self-review applied the Spring/security checklists and checked both
+  requirements-to-tests and behavior-to-spec alignment. Tests cover stable IDs,
+  keys, content encryption and OCR associations, byte-exact downloads after
+  mutation, unchanged descendant rows, source/destination ownership, inactive
+  owners, foreign workspaces, Unicode conflicts, concurrent collisions and
+  concurrent cycle attempts. No separate reviewer was launched, per the user's
+  bounded-slice policy. No live MinIO/browser proof is claimed.
+- See [mutation contract](../../development/DRIVE_FILE_MUTATIONS.md) for request
+  bodies, statuses, repeat-call behavior, safe audit records and test commands.
+  The endpoint-naming instruction file remains absent; routes follow this
+  approved plan. Task 4: complete. Next checkpoint: Task 5, bounded folder ZIP.
+
 ## File and interface map
 
 - Schema: create `apps/api/src/main/resources/db/migration/V10__drive_folders.sql`; modify `drive/DriveFileMetadata.java` and `DriveFileRepository.java`; create `drive/DriveFolderMetadata.java` and `DriveFolderRepository.java`.
@@ -192,11 +232,11 @@ test` passed (13 tests; zero failures/errors/skips), including PostgreSQL 16
 
 **Interfaces:** `DriveFileMutationService.renameFile(String fileId, String name): DriveFileResponse`, `moveFile(String fileId, String destinationFolderId): DriveFileResponse`; `DriveFolderService.renameFolder(String folderId, String name): DriveFolderResponse`, `moveFolder(String folderId, String destinationFolderId): DriveFolderResponse`. HTTP PATCH endpoints `/api/drive/files/{fileId}/name|location` and `/api/drive/folders/{folderId}/name|location`.
 
-- [ ] **Step 1: Write failing tests** `renamePreservesObjectKeyFileIdAndOcrLink`, `moveFolderPreservesSubtreeReferences`, `rejectCycleSelfOrDescendant`, `rejectConcurrentCollision`, `viewOnlyUserCannotRenameOrMove`.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveFileMutationServiceTest,DriveFolderControllerTest test`.
-- [ ] **Step 3: Implement:** serialize workspace mutations via Task 1 lock; compare normalized encrypted sibling names under transaction; active owner permission required for source/destination; update parent IDs/name ciphertext only, not blobs or child IDs. Record metadata-only audit entries. Do not add an unconsumed event merely for future search reindexing; the separate Search plan will introduce and consume its source-update event atomically.
-- [ ] **Step 4: Verify GREEN:** same tests plus `DriveFileRepositoryTest`.
-- [ ] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): rename and move files and folder trees"`.
+- [x] **Step 1: Write failing tests** `renamePreservesObjectKeyFileIdAndOcrLink`, `moveFolderPreservesSubtreeReferences`, `rejectCycleSelfOrDescendant`, `rejectConcurrentCollision`, `viewOnlyUserCannotRenameOrMove`.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveFileMutationServiceTest,DriveFolderControllerTest test`.
+- [x] **Step 3: Implement:** serialize workspace mutations via Task 1 lock; compare normalized encrypted sibling names under transaction; active owner permission required for source/destination; update parent IDs/name ciphertext only, not blobs or child IDs. Record metadata-only audit entries. Do not add an unconsumed event merely for future search reindexing; the separate Search plan will introduce and consume its source-update event atomically.
+- [x] **Step 4: Verify GREEN:** same tests plus `DriveFileRepositoryTest`.
+- [x] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): rename and move files and folder trees"`.
 
 ### Task 5: Bounded recursive folder ZIP download
 

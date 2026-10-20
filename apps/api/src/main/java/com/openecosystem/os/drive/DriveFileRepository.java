@@ -110,6 +110,21 @@ public class DriveFileRepository {
         > 0;
   }
 
+  public boolean updateName(
+      String workspaceId, String fileId, String encryptedName, String nameIv, Instant when) {
+    return jdbcTemplate.update(
+            """
+            update drive_files set encrypted_name = ?, name_iv = ?, updated_at = ?
+            where workspace_id = ? and file_id = ?
+            """,
+            encryptedName,
+            nameIv,
+            Timestamp.from(when),
+            workspaceId,
+            fileId)
+        > 0;
+  }
+
   public List<DriveFileMetadata> listByIdsForWorkspace(
       String workspaceId, Collection<String> fileIds) {
     if (fileIds.isEmpty()) {

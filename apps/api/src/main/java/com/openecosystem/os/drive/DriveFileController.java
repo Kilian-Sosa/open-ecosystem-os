@@ -7,8 +7,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -21,12 +23,32 @@ public class DriveFileController {
 
   private final DriveUploadService driveUploadService;
   private final DriveFileContentService contentService;
+  private final DriveFileMutationService mutationService;
 
   public DriveFileController(
-      DriveUploadService driveUploadService, DriveFileContentService contentService) {
+      DriveUploadService driveUploadService,
+      DriveFileContentService contentService,
+      DriveFileMutationService mutationService) {
     this.driveUploadService = driveUploadService;
     this.contentService = contentService;
+    this.mutationService = mutationService;
   }
+
+  @PatchMapping("/{fileId}/name")
+  public DriveFileResponse renameFile(
+      @PathVariable String fileId, @RequestBody RenameFileRequest request) {
+    return mutationService.renameFile(fileId, request.name());
+  }
+
+  @PatchMapping("/{fileId}/location")
+  public DriveFileResponse moveFile(
+      @PathVariable String fileId, @RequestBody MoveFileRequest request) {
+    return mutationService.moveFile(fileId, request.destinationFolderId());
+  }
+
+  public record RenameFileRequest(String name) {}
+
+  public record MoveFileRequest(String destinationFolderId) {}
 
   @GetMapping("/{fileId}/download")
   public ResponseEntity<byte[]> downloadFile(@PathVariable String fileId) {

@@ -3,6 +3,7 @@ package com.openecosystem.os.drive;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -73,6 +74,51 @@ public class DriveFolderRepository {
         "select workspace_id from workspaces where workspace_id = ? for update",
         String.class,
         workspaceId);
+  }
+
+  public boolean isActiveMember(String workspaceId, String actorId) {
+    return Boolean.TRUE.equals(
+        jdbcTemplate.queryForObject(
+            """
+            select exists (
+              select 1 from workspace_memberships membership
+              join identity_users actor on actor.user_id = membership.user_id
+              join workspaces workspace on workspace.workspace_id = membership.workspace_id
+              where membership.workspace_id = ? and membership.user_id = ?
+                and actor.status = 'active' and workspace.status = 'active'
+            )
+            """,
+            Boolean.class,
+            workspaceId,
+            actorId));
+  }
+
+  public boolean updateName(
+      String workspaceId, String folderId, String encryptedName, String nameIv, Instant when) {
+    return jdbcTemplate.update(
+            """
+            update drive_folders set encrypted_name = ?, name_iv = ?, updated_at = ?
+            where workspace_id = ? and folder_id = ?
+            """,
+            encryptedName,
+            nameIv,
+            Timestamp.from(when),
+            workspaceId,
+            folderId)
+        > 0;
+  }
+
+  public boolean updateParent(String workspaceId, String folderId, String parentId, Instant when) {
+    return jdbcTemplate.update(
+            """
+            update drive_folders set parent_folder_id = ?, updated_at = ?
+            where workspace_id = ? and folder_id = ?
+            """,
+            parentId,
+            Timestamp.from(when),
+            workspaceId,
+            folderId)
+        > 0;
   }
 
   private static DriveFolderMetadata mapRow(ResultSet resultSet, int rowNumber)

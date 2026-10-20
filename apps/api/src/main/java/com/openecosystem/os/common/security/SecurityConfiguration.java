@@ -31,7 +31,7 @@ public class SecurityConfiguration {
       @Value("${openecosystem.cors.allowed-origins}") String allowedOrigins) {
     CorsConfiguration configuration = new CorsConfiguration();
     configuration.setAllowedOrigins(parseCommaSeparated(allowedOrigins));
-    configuration.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
+    configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "OPTIONS"));
     configuration.setAllowedHeaders(List.of("*"));
     configuration.setExposedHeaders(List.of(CorrelationIds.HEADER_NAME));
     configuration.setAllowCredentials(false);

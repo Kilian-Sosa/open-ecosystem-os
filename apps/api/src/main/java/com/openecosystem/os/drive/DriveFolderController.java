@@ -3,6 +3,7 @@ package com.openecosystem.os.drive;
 import java.net.URI;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -39,4 +40,20 @@ public class DriveFolderController {
   }
 
   public record CreateFolderRequest(String name, String parentFolderId) {}
+
+  @PatchMapping("/{folderId}/name")
+  public DriveFolderResponse renameFolder(
+      @PathVariable String folderId, @RequestBody RenameFolderRequest request) {
+    return service.renameFolder(folderId, request.name());
+  }
+
+  @PatchMapping("/{folderId}/location")
+  public DriveFolderResponse moveFolder(
+      @PathVariable String folderId, @RequestBody MoveFolderRequest request) {
+    return service.moveFolder(folderId, request.destinationFolderId());
+  }
+
+  public record RenameFolderRequest(String name) {}
+
+  public record MoveFolderRequest(String destinationFolderId) {}
 }

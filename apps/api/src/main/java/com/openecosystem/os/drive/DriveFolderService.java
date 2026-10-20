@@ -14,6 +14,7 @@ import com.openecosystem.os.common.security.ResourceAuthorizationService;
 import com.openecosystem.os.common.security.ResourceType;
 import com.openecosystem.os.drive.crypto.FileEncryptionService;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -87,6 +88,75 @@ public class DriveFolderService {
     return toResponse(requireOwner(folderId, p));
   }
 
+  @Transactional
+  public DriveFolderResponse renameFolder(String folderId, String name) {
+    var p = authentication.currentPrincipal();
+    folders.lockWorkspaceForMutation(p.workspaceId());
+    var source = requireMutationOwner(folderId, p);
+    requireOwner(source.parentFolderId(), p);
+    assertAvailable(name, source.parentFolderId(), p.workspaceId(), null, folderId);
+    var encrypted = encryption.encryptText(name);
+    var now = Instant.now();
+    if (!folders.updateName(
+        p.workspaceId(), folderId, encrypted.ciphertextBase64(), encrypted.ivBase64(), now))
+      throw notFound();
+    recordMutation("drive.folder.renamed", folderId, p, now);
+    return toResponse(
+        folders
+            .findByIdForWorkspace(folderId, p.workspaceId())
+            .orElseThrow(DriveFolderService::notFound));
+  }
+
+  @Transactional
+  public DriveFolderResponse moveFolder(String folderId, String destinationFolderId) {
+    var p = authentication.currentPrincipal();
+    folders.lockWorkspaceForMutation(p.workspaceId());
+    var source = requireMutationOwner(folderId, p);
+    requireOwner(source.parentFolderId(), p);
+    String destination = rootOrId(destinationFolderId);
+    var visited = new HashSet<String>();
+    String ancestor = destination;
+    while (ancestor != null) {
+      if (ancestor.equals(folderId) || !visited.add(ancestor))
+        throw new ApiException(
+            HttpStatus.CONFLICT, ApiErrorCode.CONFLICT, "Drive folder move would create a cycle");
+      ancestor = requireOwner(ancestor, p).parentFolderId();
+    }
+    String name = encryption.decryptText(source.encryptedName(), source.nameIv());
+    assertMoveAvailable(name, destination, p.workspaceId(), null, folderId);
+    var now = Instant.now();
+    if (!folders.updateParent(p.workspaceId(), folderId, destination, now)) throw notFound();
+    recordMutation("drive.folder.moved", folderId, p, now);
+    return toResponse(
+        folders
+            .findByIdForWorkspace(folderId, p.workspaceId())
+            .orElseThrow(DriveFolderService::notFound));
+  }
+
+  private DriveFolderMetadata requireMutationOwner(String folderId, AuthenticatedPrincipal p) {
+    if (!p.authenticated() || !folders.isActiveMember(p.workspaceId(), p.actorId()))
+      throw notFound();
+    var source = requireOwner(folderId, p);
+    if (source == null) throw notFound();
+    return source;
+  }
+
+  private void recordMutation(
+      String action, String folderId, AuthenticatedPrincipal p, Instant now) {
+    audits.save(
+        new AuditRecord(
+            Ids.newId("aud"),
+            action,
+            "folder",
+            folderId,
+            p.workspaceId(),
+            p.actorId(),
+            CorrelationContext.currentOrCreate(),
+            now,
+            AuditOutcome.SUCCESS,
+            Map.of()));
+  }
+
   public DriveDirectoryListResponse listFolderContents(String folderId) {
     var p = authentication.currentPrincipal();
     String parent = rootOrId(folderId);
@@ -121,15 +191,45 @@ public class DriveFolderService {
   }
 
   void assertAvailable(String name, String parent, String workspaceId) {
-    String key = names.normalize(name);
+    assertAvailable(name, parent, workspaceId, null, null);
+  }
+
+  void assertAvailable(
+      String name,
+      String parent,
+      String workspaceId,
+      String excludedFileId,
+      String excludedFolderId) {
+    assertComparisonAvailable(
+        names.normalize(name), parent, workspaceId, excludedFileId, excludedFolderId);
+  }
+
+  void assertMoveAvailable(
+      String name,
+      String parent,
+      String workspaceId,
+      String excludedFileId,
+      String excludedFolderId) {
+    assertComparisonAvailable(
+        names.comparisonKey(name), parent, workspaceId, excludedFileId, excludedFolderId);
+  }
+
+  private void assertComparisonAvailable(
+      String key,
+      String parent,
+      String workspaceId,
+      String excludedFileId,
+      String excludedFolderId) {
     boolean conflict =
         folders.listChildren(workspaceId, parent).stream()
+                .filter(f -> !f.folderId().equals(excludedFolderId))
                 .anyMatch(
                     f ->
                         key.equals(
                             names.comparisonKey(
                                 encryption.decryptText(f.encryptedName(), f.nameIv()))))
             || files.listByFolder(workspaceId, parent).stream()
+                .filter(f -> !f.fileId().equals(excludedFileId))
                 .anyMatch(
                     f ->
                         key.equals(
@@ -158,7 +258,7 @@ public class DriveFolderService {
         f.updatedAt());
   }
 
-  private DriveFileResponse fileResponse(DriveFileMetadata f) {
+  DriveFileResponse fileResponse(DriveFileMetadata f) {
     return new DriveFileResponse(
         f.fileId(),
         f.visibility().value(),

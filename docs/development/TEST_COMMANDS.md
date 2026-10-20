@@ -72,6 +72,15 @@ See [the content and viewer contract](DRIVE_FILE_CONTENT.md) for scope, bounds,
 synthetic fixtures and browser integration requirements. Run `mvnw.cmd verify`
 for the full API suite, PostgreSQL migration tests, formatting and packaging.
 
+Drive metadata rename/move (Task 4), from `apps/api`:
+
+```powershell
+.\mvnw.cmd '-Dtest=DriveFileMutationServiceTest,DriveFolderControllerTest,DriveFileRepositoryTest' test
+```
+
+See [the mutation contract](DRIVE_FILE_MUTATIONS.md) for request bodies,
+authorization, concurrency, compatibility and deferred Search behavior.
+
 Recommended Maven profiles later:
 
 ```bash
