@@ -10,7 +10,9 @@
 
 **Spec:** [Drive lifecycle](../specs/2026-10-18-mvp-core-drive-design.md) and [MVP milestones](../specs/2026-10-18-mvp-milestones-design.md). Dependent plan: [Drive Trash](2026-10-18-mvp-core-drive-trash.md).
 
-**Status:** Proposed implementation plan for user review; not authorized for execution.
+**Status:** Execution started 2026-10-20 following the user's instruction to start
+this plan. Task 1 is the first bounded implementation slice; Tasks 2–7 remain
+pending.
 
 **Spec impact:** No spec change. The review revisions below implement the approved Drive requirements for MIME/signature consistency, corrupt-format rejection and safe preview; product scope and acceptance criteria remain unchanged.
 
@@ -24,7 +26,40 @@
 - Existing FileUploaded/OCR flows, seeded-private identity, and sharing tests must keep working. Do not implement configurable Flows, public links, PDF editing, Trash, or cloud OCR in this plan.
 - Reuse the Java ZIP library and AWS SDK; impose explicit server-side limits. Use English code comments only.
 - Validate upload bytes against the configured supported formats and declared MIME type before storing an object or publishing `FileUploaded`. A MIME allowlist alone is insufficient. Apply the preview safety check to legacy files too; never execute active document content.
-- Follow RED → GREEN with a scoped test per task and commit after verification. No push, merge, implementation or plan execution until user approves the plan and execution approach.
+- Follow RED → GREEN with a scoped test per task and commit after verification.
+  Execution is authorized by the user's 2026-10-20 instruction. Push and merge
+  require separate authorization.
+
+## Execution record — 2026-10-20
+
+- Base: `develop` at `4175be4`; isolated app-managed worktree on
+  `feat/drive-organization`. Execute inline with one production-code owner.
+- Scope for this run: Task 1, matching the repository's bounded-slice rule.
+  Folder APIs, validation, content serving, mutations, ZIP and UI follow in
+  Tasks 2–7. No event, API, permission or UI contract changes in Task 1.
+- Spec impact: **no spec change**. Implements the approved folder model and
+  legacy-root acceptance criterion in the Drive lifecycle spec.
+- Pre-flight: Task 1's folder IDs, nullable file placement and workspace lock
+  support Tasks 2/4/5. Task 2's content validator supports Tasks 3/6; Task 3's
+  protected reads support Tasks 5/6. No shared-interface conflict identified.
+- Ruling: use the Windows Maven wrapper and record progress here rather than
+  invoking the skill's POSIX bookkeeping scripts. The tracked plan retains the
+  execution checkpoint; the cost is manual checkbox maintenance.
+- Baseline: existing `DriveFileRepositoryTest` passed (2 tests). RED: new
+  repository tests failed compilation on the absent folder types and methods.
+- Test-fixture finding: H2 constraint comparisons retained a closed migration
+  session with unpooled connections. Keep one connection per isolated H2 test
+  and close it after the test; PostgreSQL uses the existing Testcontainers suite.
+- Focused GREEN: `mvnw.cmd spotless:apply
+-Dtest=DriveFolderRepositoryTest,DriveFileRepositoryTest,RealOcrPostgresMigrationTest
+test` passed (13 tests; zero failures/errors/skips), including PostgreSQL 16
+  upgrade and transaction-lock coverage.
+- Task 1: complete. `mvnw.cmd verify` passed (142 tests; zero
+  failures/errors/skips), packaged the API and passed Spotless. Owner self-review
+  checked the migration, consumers and test coverage against the approved spec;
+  no separate reviewer was launched. API CI exercises these Maven checks.
+- Next checkpoint: Task 2. Keep upload placement, sibling-name validation and
+  content validation together; Task 1 alone does not expose folder operations.
 
 ## File and interface map
 
@@ -51,11 +86,11 @@
 
 **Interfaces:** `DriveFolderMetadata(String folderId, String workspaceId, String ownerId, String parentFolderId, String encryptedName, String nameIv, Instant createdAt, Instant updatedAt)`. `DriveFolderRepository.save(DriveFolderMetadata)`, `findByIdForWorkspace(String folderId, String workspaceId)`, `listChildren(String workspaceId, String parentId)`, `lockWorkspaceForMutation(String workspaceId)`. Extend `DriveFileMetadata` with nullable `folderId`, and `DriveFileRepository.listByFolder(String workspaceId, String folderId)`, `updateFolder(String workspaceId, String fileId, String folderId, Instant when)`.
 
-- [ ] **Step 1: Write failing tests** `existingFilesMigrateIntoRoot`, `nestedEmptyFolderSurvivesReload`, `crossWorkspaceFolderReferenceRejected`; assert original files' folder ID null, encrypted names persisted and wrong-workspace relationships refused. Update all affected file-record test constructors.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveFolderRepositoryTest,DriveFileRepositoryTest test`; expected missing table/type.
-- [ ] **Step 3: Implement schema/repositories:** `drive_folders` has ID, scoped parent FK, owner, encrypted name+IV, timestamps; nullable `drive_files.folder_id`. Add composite workspace+folder foreign keys so neither files nor folders can reference a folder in another workspace. Use `SELECT ... FOR UPDATE` on the workspace row to serialize folder mutations (also works for root); add child indexes.
-- [ ] **Step 4: Verify GREEN:** same tests, plus the existing PostgreSQL Testcontainers migration suite; expect zero failures.
-- [ ] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): persist nested folders and file placement"`.
+- [x] **Step 1: Write failing tests** `existingFilesMigrateIntoRoot`, `nestedEmptyFolderSurvivesReload`, `crossWorkspaceFolderReferenceRejected`; assert original files' folder ID null, encrypted names persisted and wrong-workspace relationships refused. Update all affected file-record test constructors.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveFolderRepositoryTest,DriveFileRepositoryTest test`; expected missing table/type.
+- [x] **Step 3: Implement schema/repositories:** `drive_folders` has ID, scoped parent FK, owner, encrypted name+IV, timestamps; nullable `drive_files.folder_id`. Add composite workspace+folder foreign keys so neither files nor folders can reference a folder in another workspace. Use `SELECT ... FOR UPDATE` on the workspace row to serialize folder mutations (also works for root); add child indexes.
+- [x] **Step 4: Verify GREEN:** same tests, plus the existing PostgreSQL Testcontainers migration suite; expect zero failures.
+- [x] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): persist nested folders and file placement"`.
 
 ### Task 2: Folder creation/navigation and upload placement
 
@@ -133,4 +168,4 @@
 
 ## Self-review and handoff
 
-The seven tasks are deliberately scoped so every implementation/verification gate can be reviewed independently. Confirm approved upload validation and safe preview are covered in both implementation and tests, including legacy files. Full MVP Core still requires the [Trash plan](2026-10-18-mvp-core-drive-trash.md) and later OCR/Search/invoice/image-PDF plans. This plan does not authorize implementation; use an isolated worktree/branch after explicit plan review and execution method selection.
+The seven tasks are deliberately scoped so every implementation/verification gate can be reviewed independently. Confirm approved upload validation and safe preview are covered in both implementation and tests, including legacy files. Full MVP Core still requires the [Trash plan](2026-10-18-mvp-core-drive-trash.md) and later OCR/Search/invoice/image-PDF plans. Continue in the isolated worktree/branch and update the execution record after each verified slice.

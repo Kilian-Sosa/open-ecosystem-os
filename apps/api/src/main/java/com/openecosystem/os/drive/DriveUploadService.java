@@ -91,6 +91,7 @@ public class DriveUploadService {
             principal.workspaceId(),
             principal.actorId(),
             DriveFileVisibility.PRIVATE,
+            null,
             encryptedName.ciphertextBase64(),
             upload.contentType(),
             plaintext.length,

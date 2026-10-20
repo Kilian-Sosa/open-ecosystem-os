@@ -3,6 +3,11 @@ package com.openecosystem.os.migration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.openecosystem.os.drive.DriveFileRepository;
+import com.openecosystem.os.drive.DriveFolderMetadata;
+import com.openecosystem.os.drive.DriveFolderRepository;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.UUID;
@@ -12,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -24,6 +30,108 @@ class RealOcrPostgresMigrationTest {
   @Container
   private static final PostgreSQLContainer<?> POSTGRES =
       new PostgreSQLContainer<>("postgres:16-alpine");
+
+  @Test
+  void existingFilesMigrateIntoRootAndFoldersPreserveWorkspaceBoundaries() {
+    String schema = schemaName();
+    migrate(schema, MigrationVersion.fromVersion("9"));
+    JdbcTemplate jdbc = jdbcTemplate(schema);
+    insertDriveFile(jdbc, "file_legacy_folder", "wrk_dev_placeholder");
+    insertDriveFile(jdbc, "file_foreign_folder", "wrk_other");
+
+    migrate(schema, null);
+
+    var files = new DriveFileRepository(jdbc);
+    assertThat(files.listByFolder("wrk_dev_placeholder", null))
+        .singleElement()
+        .satisfies(
+            file -> {
+              assertThat(file.folderId()).isNull();
+              assertThat(file.fileId()).isEqualTo("file_legacy_folder");
+              assertThat(file.encryptedName()).isEqualTo("encrypted-name");
+              assertThat(file.storageKey())
+                  .isEqualTo("workspaces/wrk_dev_placeholder/drive/file_legacy_folder/original");
+            });
+    var folders = new DriveFolderRepository(jdbc);
+    folders.save(
+        new DriveFolderMetadata(
+            "folder_root",
+            "wrk_dev_placeholder",
+            "usr_dev_placeholder",
+            null,
+            "synthetic-encrypted-root",
+            "synthetic-iv",
+            NOW,
+            NOW));
+    folders.save(
+        new DriveFolderMetadata(
+            "folder_empty",
+            "wrk_dev_placeholder",
+            "usr_dev_placeholder",
+            "folder_root",
+            "synthetic-encrypted-empty",
+            "synthetic-iv",
+            NOW,
+            NOW));
+    assertThat(new DriveFolderRepository(jdbc).listChildren("wrk_dev_placeholder", "folder_root"))
+        .extracting(DriveFolderMetadata::folderId)
+        .containsExactly("folder_empty");
+    insertActiveWorkspaceMember(jdbc, "wrk_other", "usr_other_folder");
+    assertThatThrownBy(
+            () ->
+                folders.save(
+                    new DriveFolderMetadata(
+                        "folder_foreign",
+                        "wrk_other",
+                        "usr_other_folder",
+                        "folder_root",
+                        "encrypted",
+                        "iv",
+                        NOW,
+                        NOW)))
+        .isInstanceOf(DataIntegrityViolationException.class);
+    assertThatThrownBy(
+            () -> files.updateFolder("wrk_other", "file_foreign_folder", "folder_root", NOW))
+        .isInstanceOf(DataIntegrityViolationException.class);
+    assertThat(files.updateFolder("wrk_dev_placeholder", "file_legacy_folder", "folder_empty", NOW))
+        .isTrue();
+    assertThat(files.listByFolder("wrk_dev_placeholder", null)).isEmpty();
+    assertThat(files.listByFolder("wrk_dev_placeholder", "folder_empty")).hasSize(1);
+  }
+
+  @Test
+  void workspaceMutationLockIsHeldUntilTransactionCompletes() throws SQLException {
+    String schema = schemaName();
+    migrate(schema, null);
+    String url = POSTGRES.getJdbcUrl() + "&currentSchema=" + schema;
+    try (var first =
+            DriverManager.getConnection(url, POSTGRES.getUsername(), POSTGRES.getPassword());
+        var second =
+            DriverManager.getConnection(url, POSTGRES.getUsername(), POSTGRES.getPassword())) {
+      first.setAutoCommit(false);
+      var folders =
+          new DriveFolderRepository(new JdbcTemplate(new SingleConnectionDataSource(first, true)));
+      folders.lockWorkspaceForMutation("wrk_dev_placeholder");
+      try (var statement = second.createStatement()) {
+        statement.execute("set lock_timeout = '200ms'");
+        assertThatThrownBy(
+                () ->
+                    statement.executeQuery(
+                        "select workspace_id from workspaces where workspace_id ="
+                            + " 'wrk_dev_placeholder' for update"))
+            .isInstanceOf(SQLException.class)
+            .satisfies(
+                error -> assertThat(((SQLException) error).getSQLState()).isEqualTo("55P03"));
+        first.commit();
+        try (var result =
+            statement.executeQuery(
+                "select workspace_id from workspaces where workspace_id = 'wrk_dev_placeholder' for"
+                    + " update")) {
+          assertThat(result.next()).isTrue();
+        }
+      }
+    }
+  }
 
   @Test
   void upgradesRepresentativeV6RowsThroughAllOcrMigrationsWithoutDataLoss() {

@@ -188,6 +188,7 @@ public final class DriveFileSharingService {
         metadata.workspaceId(),
         metadata.ownerId(),
         visibility,
+        metadata.folderId(),
         metadata.encryptedName(),
         metadata.contentType(),
         metadata.sizeBytes(),

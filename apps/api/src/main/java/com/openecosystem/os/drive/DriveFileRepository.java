@@ -17,7 +17,7 @@ public class DriveFileRepository {
 
   private static final String METADATA_COLUMNS =
       """
-      file_id, workspace_id, owner_id, visibility, encrypted_name, content_type, size_bytes,
+      file_id, workspace_id, owner_id, visibility, folder_id, encrypted_name, content_type, size_bytes,
       checksum_sha256, storage_key, encryption_algorithm, encryption_key_id, content_iv, name_iv,
       created_at, updated_at
       """;
@@ -37,6 +37,7 @@ public class DriveFileRepository {
           workspace_id,
           owner_id,
           visibility,
+          folder_id,
           encrypted_name,
           content_type,
           size_bytes,
@@ -48,12 +49,13 @@ public class DriveFileRepository {
           name_iv,
           created_at,
           updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         metadata.fileId(),
         metadata.workspaceId(),
         metadata.ownerId(),
         metadata.visibility().value(),
+        metadata.folderId(),
         metadata.encryptedName(),
         metadata.contentType(),
         metadata.sizeBytes(),
@@ -81,6 +83,31 @@ public class DriveFileRepository {
         "select file_id from drive_files where workspace_id = ? order by created_at desc",
         String.class,
         workspaceId);
+  }
+
+  public List<DriveFileMetadata> listByFolder(String workspaceId, String folderId) {
+    String query =
+        "select "
+            + METADATA_COLUMNS
+            + " from drive_files where workspace_id = ? and folder_id "
+            + (folderId == null ? "is null" : "= ?")
+            + " order by created_at desc";
+    return folderId == null
+        ? jdbcTemplate.query(query, ROW_MAPPER, workspaceId)
+        : jdbcTemplate.query(query, ROW_MAPPER, workspaceId, folderId);
+  }
+
+  public boolean updateFolder(String workspaceId, String fileId, String folderId, Instant when) {
+    return jdbcTemplate.update(
+            """
+            update drive_files set folder_id = ?, updated_at = ?
+            where workspace_id = ? and file_id = ?
+            """,
+            folderId,
+            Timestamp.from(when),
+            workspaceId,
+            fileId)
+        > 0;
   }
 
   public List<DriveFileMetadata> listByIdsForWorkspace(
@@ -138,6 +165,7 @@ public class DriveFileRepository {
         resultSet.getString("workspace_id"),
         resultSet.getString("owner_id"),
         DriveFileVisibility.fromValue(resultSet.getString("visibility")),
+        resultSet.getString("folder_id"),
         resultSet.getString("encrypted_name"),
         resultSet.getString("content_type"),
         resultSet.getLong("size_bytes"),

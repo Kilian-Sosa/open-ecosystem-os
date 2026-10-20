@@ -119,6 +119,7 @@ class OcrJobRepositoryTest {
         workspaceId,
         "usr_owner",
         DriveFileVisibility.PRIVATE,
+        null,
         "encrypted-name",
         "application/pdf",
         12,

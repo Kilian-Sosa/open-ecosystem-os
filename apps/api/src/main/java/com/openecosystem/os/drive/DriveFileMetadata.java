@@ -7,6 +7,7 @@ public record DriveFileMetadata(
     String workspaceId,
     String ownerId,
     DriveFileVisibility visibility,
+    String folderId,
     String encryptedName,
     String contentType,
     long sizeBytes,
