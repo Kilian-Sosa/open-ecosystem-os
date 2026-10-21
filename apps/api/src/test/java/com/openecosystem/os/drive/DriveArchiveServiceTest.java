@@ -63,6 +63,50 @@ class DriveArchiveServiceTest {
   }
 
   @Test
+  void escapesPortableNamesReversiblyWithoutChangingDriveMetadata() throws Exception {
+    folder("root", null, "Reports.");
+    var child = folder("child", "root", "Invoices:2026");
+    when(folders.listChildren(eq(actor.workspaceId()), eq("root"), anyInt()))
+        .thenReturn(List.of(child));
+    file("one", "child", "report. ", new byte[] {1, 2});
+    file("two", "root", "Invoices%3A2026", new byte[] {3});
+    try (var zip = service(1000, 1024, Duration.ofMinutes(2)).prepareZip("root")) {
+      assertThat(zip.filename()).isEqualTo("Reports%2E.zip");
+      var entries = unzip(Files.readAllBytes(zip.path()));
+      assertThat(entries.keySet())
+          .containsExactlyInAnyOrder(
+              "Invoices%3A2026/", "Invoices%3A2026/report%2E%20", "Invoices%253A2026");
+      assertThat(entries.get("Invoices%3A2026/report%2E%20")).containsExactly(1, 2);
+    }
+    assertClean();
+  }
+
+  @Test
+  void escapesPortablePunctuationAndDeviceNamesWithoutCollisions() throws Exception {
+    for (var example :
+        Map.of(
+                "C:secret",
+                "C%3Asecret",
+                "CON.txt",
+                "%43ON.txt",
+                "LPT¹",
+                "%4CPT¹",
+                "a?*<>|\"",
+                "a%3F%2A%3C%3E%7C%22",
+                "trailing.",
+                "trailing%2E")
+            .entrySet()) {
+      file("one", "root", example.getKey(), new byte[] {7});
+      try (var zip = service(1000, 1024, Duration.ofMinutes(2)).prepareZip("root")) {
+        var entries = unzip(Files.readAllBytes(zip.path()));
+        assertThat(entries.keySet()).containsExactly(example.getValue());
+        assertThat(entries.get(example.getValue())).containsExactly(7);
+      }
+    }
+    assertClean();
+  }
+
+  @Test
   void snapshotCommitFailureCreatesNoTemporaryArchive() throws Exception {
     file("one", "root", "synthetic.txt", new byte[] {1});
     doThrow(new IllegalStateException("Synthetic database failure"))
@@ -113,7 +157,6 @@ class DriveArchiveServiceTest {
             "../secret",
             "/absolute",
             "C:\\secret",
-            "C:secret",
             "\\\\server\\share",
             "bad\nname",
             "bad/child",

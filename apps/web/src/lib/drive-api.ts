@@ -203,7 +203,8 @@ export async function fetchDrivePreview(
 
 async function saveDownload(path: string, name: string) {
   const response = await driveRequest(path);
-  const url = URL.createObjectURL(await response.blob());
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = name.replace(/[\\/\x00-\x1f\x7f]/g, "_");
@@ -218,12 +219,6 @@ async function saveDownload(path: string, name: string) {
 
 export const downloadDriveFile = (file: DriveFile) =>
   saveDownload(`files/${encodeURIComponent(file.fileId)}/download`, file.name);
-export const downloadDriveFolderZip = (folder: DriveFolder) =>
-  saveDownload(
-    `folders/${encodeURIComponent(folder.folderId)}/download`,
-    `${folder.name}.zip`,
-  );
-
 type ApiErrorResponse = {
   message?: unknown;
 };

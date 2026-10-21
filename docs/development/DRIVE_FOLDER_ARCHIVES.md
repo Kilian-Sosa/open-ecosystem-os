@@ -4,6 +4,10 @@ Task 5 implements folder ZIP downloads from the approved Drive lifecycle spec.
 Spec impact: **no spec change**. No frontend, schema, worker, event, audit,
 upload or original-file contracts change. Task 6 supplies the download UI.
 
+The 2026-10-21 review fixes extend the existing Drive spec with reversible
+portable-name escaping. The subsequent approved streaming change supersedes
+the temporary browser ZIP response cap. Spec impact: **update existing spec**.
+
 ## HTTP contract
 
 `GET /api/drive/folders/{folderId}/download` returns a complete ZIP attachment.
@@ -65,12 +69,57 @@ that exceeds the budget is never returned successfully. It is not a hard
 two-minute wall-clock or process-isolation guarantee.
 
 Entry segments use NFC normalization and the existing directory-name policy.
-Also reject colon and unsafe portable filename punctuation, trailing periods
-or spaces, absolute paths and separators. Detect case/Unicode collisions
-across files and folders. Relative paths are limited to 4096 UTF-8 bytes.
-Unsafe legacy names fail the export rather than being silently renamed;
+Reject traversal, absolute paths and separators. Escape `%` and nonportable
+punctuation (`:`, `"`, `<`, `>`, `|`, `?`, `*`), trailing periods/spaces, and
+the first character of Windows device names using uppercase percent-encoded
+UTF-8 bytes. Literal percent signs are escaped too, so decoding once recovers
+the NFC name without ambiguity. For example, `Invoices:2026` exports as
+`Invoices%3A2026`, while `Invoices%3A2026` exports as `Invoices%253A2026`.
+Stored Drive names and original bytes do not change. Detect case/Unicode
+collisions across exported files and folders. Relative paths remain limited
+to 4096 UTF-8 bytes after escaping. Invalid legacy names fail the export;
 original-file download remains available. Long attachment filenames fall back
 to `download.zip`.
+
+## Native browser streaming
+
+The temporary **25 MiB compressed** client cap is superseded. Folder actions
+are native links opening `/downloads/drive/folders/{folderId}` in a separate
+context with `noopener noreferrer`. The browser manages progress, cancellation
+and completion; Drive does not fetch ZIP bytes, create Blob URLs or claim
+completion. Original-file downloads and bounded previews remain unchanged.
+
+The Node route sends fixed seeded workspace headers and requests identity
+encoding from the existing backend attachment. It reads one chunk per downstream
+pull with no accumulated archive, propagates abort/cancel to the fetch and reader,
+and releases listeners/reader locks. It rejects redirects, non-200/non-ZIP or
+non-attachment successes and encoded bodies. Only attachment type/disposition
+and valid integer Content-Length pass upstream; security headers are local.
+Errors are constant text without upstream diagnostics or download disposition.
+401/403/404/409/413/422/429/503 survive; other failures become 502.
+After headers, stream failure terminates the download without appending text.
+
+Server-only `API_BASE_URL` must be an explicit absolute HTTP(S) origin without
+credentials, subpath, query, fragment, backslashes or whitespace. Invalid/missing
+configuration fails closed with 502 before fetch. Public browser configuration
+and caller identity, query, URLs and unknown headers cannot override it.
+For host-local Next.js, set process-only `$env:API_BASE_URL='http://localhost:8080'`
+or the actual isolated API port before startup. Compose web explicitly uses
+`http://api:8080` irrespective of host `.env` values; browser
+`NEXT_PUBLIC_API_BASE_URL` and build configuration remain separate. Kubernetes
+`/api` routes directly to Spring Boot; `/downloads` reaches web via `/` unchanged.
+
+This proxy **does not authenticate callers** and uses the seeded Core identity.
+Keep it behind the trusted private access boundary. It does not authorize public
+deployment. Future real auth must replace the adapter with verified identity.
+Reverse proxies must allow streaming and suitable response durations. Constant
+memory refers to application code, not platform network/proxy/disk buffers.
+Upstream cancellation is cooperative; Java preparation may finish before it
+observes a disconnect, and interrupted downloads may be truncated. Existing
+server authorization, spool permissions, limits and cleanup remain intact.
+
+See the [streaming design](../superpowers/specs/2026-10-21-drive-browser-streaming-downloads-design.md)
+and [execution evidence](../superpowers/plans/2026-10-21-drive-browser-streaming-downloads.md).
 
 ## Temporary storage and cleanup
 
@@ -89,6 +138,12 @@ ZIP. A network failure during transfer can still truncate the client's download.
 Process termination or host failure cannot run Java cleanup; ephemeral-storage
 lifecycle must remove abandoned workspaces. Cleanup cannot guarantee physical
 erasure or overcome filesystem deletion failures.
+
+HTTP tests wait up to five seconds for the private temporary directory to
+become empty, polling every 25 ms. Receiving the complete Content-Length body
+can precede the controller's final resource close; it does not prove server-side
+cleanup has returned. Service-level tests still assert immediately after close.
+This synchronizes observation without changing production cleanup behavior.
 
 ## Verification
 

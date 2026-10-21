@@ -174,10 +174,22 @@ public class DriveArchiveService {
     } catch (ApiException exception) {
       throw invalid();
     }
-    if (name.codePoints().anyMatch(c -> ":\"<>|?*".indexOf(c) >= 0)
-        || name.endsWith(".")
-        || name.endsWith(" ")) throw invalid();
-    return Normalizer.normalize(name, Normalizer.Form.NFC);
+    String normalized = Normalizer.normalize(name, Normalizer.Form.NFC);
+    int trailing = normalized.length();
+    while (trailing > 0 && ". ".indexOf(normalized.charAt(trailing - 1)) >= 0) trailing--;
+    boolean reserved = normalized.matches("(?i)(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])([. ].*)?");
+    var encoded = new StringBuilder();
+    for (int i = 0; i < normalized.length(); i++) {
+      char c = normalized.charAt(i);
+      if ("%:\"<>|?*".indexOf(c) >= 0 || i >= trailing || (reserved && i == 0)) {
+        for (byte b : String.valueOf(c).getBytes(StandardCharsets.UTF_8)) {
+          encoded.append('%');
+          encoded.append("0123456789ABCDEF".charAt((b & 0xff) >>> 4));
+          encoded.append("0123456789ABCDEF".charAt(b & 0xf));
+        }
+      } else encoded.append(c);
+    }
+    return encoded.toString();
   }
 
   private void checkBudget(long started) {

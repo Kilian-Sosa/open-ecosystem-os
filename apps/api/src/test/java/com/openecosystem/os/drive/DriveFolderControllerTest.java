@@ -48,6 +48,41 @@ class DriveFolderControllerTest {
   final JsonMapper json = JsonMapper.builder().build();
 
   @Test
+  void privateNamesOfOtherOwnersDoNotConflictWithDirectoryMutations() throws Exception {
+    jdbc.update(
+        "insert into identity_users"
+            + " (user_id,display_name,email,avatar_initials,status,is_seeded,created_at,updated_at)"
+            + " values"
+            + " ('usr_other_synthetic','Synthetic','private@example.test','TS','active',false,current_timestamp,current_timestamp)");
+    String foreignFile = uploadedFile("Synthetic private.txt", null);
+    String foreignFolder = create("Synthetic private folder", null);
+    jdbc.update(
+        "update drive_files set owner_id='usr_other_synthetic' where file_id=?", foreignFile);
+    jdbc.update(
+        "update drive_folders set owner_id='usr_other_synthetic' where folder_id=?", foreignFolder);
+    String folder = create("Synthetic private.txt", null);
+    String ownFile = uploadedFile("Synthetic private folder", null);
+    assertThat(patch("files", ownFile, "name", "name", "SYNTHETIC PRIVATE.TXT", null).statusCode())
+        .isEqualTo(409);
+    assertThat(patch("folders", folder, "name", "name", "Other", null).statusCode()).isEqualTo(200);
+    assertThat(patch("files", ownFile, "name", "name", "SYNTHETIC PRIVATE.TXT", null).statusCode())
+        .isEqualTo(200);
+    String nested = create("Nested", folder);
+    assertThat(
+            patch("folders", nested, "name", "name", "Synthetic private folder", null).statusCode())
+        .isEqualTo(200);
+    assertThat(patch("folders", nested, "location", "destinationFolderId", null, null).statusCode())
+        .isEqualTo(200);
+    assertThat(get("/contents", null).body()).doesNotContain(foreignFile, foreignFolder);
+    jdbc.update(
+        "update drive_files set encrypted_name='invalid-ciphertext' where file_id=?", foreignFile);
+    jdbc.update(
+        "update drive_folders set encrypted_name='invalid-ciphertext' where folder_id=?",
+        foreignFolder);
+    assertThat(post("Unrelated", null).statusCode()).isEqualTo(201);
+  }
+
+  @Test
   void downloadsCompleteZipWithProtectedHeadersAndCleansTemporaryStorage() throws Exception {
     String root = create("Synthetic projects", null), child = create("Invoices", root);
     create("Empty", root);
@@ -118,9 +153,15 @@ class DriveFolderControllerTest {
   }
 
   void assertArchiveTemporaryClean() throws Exception {
-    try (var paths = java.nio.file.Files.list(archiveTemporary)) {
-      assertThat(paths.toList()).isEmpty();
-    }
+    org.awaitility.Awaitility.await()
+        .atMost(java.time.Duration.ofSeconds(5))
+        .pollInterval(java.time.Duration.ofMillis(25))
+        .untilAsserted(
+            () -> {
+              try (var paths = java.nio.file.Files.list(archiveTemporary)) {
+                assertThat(paths.toList()).isEmpty();
+              }
+            });
   }
 
   @BeforeEach

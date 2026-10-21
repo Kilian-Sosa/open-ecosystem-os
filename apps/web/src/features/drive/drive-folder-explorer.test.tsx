@@ -111,10 +111,6 @@ describe("Drive folder explorer", () => {
         folders.push(created);
         return Response.json(created, { status: 201 });
       }
-      if (url.pathname.endsWith("/download"))
-        return new Response("synthetic archive", {
-          headers: { "Content-Type": "application/zip" },
-        });
       if (url.pathname.endsWith(`/files/${source.fileId}`))
         return Response.json(files[0]);
       return Response.json(
@@ -256,22 +252,28 @@ describe("Drive folder explorer", () => {
     );
     await waitFor(() => expect(files[0].folderId).toBe("projects"));
   });
-  it("downloadsFolderZip", async () => {
-    const click = vi
-      .spyOn(HTMLAnchorElement.prototype, "click")
-      .mockImplementation(() => {});
-    mount();
-    await screen.findAllByRole("button", { name: "Open folder Projects" });
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Download Projects as ZIP" })[0],
-    );
-    await waitFor(() => expect(click).toHaveBeenCalled());
-    expect(
-      fetchMock.mock.calls.some(([url]) =>
-        url.endsWith("/folders/projects/download"),
-      ),
-    ).toBe(true);
-  });
+  it.each(["projects", "folder %?#é"])(
+    "downloadsFolderZip through native navigation: %s",
+    async (id) => {
+      folders = [folder(id, "Projects")];
+      mount();
+      const links = await screen.findAllByRole("link", {
+        name: "Download Projects as ZIP",
+      });
+      const link = links[0];
+      expect(link).toHaveAttribute(
+        "href",
+        `/downloads/drive/folders/${encodeURIComponent(id)}`,
+      );
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+      fireEvent.click(link);
+      expect(
+        fetchMock.mock.calls.some(([url]) => url.includes("/download")),
+      ).toBe(false);
+      expect(URL.createObjectURL).not.toHaveBeenCalled();
+    },
+  );
   it("renames folders and invalidates only the affected parent", async () => {
     const client = mount();
     client.setQueryData(["drive-folder-contents", "unrelated"], {

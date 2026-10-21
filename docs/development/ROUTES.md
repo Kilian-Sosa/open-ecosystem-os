@@ -18,6 +18,7 @@ Currently implemented routes include:
 /                              Public landing page
 /app/dashboard                  Workspace dashboard
 /app/drive                      Drive / file manager
+/downloads/drive/folders/{folderId}  Native streamed folder ZIP (Next.js Node)
 /app/flows                      Open Ecosystem Flows
 /app/media                      Media / OCR
 /app/search                     Global search results
@@ -28,6 +29,11 @@ Currently implemented routes include:
 ```
 
 ## Public product / portfolio routes
+
+The download route streams the existing `/api/drive/folders/{folderId}/download`
+attachment with the fixed Core seeded identity. It supplies no authentication
+and is restricted to trusted private deployments. Kubernetes `/api` remains
+owned by Spring Boot; `/downloads` reaches web through the `/` prefix.
 
 ```txt
 /                              Public landing page

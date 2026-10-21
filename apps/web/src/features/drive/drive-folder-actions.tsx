@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
-  downloadDriveFolderZip,
   moveDriveFolder,
   renameDriveFolder,
   type DriveFolder,
@@ -18,9 +17,6 @@ import {
 export function DriveFolderActions({ folder }: { folder: DriveFolder }) {
   const [action, setAction] = useState<"rename" | "move" | null>(null);
   const client = useQueryClient();
-  const download = useMutation({
-    mutationFn: () => downloadDriveFolderZip(folder),
-  });
   async function changed(updated: DriveFolder) {
     await Promise.all(
       [folder.parentFolderId, updated.parentFolderId].map((id) =>
@@ -47,15 +43,15 @@ export function DriveFolderActions({ folder }: { folder: DriveFolder }) {
       >
         Move
       </button>
-      <button
+      <a
         className={driveButton}
         aria-label={`Download ${folder.name} as ZIP`}
-        disabled={download.isPending}
-        onClick={() => download.mutate()}
+        href={`/downloads/drive/folders/${encodeURIComponent(folder.folderId)}`}
+        target="_blank"
+        rel="noopener noreferrer"
       >
-        {download.isPending ? "Preparing ZIP…" : "Download ZIP"}
-      </button>
-      {download.isError ? <p role="alert">{download.error.message}</p> : null}
+        Download ZIP
+      </a>
       {action === "rename" ? (
         <DriveNameDialog
           title="Rename folder"

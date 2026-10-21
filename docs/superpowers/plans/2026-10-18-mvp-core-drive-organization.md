@@ -195,6 +195,9 @@ test` passed (13 tests; zero failures/errors/skips), including PostgreSQL 16
   allowance plus one, and reject unsafe portable segments/collisions or paths
   over 4096 UTF-8 bytes. Cost: some legacy names or very deep trees require
   rename/reorganization before export; original downloads remain available.
+  Superseded by the 2026-10-21 review fixes below for valid nonportable names:
+  these now export using reversible escaping. Invalid paths and excessive depth
+  remain bounded.
 - Ruling: spool only a permission-restricted ZIP within the spec's controlled
   temporary boundary, using atomic POSIX/Windows permission attributes and
   finally-based ownership cleanup. The preparation budget is cooperative;
@@ -340,5 +343,63 @@ change**; Trash and Search indexing remain separate subsequent work.
 - [x] **Step 5: Commit:** include the journey test, smoke script, test instructions and execution record; `git commit -m "test(drive): verify the encrypted file-management journey"`.
 
 ## Self-review and handoff
+
+### Review fixes — 2026-10-21
+
+User requested fixes for private-name conflict inference, valid-name ZIP
+failures and unbounded browser ZIP buffering. Implementation remains on the
+slice branch `feat/drive-folder-explorer` with one production-code owner.
+
+Spec impact: **update existing spec**. Clarify owner-scoped sibling uniqueness,
+reversible portable archive-name escaping and a 25 MiB browser response cap in
+the Drive lifecycle spec; no new route, schema, permission grant or event.
+
+Implementation and acceptance:
+
+1. Filter sibling folders/files to the active owner before decrypting names.
+   Create/upload/rename/move share this check and retain workspace locking and
+   normalized conflicts for the same owner. Other owners' private names and
+   corrupt ciphertext must not affect mutation results.
+2. Escape nonportable ZIP segment characters and literal percent signs
+   reversibly, preserve NFC names and original bytes, and retain traversal,
+   collision and path-length rejection. Do not rewrite stored Drive names.
+3. Bound browser folder ZIP responses to 25 MiB with header preflight and a
+   running byte count; cancel/release oversized streams before creating a Blob
+   URL, and provide an actionable error through the existing UI error surface.
+4. Verify focused HTTP/archive/client regressions, then API verify and web
+   tests, lint, typecheck and formatting. No new components or layout changes;
+   desktop/mobile retain the existing action/error behavior. No worker changes.
+
+Verification: API `mvnw.cmd -o verify` passes **219 tests**, zero failures,
+errors or skips, including PostgreSQL 16 tests, Spotless and packaging. Web
+passes **85 tests**, ESLint, TypeScript, changed-file Prettier checks and the
+production build. Regressions were observed failing before their fixes.
+The first full API attempt could not reach Docker; Docker Desktop was stopped,
+then started with its lifecycle CLI and verification passed. Docker remains
+running; Testcontainers owns its temporary resources. Corepack could not fetch
+pnpm, so web checks used the installed pinned Node entry points. Sandbox
+temporary-file/Mockito restrictions required outside-sandbox test runs.
+Owner self-review checked spec-to-code/test and behavior-to-spec alignment.
+No additional browser/live MinIO acceptance, commit, push or merge is claimed.
+
+### Native folder streaming supersession — 2026-10-21
+
+The user subsequently authorized the
+[browser streaming plan](2026-10-21-drive-browser-streaming-downloads.md).
+It replaces only the temporary client ZIP cap/Blob transport above with a
+native download link and a fixed Node streaming route. The historical 85-test
+cap evidence remains historical; it does not prove streaming. Private-name,
+portable-name and bounded cleanup fixes are preserved. Spec impact:
+**update existing spec**. The HTTP cleanup assertion still polls every 25 ms
+for at most five seconds; service close assertions remain immediate.
+
+Streaming verification: 136 web tests, lint, typecheck, formatting and production
+build; 219 API verification tests; local/Compose 41,678,188-byte synthetic ZIPs
+with all three entry hashes matching; Edge desktop keyboard and mobile-emulated
+touch downloads in both environments with Drive retained and sanitized failure
+text. Kubernetes base/dev/prod validate statically; no live cluster proof.
+No runtime dependencies, Java contract, events or permissions change. Temporary
+stack/data/browser downloads are removed after verification; Docker stays running.
+No commit, push or merge is performed.
 
 The seven tasks are deliberately scoped so every implementation/verification gate can be reviewed independently. Confirm approved upload validation and safe preview are covered in both implementation and tests, including legacy files. Full MVP Core still requires the [Trash plan](2026-10-18-mvp-core-drive-trash.md) and later OCR/Search/invoice/image-PDF plans. Continue in the isolated worktree/branch and update the execution record after each verified slice.

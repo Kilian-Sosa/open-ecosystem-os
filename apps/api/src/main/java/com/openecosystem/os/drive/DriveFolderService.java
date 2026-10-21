@@ -220,8 +220,10 @@ public class DriveFolderService {
       String workspaceId,
       String excludedFileId,
       String excludedFolderId) {
+    String ownerId = authentication.currentPrincipal().actorId();
     boolean conflict =
         folders.listChildren(workspaceId, parent).stream()
+                .filter(f -> f.ownerId().equals(ownerId))
                 .filter(f -> !f.folderId().equals(excludedFolderId))
                 .anyMatch(
                     f ->
@@ -229,6 +231,7 @@ public class DriveFolderService {
                             names.comparisonKey(
                                 encryption.decryptText(f.encryptedName(), f.nameIv()))))
             || files.listByFolder(workspaceId, parent).stream()
+                .filter(f -> f.ownerId().equals(ownerId))
                 .filter(f -> !f.fileId().equals(excludedFileId))
                 .anyMatch(
                     f ->

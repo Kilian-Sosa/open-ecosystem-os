@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createDriveFolder,
   downloadDriveFile,
-  downloadDriveFolderZip,
   fetchDriveFolderContents,
   moveDriveFile,
   moveDriveFolder,
@@ -90,7 +89,7 @@ describe("Drive API contracts", () => {
       );
     },
   );
-  it("downloads originals and ZIPs with workspace headers and revokes blob URLs", async () => {
+  it("downloads originals with workspace headers and revokes blob URLs", async () => {
     vi.useFakeTimers();
     const create = vi.fn(() => "blob:synthetic");
     const revoke = vi.fn();
@@ -107,21 +106,14 @@ describe("Drive API contracts", () => {
     const fetchMock = vi.fn(async () => new Response("synthetic source bytes"));
     vi.stubGlobal("fetch", fetchMock);
     await downloadDriveFile({ ...driveMockFiles[0], name: "../Synthetic.pdf" });
-    await downloadDriveFolderZip({
-      folderId: "folder",
-      name: "Synthetic",
-      parentFolderId: null,
-      createdAt: "",
-      updatedAt: "",
-    });
-    expect(click).toHaveBeenCalledTimes(2);
-    expect(create).toHaveBeenCalledTimes(2);
+    expect(click).toHaveBeenCalledOnce();
+    expect(create).toHaveBeenCalledOnce();
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/folders/folder/download"),
+      expect.stringContaining(`/files/${driveMockFiles[0].fileId}/download`),
       expect.objectContaining({ headers: workspaceHeaders, cache: "no-store" }),
     );
     await vi.runAllTimersAsync();
-    expect(revoke).toHaveBeenCalledTimes(2);
+    expect(revoke).toHaveBeenCalledOnce();
     expect(document.querySelector("a[download]")).toBeNull();
   });
 });
