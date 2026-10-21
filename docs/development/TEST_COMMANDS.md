@@ -103,6 +103,91 @@ Drive folder ZIP downloads (Task 5), from `apps/api`:
 See [the archive contract](DRIVE_FOLDER_ARCHIVES.md) for authorization,
 snapshot semantics, limits, temporary-storage requirements and cleanup.
 
+### Drive organization integration acceptance (Task 7)
+
+From `apps/api`:
+
+```powershell
+.\mvnw.cmd -o '-Dtest=DriveCoreJourneyTest' test
+.\mvnw.cmd -o test
+.\mvnw.cmd -o verify
+```
+
+`DriveCoreJourneyTest` uses a dedicated H2 database and real HTTP, authorization,
+encryption, metadata mutations and ZIP generation, replacing only S3 with the
+existing in-memory object store. It verifies nested navigation, rename, file
+movement through root, subtree movement, exact original/ZIP bytes, stable file
+IDs/storage keys/ciphertext and unchanged persisted OCR/invoice lineage. Its
+clearly labelled synthetic lineage is seeded, not produced by a running OCR
+worker. Same-workspace non-owners and foreign-workspace actors cannot read,
+preview, download or mutate the subtree or infer labels. The full API suite
+also covers sharing, legacy/corrupt upload validation, safe PDF preview,
+archive bounds/cleanup, PostgreSQL migrations and locking.
+
+Run the web gates from `apps/web`:
+
+```powershell
+pnpm test
+pnpm lint
+pnpm typecheck
+pnpm build
+```
+
+If Corepack cannot download pnpm, the installed pinned entry points are:
+
+```powershell
+node node_modules/vitest/vitest.mjs run
+node node_modules/eslint/bin/eslint.js .
+node node_modules/typescript/bin/tsc --noEmit
+node node_modules/next/dist/bin/next build
+```
+
+For real PostgreSQL/MinIO acceptance, use a **disposable private** Compose
+project from the repository root. Use a fresh PowerShell terminal so these
+process environment overrides do not affect other work. The explicit example
+environment file avoids loading a real `.env`. Confirm the project name is
+unused and the alternate ports are free before starting:
+
+```powershell
+docker compose ls
+Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -in 18087,19087,19088,15687 }
+$env:API_PORT = '18087'
+$env:MINIO_API_PORT = '19087'
+$env:MINIO_CONSOLE_PORT = '19088'
+$env:RABBITMQ_MANAGEMENT_PORT = '15687'
+$env:LOCAL_BIND_ADDRESS = '127.0.0.1'
+docker compose --env-file .env.example -p drive-task7 -f infra/docker/docker-compose.yml up -d --build --wait --wait-timeout 180 api
+.\scripts\smoke-drive-organization.ps1 -ApiBaseUrl http://127.0.0.1:18087
+```
+
+The smoke creates a unique synthetic tree, uploads text and the committed
+synthetic PNG, renames/moves files and a subtree, verifies nested/root listings,
+compares previews/originals byte for byte and inspects all five ZIP entries,
+including the empty directory. It leaves synthetic files for inspection. It
+starts no OCR worker and makes no Search-indexing claim. To inspect through the
+real UI, run `pnpm dev` from `apps/web` with process environment variables
+`NEXT_PUBLIC_API_BASE_URL` and `API_BASE_URL` set to
+`http://127.0.0.1:18087`, then open `http://127.0.0.1:3000/app/drive`.
+
+After verification, stop that temporary web server and remove **only this
+disposable project's** containers and volumes:
+
+```powershell
+docker compose --env-file .env.example -p drive-task7 -f infra/docker/docker-compose.yml down --volumes
+```
+
+Verified 2026-10-21: API `test` and `verify` each passed 216 tests with zero
+failures/errors/skips; web passed 81 tests, lint, typecheck and production build.
+The fresh Compose API/MinIO smoke passed all five ZIP entries and text/image
+byte comparisons. Edge displayed the real persisted nested hierarchy and
+protected image/text previews. Task 6 retains desktop/mobile and PDF canvas
+browser coverage using synthetic HTTP responses; this is not an automated
+Compose browser E2E suite. The Task 7 lineage proof is the HTTP integration
+test with seeded records, not a fresh OCR-to-invoice execution.
+
+Spec impact: **no spec change**; this verifies the approved Drive organization
+contract. **Trash and Search indexing remain separate subsequent work.**
+
 Recommended Maven profiles later:
 
 ```bash

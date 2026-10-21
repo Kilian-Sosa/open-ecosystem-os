@@ -10,9 +10,9 @@
 
 **Spec:** [Drive lifecycle](../specs/2026-10-18-mvp-core-drive-design.md) and [MVP milestones](../specs/2026-10-18-mvp-milestones-design.md). Dependent plan: [Drive Trash](2026-10-18-mvp-core-drive-trash.md).
 
-**Status:** Execution started 2026-10-20 following the user's instruction to start
-this plan. Tasks 1–5 are complete; Tasks 6–7 remain
-pending.
+**Status:** Tasks 1–7 completed locally by 2026-10-21 following user authorization.
+Task 7 integrates the Task 1–5 backend and Task 6 UI on
+`feat/drive-folder-explorer`. No push or target-branch merge is implied.
 
 **Spec impact:** No spec change. The review revisions below implement the approved Drive requirements for MIME/signature consistency, corrupt-format rejection and safe preview; product scope and acceptance criteria remain unchanged.
 
@@ -312,15 +312,32 @@ test` passed (13 tests; zero failures/errors/skips), including PostgreSQL 16
 
 ### Task 7: Complete integration acceptance for this stage
 
-**Files:** Create `apps/api/src/test/java/com/openecosystem/os/drive/DriveCoreJourneyTest.java`; modify `docs/development/TEST_COMMANDS.md` and existing API tests as needed.
+**Execution checkpoint (2026-10-21):** User authorized Task 7 in chat. The two
+HTTP journey tests failed before integration because folder routes were absent,
+then passed after locally integrating `feat/drive-folder-zip` at `bb4dcf9` with
+the Task 6 UI. The sole merge conflict preserved both migration-isolation and
+Drive test instructions. No additional production fixes were needed.
+
+**Verification:** API `test` and `verify` each pass 216 tests with no skips;
+web passes 81 tests, lint, typecheck and production build. A fresh localhost-only
+Compose project with PostgreSQL/MinIO passes the reproducible text/image smoke,
+including all five ZIP entries and exact original bytes. Edge also displayed
+the persisted moved hierarchy and protected text/image previews against that
+API. The integration test proves stable file IDs, keys, ciphertext and seeded
+OCR/invoice records; it does not claim a new worker-generated extraction.
+Task 6 remains the desktop/mobile and PDF canvas browser evidence. The temporary
+stack and frontend are cleaned up after verification. Spec impact: **no spec
+change**; Trash and Search indexing remain separate subsequent work.
+
+**Files:** Create `apps/api/src/test/java/com/openecosystem/os/drive/DriveCoreJourneyTest.java` and `scripts/smoke-drive-organization.ps1`; modify `docs/development/TEST_COMMANDS.md` and this execution record.
 
 **Interfaces:** No new APIs; verify Tasks 1–6 together.
 
-- [ ] **Step 1: Write failing integration test** `nestedUploadRenameMoveDownloadZipPreservesBytesAndLineage` and `foreignUserCannotInspectOrMutateSubtree`; assert stable file ID, ciphertext key, ZIP bytes, no unauthorized labels.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveCoreJourneyTest test`.
-- [ ] **Step 3: Fix only discovered integration gaps:** document reproducible Compose smoke steps and clearly state **Trash and Search indexing remain separate subsequent work**.
-- [ ] **Step 4: Verify GREEN:** `cd apps/api && ./mvnw test && ./mvnw verify`; `cd apps/web && pnpm test && pnpm lint && pnpm typecheck && pnpm build`. Test real ZIP bytes on a private Compose stack or record blockers.
-- [ ] **Step 5: Commit:** `git add apps/api/src/test docs/development/TEST_COMMANDS.md && git commit -m "test(drive): verify the encrypted file-management journey"`.
+- [x] **Step 1: Write failing integration test** `nestedUploadRenameMoveDownloadZipPreservesBytesAndLineage` and `foreignUserCannotInspectOrMutateSubtree`; assert stable file ID, ciphertext key, ZIP bytes, no unauthorized labels.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveCoreJourneyTest test`.
+- [x] **Step 3: Fix only discovered integration gaps:** document reproducible Compose smoke steps and clearly state **Trash and Search indexing remain separate subsequent work**.
+- [x] **Step 4: Verify GREEN:** `cd apps/api && ./mvnw test && ./mvnw verify`; `cd apps/web && pnpm test && pnpm lint && pnpm typecheck && pnpm build`. Test real ZIP bytes on a private Compose stack or record blockers.
+- [x] **Step 5: Commit:** include the journey test, smoke script, test instructions and execution record; `git commit -m "test(drive): verify the encrypted file-management journey"`.
 
 ## Self-review and handoff
 
