@@ -109,15 +109,19 @@
 
 ### Task 6: Drive folder explorer and file actions
 
+**Execution checkpoint (2026-10-21):** Task 6 authorized in chat and implemented on `feat/drive-folder-explorer`, based on `origin/develop` as requested. Tasks 1–5 are available on `feat/drive-folder-zip` and must be integrated before the real API journey can run on this base. Spec impact: **no spec change**; this implements the approved contract. Browser verification rejected a native sandboxed PDF frame, so the UI uses pinned PDF.js canvas rendering with a local worker. Integration acceptance remains Task 7.
+
+**Verification:** 81 frontend tests pass, including 39 Drive tests. Lint, typecheck, formatting and production build pass. Production dependency audit reports no advisories. Edge checks with synthetic HTTP responses cover 1440×1000 desktop and 390×844 mobile navigation, rename, move, escaped-text preview, PDF canvas rendering, keyboard dismissal and focus restoration. No page errors or mobile horizontal overflow were observed. These checks do not prove real backend authorization or ZIP content; Task 7 retains that acceptance gate. PDF previews remain raster images; accessible original documents are available through download. No new API routes, permissions or events were introduced by Task 6.
+
 **Files:** Modify `apps/web/src/lib/drive-api.ts`, `features/drive/use-drive-files.ts`, `features/drive/drive-screen.tsx`, `drive-screen.test.tsx`; create `drive-folder-explorer.tsx`, `drive-file-actions.tsx`, `drive-folder-actions.tsx`, `drive-preview.tsx` and focused Vitest tests in `apps/web/src/features/drive/`.
 
 **Interfaces:** API functions `fetchDriveFolderContents(folderId: string | null)`, `createDriveFolder(name, parentFolderId)`, `renameDriveFile`, `renameDriveFolder`, `moveDriveFile`, `moveDriveFolder`, `downloadDriveFile`, `downloadDriveFolderZip`. TanStack query key `["drive-folder-contents", folderId ?? "root"]`; upload mutation receives `{file: File, folderId: string | null}`.
 
-- [ ] **Step 1: Write failing UI tests** `navigatesNestedFoldersWithBreadcrumbs`, `uploadsIntoCurrentFolder`, `renamesAndMovesFileWithoutLosingSelection`, `previewsPdfImageTextByProtectedFetch`, `downloadsFolderZip`, `mobileFolderPickerAndEmptyState`; stub actual network responses, not static state overrides.
-- [ ] **Step 2: Verify RED:** `cd apps/web && pnpm test -- drive-folder-explorer` then `pnpm test -- drive-screen`.
-- [ ] **Step 3: Implement:** reuse AppShell/Query and existing design components; folder contents not flat workspace list, blob URLs revoked after preview/download, error/loading/denied states and keyboard-accessible controls. Implement Task 3's safe viewer policy, render plain text as text, and test active-content isolation in the preview component. Scope query invalidation to affected folder and retain existing snapshot test overrides.
-- [ ] **Step 4: Verify GREEN:** `cd apps/web && pnpm test -- drive && pnpm lint && pnpm typecheck && pnpm build`.
-- [ ] **Step 5: Commit:** `git add apps/web/src && git commit -m "feat(drive): navigate folders and manage files in the UI"`.
+- [x] **Step 1: Write failing UI tests** `navigatesNestedFoldersWithBreadcrumbs`, `uploadsIntoCurrentFolder`, `renamesAndMovesFileWithoutLosingSelection`, `previewsPdfImageTextByProtectedFetch`, `downloadsFolderZip`, `mobileFolderPickerAndEmptyState`; stub actual network responses, not static state overrides.
+- [x] **Step 2: Verify RED:** `cd apps/web && pnpm test -- drive-folder-explorer` then `pnpm test -- drive-screen`.
+- [x] **Step 3: Implement:** reuse AppShell/Query and existing design components; folder contents not flat workspace list, blob URLs revoked after preview/download, error/loading/denied states and keyboard-accessible controls. Implement Task 3's safe viewer policy, render plain text as text, and test active-content isolation in the preview component. Scope query invalidation to affected folder and retain existing snapshot test overrides.
+- [x] **Step 4: Verify GREEN:** `cd apps/web && pnpm test -- drive && pnpm lint && pnpm typecheck && pnpm build`.
+- [x] **Step 5: Commit:** `git add apps/web/src && git commit -m "feat(drive): navigate folders and manage files in the UI"`.
 
 ### Task 7: Complete integration acceptance for this stage
 

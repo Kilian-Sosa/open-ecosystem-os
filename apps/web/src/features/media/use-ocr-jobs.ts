@@ -53,7 +53,7 @@ export function useUploadOcrSourceFile(onUploaded?: (file: DriveFile) => void) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: uploadDriveFile,
+    mutationFn: (file: File) => uploadDriveFile(file),
     onSuccess: (file) => {
       queryClient.invalidateQueries({ queryKey: ocrJobsQueryKey });
       onUploaded?.(file);
