@@ -76,6 +76,15 @@ storage remains private regardless of that application policy. Normalized invoic
 Search documents persist only the exact source Drive file ID at `metadata.fileId`; user-facing
 Search disclosure authorizes that source file before returning derived fields.
 
+Drive folder persistence uses an ID-based adjacency tree in `drive_folders` with
+encrypted names and name IVs. Migration V10 adds nullable `drive_files.folder_id`;
+pre-existing files retain their IDs, encrypted metadata and object keys at root.
+Composite foreign keys keep parent-folder and file-folder references within a
+workspace. Directory mutation services must hold the workspace row lock for the
+whole transaction, including root operations. Folder APIs, name-conflict rules
+and navigation are subsequent Drive organization plan tasks; Trash has a separate
+lifecycle plan.
+
 The OCR worker creates decrypted input and rendered-page files only inside its bounded runtime temporary directory. They are deleted after processing and are never stored as object-storage OCR artifacts. PostgreSQL stores the structured OCR result needed for authorized detail and provenance; search reads only an approved persisted extraction-field whitelist.
 
 ### Redis

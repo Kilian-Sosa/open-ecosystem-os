@@ -75,6 +75,34 @@ the reverse order reproduces the original failure without isolation. Keep the
 seed assertions and Flyway migrations intact. Spec impact: **no spec change**;
 this fixes test isolation without changing application behavior.
 
+Protected Drive original downloads and safe previews (Task 3), from `apps/api`:
+
+```powershell
+.\mvnw.cmd '-Dtest=DriveFileContentServiceTest,DriveFileControllerTest,S3FileObjectStorageTest' test
+```
+
+See [the content and viewer contract](DRIVE_FILE_CONTENT.md) for scope, bounds,
+synthetic fixtures and browser integration requirements. Run `mvnw.cmd verify`
+for the full API suite, PostgreSQL migration tests, formatting and packaging.
+
+Drive metadata rename/move (Task 4), from `apps/api`:
+
+```powershell
+.\mvnw.cmd '-Dtest=DriveFileMutationServiceTest,DriveFolderControllerTest,DriveFileRepositoryTest' test
+```
+
+See [the mutation contract](DRIVE_FILE_MUTATIONS.md) for request bodies,
+authorization, concurrency, compatibility and deferred Search behavior.
+
+Drive folder ZIP downloads (Task 5), from `apps/api`:
+
+```powershell
+.\mvnw.cmd -o '-Dtest=DriveArchiveServiceTest,DriveFolderControllerTest,DriveFolderRepositoryTest,DriveFileRepositoryTest' test
+```
+
+See [the archive contract](DRIVE_FOLDER_ARCHIVES.md) for authorization,
+snapshot semantics, limits, temporary-storage requirements and cleanup.
+
 Recommended Maven profiles later:
 
 ```bash

@@ -39,6 +39,11 @@ openecosystem:
   cors:
     allowed-origins: ${APP_BASE_URL:http://localhost:3000},http://127.0.0.1:3000
   drive:
+    archive:
+      max-entries: ${DRIVE_ARCHIVE_MAX_ENTRIES:1000}
+      max-uncompressed-size: ${DRIVE_ARCHIVE_MAX_UNCOMPRESSED_SIZE:512MB}
+      preparation-timeout: ${DRIVE_ARCHIVE_PREPARATION_TIMEOUT:2m}
+      temporary-directory: ${DRIVE_ARCHIVE_TEMP_DIRECTORY:${java.io.tmpdir}}
     max-upload-size: ${DRIVE_MAX_UPLOAD_SIZE:25MB}
     encryption:
       key-id: ${DRIVE_ENCRYPTION_KEY_ID:dev-local}

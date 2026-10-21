@@ -195,6 +195,7 @@ class OcrJobQueryServiceTest {
         "wrk_test",
         "usr_owner",
         DriveFileVisibility.PRIVATE,
+        null,
         "encrypted-name",
         "application/pdf",
         10,

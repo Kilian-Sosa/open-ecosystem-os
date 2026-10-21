@@ -696,6 +696,7 @@ class OcrJobControllerTest {
             workspaceId,
             PlaceholderAuthenticationContext.DEFAULT_ACTOR_ID,
             DriveFileVisibility.PRIVATE,
+            null,
             encryptedName.ciphertextBase64(),
             contentType,
             1024,
