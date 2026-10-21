@@ -10,7 +10,9 @@
 
 **Spec:** [Drive lifecycle](../specs/2026-10-18-mvp-core-drive-design.md) and [MVP milestones](../specs/2026-10-18-mvp-milestones-design.md). Dependent plan: [Drive Trash](2026-10-18-mvp-core-drive-trash.md).
 
-**Status:** Proposed implementation plan for user review; not authorized for execution.
+**Status:** Tasks 1–7 completed locally by 2026-10-21 following user authorization.
+Task 7 integrates the Task 1–5 backend and Task 6 UI on
+`feat/drive-folder-explorer`. No push or target-branch merge is implied.
 
 **Spec impact:** No spec change. The review revisions below implement the approved Drive requirements for MIME/signature consistency, corrupt-format rejection and safe preview; product scope and acceptance criteria remain unchanged.
 
@@ -24,7 +26,195 @@
 - Existing FileUploaded/OCR flows, seeded-private identity, and sharing tests must keep working. Do not implement configurable Flows, public links, PDF editing, Trash, or cloud OCR in this plan.
 - Reuse the Java ZIP library and AWS SDK; impose explicit server-side limits. Use English code comments only.
 - Validate upload bytes against the configured supported formats and declared MIME type before storing an object or publishing `FileUploaded`. A MIME allowlist alone is insufficient. Apply the preview safety check to legacy files too; never execute active document content.
-- Follow RED → GREEN with a scoped test per task and commit after verification. No push, merge, implementation or plan execution until user approves the plan and execution approach.
+- Follow RED → GREEN with a scoped test per task and commit after verification.
+  Execution is authorized by the user's 2026-10-20 instruction. Push and merge
+  require separate authorization.
+
+## Execution record — 2026-10-20
+
+- Base: `develop` at `4175be4`; isolated app-managed worktree on
+  `feat/drive-organization`. Execute inline with one production-code owner.
+- Scope for this run: Task 1, matching the repository's bounded-slice rule.
+  Folder APIs, validation, content serving, mutations, ZIP and UI follow in
+  Tasks 2–7. No event, API, permission or UI contract changes in Task 1.
+- Spec impact: **no spec change**. Implements the approved folder model and
+  legacy-root acceptance criterion in the Drive lifecycle spec.
+- Pre-flight: Task 1's folder IDs, nullable file placement and workspace lock
+  support Tasks 2/4/5. Task 2's content validator supports Tasks 3/6; Task 3's
+  protected reads support Tasks 5/6. No shared-interface conflict identified.
+- Ruling: use the Windows Maven wrapper and record progress here rather than
+  invoking the skill's POSIX bookkeeping scripts. The tracked plan retains the
+  execution checkpoint; the cost is manual checkbox maintenance.
+- Baseline: existing `DriveFileRepositoryTest` passed (2 tests). RED: new
+  repository tests failed compilation on the absent folder types and methods.
+- Test-fixture finding: H2 constraint comparisons retained a closed migration
+  session with unpooled connections. Keep one connection per isolated H2 test
+  and close it after the test; PostgreSQL uses the existing Testcontainers suite.
+- Focused GREEN: `mvnw.cmd spotless:apply
+-Dtest=DriveFolderRepositoryTest,DriveFileRepositoryTest,RealOcrPostgresMigrationTest
+test` passed (13 tests; zero failures/errors/skips), including PostgreSQL 16
+  upgrade and transaction-lock coverage.
+- Task 1: complete. `mvnw.cmd verify` passed (142 tests; zero
+  failures/errors/skips), packaged the API and passed Spotless. Owner self-review
+  checked the migration, consumers and test coverage against the approved spec;
+  no separate reviewer was launched. API CI exercises these Maven checks.
+- Next checkpoint: Task 2. Keep upload placement, sibling-name validation and
+  content validation together; Task 1 alone does not expose folder operations.
+
+## Task 2 execution record — 2026-10-20
+
+- User explicitly requested Task 2. Base: Task 1 commit `f8e847c`; isolated
+  app-managed worktree on `feat/drive-folder-navigation`. Execute inline and
+  retain this tracked execution record instead of POSIX bookkeeping scripts.
+- Spec impact: **no spec change**. Folder APIs, upload placement, private
+  access, sibling conflicts and content validation implement approved behavior.
+- RED: policy/validator tests failed on missing types. GREEN: focused real
+  HTTP/database/encryption/authorization tests passed with fake object storage.
+  Additional RED/GREEN regressions cover central ZIP checksum disagreement,
+  blank upload names and legacy names exceeding the new 255-character limit.
+- Rulings: reuse PDFBox 3.0.4 from the worker helper for strict PDF structural
+  validation; retain the workspace lock through S3 writes for collision safety;
+  compare legacy names without applying new-name validation. The referenced
+  endpoint-naming instruction file is absent, so use existing REST conventions.
+- Verification: `mvnw.cmd spotless:apply verify` passed, including all 164 API
+  tests with zero failures/errors/skips, PostgreSQL Testcontainers checks,
+  Spotless and JAR packaging. Docker was already running and remains running.
+- Owner self-review checked requirements against tests and implementation,
+  including authorization before filename decryption and concurrent uploads.
+  No independent reviewer was launched. No UI, schema or worker changes.
+- FileUploaded v1 remains unchanged; folder creation writes metadata-only
+  audit records without introducing an unconsumed event.
+- See [validation policy](../../development/DRIVE_UPLOAD_VALIDATION.md) for the
+  API contract, parser limits, dependency rationale and remaining parser
+  isolation limitations. Preview safety and legacy preview validation remain
+  Task 3; frontend and responsive changes remain Task 6.
+- Next checkpoint: Task 3, authenticated original download and safe preview.
+
+## Task 3 execution record — 2026-10-20
+
+- User explicitly requested Task 3. Base: Task 2 commit `c3836a7`; branch
+  `feat/drive-protected-content` in the primary checkout. The linked Task 2
+  worktree was inaccessible in the sandbox, so continue from its committed
+  branch snapshot without changing that worktree. One implementation owner,
+  inline execution; retain this tracked checkpoint as in Tasks 1–2.
+- Spec impact: **no spec change**. Implements approved original download,
+  bounded safe preview and source-file authorization. No frontend, worker,
+  migration, event, audit or upload-contract changes.
+- Baseline: 11 controller tests passed. RED: the new service/storage tests
+  failed compilation on the absent content types and bounded read method.
+  GREEN: focused service/controller/storage tests passed. Corrected test
+  fixtures to respect paired grant-revocation fields and inspect the PDF
+  action dictionary directly (the PDFBox getter creates a wrapper).
+- Ruling: rebuild PDF previews as raster-only PDFs with no copied source
+  objects, instead of embedding source PDFs behind headers. The cost is loss
+  of interactive/text/vector/accessibility features in previews; originals
+  remain byte-exact attachments. Task 6 must implement the documented safe
+  viewer contexts and fallback. No additional dependency was introduced.
+- Ruling: keep a 25 MiB source cap, bounded S3 reads and explicit PDF
+  page/pixel/output limits. The 30-second render budget is cooperative and
+  PDFBox is not process-isolated; this is bounded private-Core functionality,
+  not proof of public adversarial-parser resource isolation. Lowering the
+  configured upload limit can also restrict legacy downloads.
+- Verification: `mvnw.cmd spotless:apply verify` passed: **181 API tests,
+  zero failures/errors/skips**, including PostgreSQL Testcontainers migration
+  tests, Spotless and JAR packaging. HTTP tests ran outside the sandbox after
+  a sandbox loopback denial. Existing H2/Flyway version and JVM-agent warnings
+  remain. Docker was already running and remains running.
+- Owner self-review applied the Spring/security checklists and checked
+  requirements-to-tests and behavior-to-spec alignment. No independent
+  reviewer was launched, per the user's bounded-slice policy. S3 adapter
+  tests use controlled SDK streams; no live MinIO/browser proof is claimed.
+- See [content and viewer contract](../../development/DRIVE_FILE_CONTENT.md)
+  for endpoint statuses, authenticated read limits, preview transformation,
+  tradeoffs and Task 6 integration requirements.
+- Next checkpoint: Task 4, metadata-only rename and move.
+
+## Task 4 execution record — 2026-10-20
+
+- User explicitly requested Task 4. Base: Task 3 commit `a9432b1`; branch
+  `feat/drive-rename-move` in the primary checkout, continuing Task 3's
+  checkout arrangement. One production-code owner, inline execution; retain
+  this tracked checkpoint instead of POSIX bookkeeping scripts. No push or
+  merge is authorized by this task.
+- Spec impact: **no spec change**. Implements approved metadata-only
+  rename/move, active-owner authorization, normalized sibling conflicts and
+  concurrent cycle prevention. Search projections remain explicitly deferred
+  to the Search plan. No frontend, worker, schema or event contract changes.
+- Baseline: 15 existing folder/controller and file-repository tests passed.
+  RED: new mutation tests failed compilation on the missing service/update
+  methods. GREEN: focused mutation/controller/repository checks passed.
+- Ruling: moves use comparison-only name checks so existing legacy names can
+  move without being renamed; new names still use full validation. A regression
+  first reproduced the incorrect 400 response, then passed with preserved name
+  ciphertext and cross-kind collision checks. This retains Task 2's legacy-name
+  compatibility without accepting invalid new names.
+- Owner integration review found that CORS blocked PATCH. A preflight regression
+  reproduced 403 for the configured frontend origin. Ruling: permit PATCH in
+  the existing method allowlist while retaining the origin allowlist; all four
+  mutation routes now pass preflight and untrusted origins remain denied.
+- Verification: `mvnw.cmd spotless:apply verify` passed: **196 API tests,
+  zero failures/errors/skips**, PostgreSQL Testcontainers migration/locking
+  checks, Spotless and JAR packaging. Tests requiring HTTP/Docker ran outside
+  the sandbox after concrete loopback/pipe access denials. Docker was already
+  running and remains running; no user-level service configuration changed.
+- Owner self-review applied the Spring/security checklists and checked both
+  requirements-to-tests and behavior-to-spec alignment. Tests cover stable IDs,
+  keys, content encryption and OCR associations, byte-exact downloads after
+  mutation, unchanged descendant rows, source/destination ownership, inactive
+  owners, foreign workspaces, Unicode conflicts, concurrent collisions and
+  concurrent cycle attempts. No separate reviewer was launched, per the user's
+  bounded-slice policy. No live MinIO/browser proof is claimed.
+- See [mutation contract](../../development/DRIVE_FILE_MUTATIONS.md) for request
+  bodies, statuses, repeat-call behavior, safe audit records and test commands.
+  The endpoint-naming instruction file remains absent; routes follow this
+  approved plan. Task 4: complete. Next checkpoint: Task 5, bounded folder ZIP.
+
+## Task 5 execution record — 2026-10-20
+
+- User explicitly requested Task 5. Base: Task 4 commit `b318372`; branch
+  `feat/drive-folder-zip` in the primary checkout, continuing Tasks 3–4's
+  arrangement. One production-code owner, inline execution; retain this
+  tracked checkpoint instead of POSIX bookkeeping scripts. No push or merge.
+- Spec impact: **no spec change**. Implements approved bounded recursive
+  folder downloads with original bytes and all-or-nothing authorization.
+  No frontend, worker, schema, event, audit or original-file contract changes.
+- RED: archive tests failed compilation on missing types. Bounded repository
+  tests separately failed on missing limit overloads. GREEN: scoped tests
+  verified real ZIP entries, exact source bytes, empty directories, denied
+  descendants, traversal/collision rejection, count/byte/time limits and cleanup.
+  Corrected test fixtures for Mockito re-stubbing and the folder-owner FK.
+- Additional RED/GREEN: a fatal content-read Error left its temporary workspace
+  behind; cleanup in `finally` now removes it. A transaction-failure test also
+  proves that no archive is created before the snapshot commits.
+- Ruling: snapshot/authorize under the existing workspace mutation lock, then
+  commit before compression. This avoids long mutation locks and commit-time
+  temporary-file leaks; later additions are excluded and snapshot paths remain
+  stable. Per-file content reads recheck VIEW. Cost: the ZIP represents the
+  authorization snapshot rather than a live directory at transfer time.
+- Ruling: count directories as entries, cap SQL child reads to the remaining
+  allowance plus one, and reject unsafe portable segments/collisions or paths
+  over 4096 UTF-8 bytes. Cost: some legacy names or very deep trees require
+  rename/reorganization before export; original downloads remain available.
+  Superseded by the 2026-10-21 review fixes below for valid nonportable names:
+  these now export using reversible escaping. Invalid paths and excessive depth
+  remain bounded.
+- Ruling: spool only a permission-restricted ZIP within the spec's controlled
+  temporary boundary, using atomic POSIX/Windows permission attributes and
+  finally-based ownership cleanup. The preparation budget is cooperative;
+  blocked I/O can delay cancellation. Cost: operators must use controlled
+  ephemeral storage for crash leftovers; this is not a hard deadline or
+  process-crash erasure guarantee. No loose plaintext source files are created.
+- Verification: `mvnw.cmd -o spotless:apply verify` passed: **214 API tests,
+  zero failures/errors/skips**, including PostgreSQL 16 migration/locking checks,
+  Spotless and JAR packaging. Offline mode avoided a Maven cache metadata write;
+  HTTP/Mockito/Docker checks ran outside the sandbox after concrete restrictions.
+  Docker was already running and remains running. Existing Flyway/H2 and JVM
+  warnings remain. No dependencies or global/service configuration changed.
+- Owner self-review applied the Spring/security checklists and checked both
+  requirements-to-tests and behavior-to-spec alignment. No independent reviewer
+  was launched, per the user's bounded-slice policy. No live MinIO/browser or
+  crash-recovery proof is claimed. See the [archive contract](../../development/DRIVE_FOLDER_ARCHIVES.md).
+- Task 5: complete. Next checkpoint: Task 6, the Drive folder explorer UI.
 
 ## File and interface map
 
@@ -51,11 +241,11 @@
 
 **Interfaces:** `DriveFolderMetadata(String folderId, String workspaceId, String ownerId, String parentFolderId, String encryptedName, String nameIv, Instant createdAt, Instant updatedAt)`. `DriveFolderRepository.save(DriveFolderMetadata)`, `findByIdForWorkspace(String folderId, String workspaceId)`, `listChildren(String workspaceId, String parentId)`, `lockWorkspaceForMutation(String workspaceId)`. Extend `DriveFileMetadata` with nullable `folderId`, and `DriveFileRepository.listByFolder(String workspaceId, String folderId)`, `updateFolder(String workspaceId, String fileId, String folderId, Instant when)`.
 
-- [ ] **Step 1: Write failing tests** `existingFilesMigrateIntoRoot`, `nestedEmptyFolderSurvivesReload`, `crossWorkspaceFolderReferenceRejected`; assert original files' folder ID null, encrypted names persisted and wrong-workspace relationships refused. Update all affected file-record test constructors.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveFolderRepositoryTest,DriveFileRepositoryTest test`; expected missing table/type.
-- [ ] **Step 3: Implement schema/repositories:** `drive_folders` has ID, scoped parent FK, owner, encrypted name+IV, timestamps; nullable `drive_files.folder_id`. Add composite workspace+folder foreign keys so neither files nor folders can reference a folder in another workspace. Use `SELECT ... FOR UPDATE` on the workspace row to serialize folder mutations (also works for root); add child indexes.
-- [ ] **Step 4: Verify GREEN:** same tests, plus the existing PostgreSQL Testcontainers migration suite; expect zero failures.
-- [ ] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): persist nested folders and file placement"`.
+- [x] **Step 1: Write failing tests** `existingFilesMigrateIntoRoot`, `nestedEmptyFolderSurvivesReload`, `crossWorkspaceFolderReferenceRejected`; assert original files' folder ID null, encrypted names persisted and wrong-workspace relationships refused. Update all affected file-record test constructors.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveFolderRepositoryTest,DriveFileRepositoryTest test`; expected missing table/type.
+- [x] **Step 3: Implement schema/repositories:** `drive_folders` has ID, scoped parent FK, owner, encrypted name+IV, timestamps; nullable `drive_files.folder_id`. Add composite workspace+folder foreign keys so neither files nor folders can reference a folder in another workspace. Use `SELECT ... FOR UPDATE` on the workspace row to serialize folder mutations (also works for root); add child indexes.
+- [x] **Step 4: Verify GREEN:** same tests, plus the existing PostgreSQL Testcontainers migration suite; expect zero failures.
+- [x] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): persist nested folders and file placement"`.
 
 ### Task 2: Folder creation/navigation and upload placement
 
@@ -65,11 +255,11 @@
 
 `DriveUploadContentValidator.validate(byte[] bytes, String declaredContentType): void` applies bounded format-specific validation for every configured allowed type, including PDF, PNG, JPEG, plain text and allowed Office containers. Define the signature/structure checks and safe text policy explicitly; do not classify solely by extension or trust a matching magic prefix on a truncated file. Reuse existing parsers where suitable and justify any new dependency.
 
-- [ ] **Step 1: Write failing API tests** `createsProjectsInvoices2026AndListsImmediateChildren`, `uploadIntoChildNotRoot`, `conflictingFileAndFolderSiblingNamesReject`, `twoConcurrentCreatesCannotDuplicateName`, `foreignFolderReadForbiddenWithoutNameLeak`, `rejectsDeclaredMimeAndSignatureMismatch`, `rejectsCorruptAllowedFormatsBeforeStorage`, `validSupportedFormatsStillUpload`. Use clearly labelled synthetic fixtures and assert rejected uploads create no object, metadata, audit-success record or outbox event. Assert 201, 200, 409 and 404 statuses plus decrypted responses only on allowed reads.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveUploadContentValidatorTest,DriveFolderControllerTest,DriveFileControllerTest test`.
-- [ ] **Step 3: Implement:** HTTP `POST /api/drive/folders` body `{name,parentFolderId}`, `GET /api/drive/folders/contents?folderId=...`, `GET /api/drive/folders/{folderId}`, upload multipart optional `folderId`. Validate bounded source bytes before object storage, metadata writes or outbox publication. Under workspace row lock compare decrypted file and folder sibling names before persist. Keep old flat-list API compatible; UI uses new folder-scoped endpoint.
-- [ ] **Step 4: Verify GREEN:** same scoped tests and `./mvnw test`; ensure seeded and sharing behavior remain intact.
-- [ ] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): create folders and browse directory contents"`.
+- [x] **Step 1: Write failing API tests** `createsProjectsInvoices2026AndListsImmediateChildren`, `uploadIntoChildNotRoot`, `conflictingFileAndFolderSiblingNamesReject`, `twoConcurrentCreatesCannotDuplicateName`, `foreignFolderReadForbiddenWithoutNameLeak`, `rejectsDeclaredMimeAndSignatureMismatch`, `rejectsCorruptAllowedFormatsBeforeStorage`, `validSupportedFormatsStillUpload`. Use clearly labelled synthetic fixtures and assert rejected uploads create no object, metadata, audit-success record or outbox event. Assert 201, 200, 409 and 404 statuses plus decrypted responses only on allowed reads.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveUploadContentValidatorTest,DriveFolderControllerTest,DriveFileControllerTest test`.
+- [x] **Step 3: Implement:** HTTP `POST /api/drive/folders` body `{name,parentFolderId}`, `GET /api/drive/folders/contents?folderId=...`, `GET /api/drive/folders/{folderId}`, upload multipart optional `folderId`. Validate bounded source bytes before object storage, metadata writes or outbox publication. Under workspace row lock compare decrypted file and folder sibling names before persist. Keep old flat-list API compatible; UI uses new folder-scoped endpoint.
+- [x] **Step 4: Verify GREEN:** same scoped tests and `./mvnw test`; ensure seeded and sharing behavior remain intact.
+- [x] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): create folders and browse directory contents"`.
 
 ### Task 3: Authenticated original file download and preview
 
@@ -77,11 +267,11 @@
 
 **Interfaces:** `FileObjectStorage.getEncryptedObject(String storageKey, long maxCiphertextBytes): byte[]`, `FileEncryptionService.decryptBytes(byte[] ciphertext, String ivBase64): byte[]` (authenticated AES-GCM), `DriveFileContentService.read(String fileId): DriveFileContent(byte[] bytes, String name, String contentType)`. HTTP `GET /api/drive/files/{fileId}/download` and `/preview`; preview only PDF, PNG, JPEG and text.
 
-- [ ] **Step 1: Write failing tests** `originalDownloadBytesMatchUpload`, `previewDeniesUnsupportedOfficeType`, `legacyMislabeledOrCorruptContentCannotPreview`, `previewCannotExecuteActiveContent`, `viewerWithoutFileViewCannotFetchBytes`, `tamperedCiphertextFailsWithoutLeak`, `oversizedObjectRejectedBeforeBuffering`; assert no-store, nosniff and safe Content-Disposition.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveFileContentServiceTest,DriveFileControllerTest test`.
-- [ ] **Step 3: Implement:** authorize file VIEW before loading source metadata/bytes; add bounded S3 GetObject and AES-GCM tag verification, attachment vs inline safe headers and sanitized failures. Reuse Task 2 format validation before previewing legacy bytes, and define a viewer isolation/rendering policy that prevents active document content from executing; headers alone are not that policy. Preserve authenticated original attachment downloads without rewriting bytes. No plaintext object URL or cache.
-- [ ] **Step 4: Verify GREEN:** same scoped tests; check byte-for-byte comparison against originals.
-- [ ] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): serve protected original downloads and previews"`.
+- [x] **Step 1: Write failing tests** `originalDownloadBytesMatchUpload`, `previewDeniesUnsupportedOfficeType`, `legacyMislabeledOrCorruptContentCannotPreview`, `previewCannotExecuteActiveContent`, `viewerWithoutFileViewCannotFetchBytes`, `tamperedCiphertextFailsWithoutLeak`, `oversizedObjectRejectedBeforeBuffering`; assert no-store, nosniff and safe Content-Disposition.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveFileContentServiceTest,DriveFileControllerTest test`.
+- [x] **Step 3: Implement:** authorize file VIEW before loading source metadata/bytes; add bounded S3 GetObject and AES-GCM tag verification, attachment vs inline safe headers and sanitized failures. Reuse Task 2 format validation before previewing legacy bytes, and define a viewer isolation/rendering policy that prevents active document content from executing; headers alone are not that policy. Preserve authenticated original attachment downloads without rewriting bytes. No plaintext object URL or cache.
+- [x] **Step 4: Verify GREEN:** same scoped tests; check byte-for-byte comparison against originals.
+- [x] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): serve protected original downloads and previews"`.
 
 ### Task 4: Metadata-only rename and move
 
@@ -89,11 +279,11 @@
 
 **Interfaces:** `DriveFileMutationService.renameFile(String fileId, String name): DriveFileResponse`, `moveFile(String fileId, String destinationFolderId): DriveFileResponse`; `DriveFolderService.renameFolder(String folderId, String name): DriveFolderResponse`, `moveFolder(String folderId, String destinationFolderId): DriveFolderResponse`. HTTP PATCH endpoints `/api/drive/files/{fileId}/name|location` and `/api/drive/folders/{folderId}/name|location`.
 
-- [ ] **Step 1: Write failing tests** `renamePreservesObjectKeyFileIdAndOcrLink`, `moveFolderPreservesSubtreeReferences`, `rejectCycleSelfOrDescendant`, `rejectConcurrentCollision`, `viewOnlyUserCannotRenameOrMove`.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveFileMutationServiceTest,DriveFolderControllerTest test`.
-- [ ] **Step 3: Implement:** serialize workspace mutations via Task 1 lock; compare normalized encrypted sibling names under transaction; active owner permission required for source/destination; update parent IDs/name ciphertext only, not blobs or child IDs. Record metadata-only audit entries. Do not add an unconsumed event merely for future search reindexing; the separate Search plan will introduce and consume its source-update event atomically.
-- [ ] **Step 4: Verify GREEN:** same tests plus `DriveFileRepositoryTest`.
-- [ ] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): rename and move files and folder trees"`.
+- [x] **Step 1: Write failing tests** `renamePreservesObjectKeyFileIdAndOcrLink`, `moveFolderPreservesSubtreeReferences`, `rejectCycleSelfOrDescendant`, `rejectConcurrentCollision`, `viewOnlyUserCannotRenameOrMove`.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveFileMutationServiceTest,DriveFolderControllerTest test`.
+- [x] **Step 3: Implement:** serialize workspace mutations via Task 1 lock; compare normalized encrypted sibling names under transaction; active owner permission required for source/destination; update parent IDs/name ciphertext only, not blobs or child IDs. Record metadata-only audit entries. Do not add an unconsumed event merely for future search reindexing; the separate Search plan will introduce and consume its source-update event atomically.
+- [x] **Step 4: Verify GREEN:** same tests plus `DriveFileRepositoryTest`.
+- [x] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): rename and move files and folder trees"`.
 
 ### Task 5: Bounded recursive folder ZIP download
 
@@ -101,36 +291,115 @@
 
 **Interfaces:** `DriveArchiveService.prepareZip(String folderId): DriveZipArchive`; result is an owned temporary ZIP path and a safe filename with `close()` deleting it. HTTP `GET /api/drive/folders/{folderId}/download`. Defaults: max **1,000 entries, 512 MiB uncompressed, 2-minute preparation**; configurable and enforced server-side.
 
-- [ ] **Step 1: Write failing tests** `zipPreservesSubfoldersEmptyDirsAndExactSourceBytes`, `rejectDotDotAndAbsoluteArchiveEntries`, `rejectAnyDeniedDescendant`, `tooManyFilesOrBytesFailsBeforeResponse`, `failedOrCancelledArchiveCleansTemporaryFiles`.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveArchiveServiceTest,DriveFolderControllerTest test`.
-- [ ] **Step 3: Implement:** snapshot/authorize complete subtree including each file VIEW, preflight limits and normalized relative paths before returning a response. Build with `ZipOutputStream` to permission-restricted temp; clean on all paths; stream already-complete ZIP with `finally` close. Never publish partial or plaintext temp files.
-- [ ] **Step 4: Verify GREEN:** same tests; verify the ZIP is readable and every entry's decompressed bytes match its source.
-- [ ] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test .env.example && git commit -m "feat(drive): export authorized folder trees as ZIP"`.
+- [x] **Step 1: Write failing tests** `zipPreservesSubfoldersEmptyDirsAndExactSourceBytes`, `rejectDotDotAndAbsoluteArchiveEntries`, `rejectAnyDeniedDescendant`, `tooManyFilesOrBytesFailsBeforeResponse`, `failedOrCancelledArchiveCleansTemporaryFiles`.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveArchiveServiceTest,DriveFolderControllerTest test`.
+- [x] **Step 3: Implement:** snapshot/authorize complete subtree including each file VIEW, preflight limits and normalized relative paths before returning a response. Build with `ZipOutputStream` to permission-restricted temp; clean on all paths; stream already-complete ZIP with `finally` close. Never publish partial or plaintext temp files.
+- [x] **Step 4: Verify GREEN:** same tests; verify the ZIP is readable and every entry's decompressed bytes match its source.
+- [x] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test .env.example && git commit -m "feat(drive): export authorized folder trees as ZIP"`.
 
 ### Task 6: Drive folder explorer and file actions
+
+**Execution checkpoint (2026-10-21):** Task 6 authorized in chat and implemented on `feat/drive-folder-explorer`, based on `origin/develop` as requested. Tasks 1–5 are available on `feat/drive-folder-zip` and must be integrated before the real API journey can run on this base. Spec impact: **no spec change**; this implements the approved contract. Browser verification rejected a native sandboxed PDF frame, so the UI uses pinned PDF.js canvas rendering with a local worker. Integration acceptance remains Task 7.
+
+**Verification:** 81 frontend tests pass, including 39 Drive tests. Lint, typecheck, formatting and production build pass. Production dependency audit reports no advisories. Edge checks with synthetic HTTP responses cover 1440×1000 desktop and 390×844 mobile navigation, rename, move, escaped-text preview, PDF canvas rendering, keyboard dismissal and focus restoration. No page errors or mobile horizontal overflow were observed. These checks do not prove real backend authorization or ZIP content; Task 7 retains that acceptance gate. PDF previews remain raster images; accessible original documents are available through download. No new API routes, permissions or events were introduced by Task 6.
 
 **Files:** Modify `apps/web/src/lib/drive-api.ts`, `features/drive/use-drive-files.ts`, `features/drive/drive-screen.tsx`, `drive-screen.test.tsx`; create `drive-folder-explorer.tsx`, `drive-file-actions.tsx`, `drive-folder-actions.tsx`, `drive-preview.tsx` and focused Vitest tests in `apps/web/src/features/drive/`.
 
 **Interfaces:** API functions `fetchDriveFolderContents(folderId: string | null)`, `createDriveFolder(name, parentFolderId)`, `renameDriveFile`, `renameDriveFolder`, `moveDriveFile`, `moveDriveFolder`, `downloadDriveFile`, `downloadDriveFolderZip`. TanStack query key `["drive-folder-contents", folderId ?? "root"]`; upload mutation receives `{file: File, folderId: string | null}`.
 
-- [ ] **Step 1: Write failing UI tests** `navigatesNestedFoldersWithBreadcrumbs`, `uploadsIntoCurrentFolder`, `renamesAndMovesFileWithoutLosingSelection`, `previewsPdfImageTextByProtectedFetch`, `downloadsFolderZip`, `mobileFolderPickerAndEmptyState`; stub actual network responses, not static state overrides.
-- [ ] **Step 2: Verify RED:** `cd apps/web && pnpm test -- drive-folder-explorer` then `pnpm test -- drive-screen`.
-- [ ] **Step 3: Implement:** reuse AppShell/Query and existing design components; folder contents not flat workspace list, blob URLs revoked after preview/download, error/loading/denied states and keyboard-accessible controls. Implement Task 3's safe viewer policy, render plain text as text, and test active-content isolation in the preview component. Scope query invalidation to affected folder and retain existing snapshot test overrides.
-- [ ] **Step 4: Verify GREEN:** `cd apps/web && pnpm test -- drive && pnpm lint && pnpm typecheck && pnpm build`.
-- [ ] **Step 5: Commit:** `git add apps/web/src && git commit -m "feat(drive): navigate folders and manage files in the UI"`.
+- [x] **Step 1: Write failing UI tests** `navigatesNestedFoldersWithBreadcrumbs`, `uploadsIntoCurrentFolder`, `renamesAndMovesFileWithoutLosingSelection`, `previewsPdfImageTextByProtectedFetch`, `downloadsFolderZip`, `mobileFolderPickerAndEmptyState`; stub actual network responses, not static state overrides.
+- [x] **Step 2: Verify RED:** `cd apps/web && pnpm test -- drive-folder-explorer` then `pnpm test -- drive-screen`.
+- [x] **Step 3: Implement:** reuse AppShell/Query and existing design components; folder contents not flat workspace list, blob URLs revoked after preview/download, error/loading/denied states and keyboard-accessible controls. Implement Task 3's safe viewer policy, render plain text as text, and test active-content isolation in the preview component. Scope query invalidation to affected folder and retain existing snapshot test overrides.
+- [x] **Step 4: Verify GREEN:** `cd apps/web && pnpm test -- drive && pnpm lint && pnpm typecheck && pnpm build`.
+- [x] **Step 5: Commit:** `git add apps/web/src && git commit -m "feat(drive): navigate folders and manage files in the UI"`.
 
 ### Task 7: Complete integration acceptance for this stage
 
-**Files:** Create `apps/api/src/test/java/com/openecosystem/os/drive/DriveCoreJourneyTest.java`; modify `docs/development/TEST_COMMANDS.md` and existing API tests as needed.
+**Execution checkpoint (2026-10-21):** User authorized Task 7 in chat. The two
+HTTP journey tests failed before integration because folder routes were absent,
+then passed after locally integrating `feat/drive-folder-zip` at `bb4dcf9` with
+the Task 6 UI. The sole merge conflict preserved both migration-isolation and
+Drive test instructions. No additional production fixes were needed.
+
+**Verification:** API `test` and `verify` each pass 216 tests with no skips;
+web passes 81 tests, lint, typecheck and production build. A fresh localhost-only
+Compose project with PostgreSQL/MinIO passes the reproducible text/image smoke,
+including all five ZIP entries and exact original bytes. Edge also displayed
+the persisted moved hierarchy and protected text/image previews against that
+API. The integration test proves stable file IDs, keys, ciphertext and seeded
+OCR/invoice records; it does not claim a new worker-generated extraction.
+Task 6 remains the desktop/mobile and PDF canvas browser evidence. The temporary
+stack and frontend are cleaned up after verification. Spec impact: **no spec
+change**; Trash and Search indexing remain separate subsequent work.
+
+**Files:** Create `apps/api/src/test/java/com/openecosystem/os/drive/DriveCoreJourneyTest.java` and `scripts/smoke-drive-organization.ps1`; modify `docs/development/TEST_COMMANDS.md` and this execution record.
 
 **Interfaces:** No new APIs; verify Tasks 1–6 together.
 
-- [ ] **Step 1: Write failing integration test** `nestedUploadRenameMoveDownloadZipPreservesBytesAndLineage` and `foreignUserCannotInspectOrMutateSubtree`; assert stable file ID, ciphertext key, ZIP bytes, no unauthorized labels.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveCoreJourneyTest test`.
-- [ ] **Step 3: Fix only discovered integration gaps:** document reproducible Compose smoke steps and clearly state **Trash and Search indexing remain separate subsequent work**.
-- [ ] **Step 4: Verify GREEN:** `cd apps/api && ./mvnw test && ./mvnw verify`; `cd apps/web && pnpm test && pnpm lint && pnpm typecheck && pnpm build`. Test real ZIP bytes on a private Compose stack or record blockers.
-- [ ] **Step 5: Commit:** `git add apps/api/src/test docs/development/TEST_COMMANDS.md && git commit -m "test(drive): verify the encrypted file-management journey"`.
+- [x] **Step 1: Write failing integration test** `nestedUploadRenameMoveDownloadZipPreservesBytesAndLineage` and `foreignUserCannotInspectOrMutateSubtree`; assert stable file ID, ciphertext key, ZIP bytes, no unauthorized labels.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveCoreJourneyTest test`.
+- [x] **Step 3: Fix only discovered integration gaps:** document reproducible Compose smoke steps and clearly state **Trash and Search indexing remain separate subsequent work**.
+- [x] **Step 4: Verify GREEN:** `cd apps/api && ./mvnw test && ./mvnw verify`; `cd apps/web && pnpm test && pnpm lint && pnpm typecheck && pnpm build`. Test real ZIP bytes on a private Compose stack or record blockers.
+- [x] **Step 5: Commit:** include the journey test, smoke script, test instructions and execution record; `git commit -m "test(drive): verify the encrypted file-management journey"`.
 
 ## Self-review and handoff
 
-The seven tasks are deliberately scoped so every implementation/verification gate can be reviewed independently. Confirm approved upload validation and safe preview are covered in both implementation and tests, including legacy files. Full MVP Core still requires the [Trash plan](2026-10-18-mvp-core-drive-trash.md) and later OCR/Search/invoice/image-PDF plans. This plan does not authorize implementation; use an isolated worktree/branch after explicit plan review and execution method selection.
+### Review fixes — 2026-10-21
+
+User requested fixes for private-name conflict inference, valid-name ZIP
+failures and unbounded browser ZIP buffering. Implementation remains on the
+slice branch `feat/drive-folder-explorer` with one production-code owner.
+
+Spec impact: **update existing spec**. Clarify owner-scoped sibling uniqueness,
+reversible portable archive-name escaping and a 25 MiB browser response cap in
+the Drive lifecycle spec; no new route, schema, permission grant or event.
+
+Implementation and acceptance:
+
+1. Filter sibling folders/files to the active owner before decrypting names.
+   Create/upload/rename/move share this check and retain workspace locking and
+   normalized conflicts for the same owner. Other owners' private names and
+   corrupt ciphertext must not affect mutation results.
+2. Escape nonportable ZIP segment characters and literal percent signs
+   reversibly, preserve NFC names and original bytes, and retain traversal,
+   collision and path-length rejection. Do not rewrite stored Drive names.
+3. Bound browser folder ZIP responses to 25 MiB with header preflight and a
+   running byte count; cancel/release oversized streams before creating a Blob
+   URL, and provide an actionable error through the existing UI error surface.
+4. Verify focused HTTP/archive/client regressions, then API verify and web
+   tests, lint, typecheck and formatting. No new components or layout changes;
+   desktop/mobile retain the existing action/error behavior. No worker changes.
+
+Verification: API `mvnw.cmd -o verify` passes **219 tests**, zero failures,
+errors or skips, including PostgreSQL 16 tests, Spotless and packaging. Web
+passes **85 tests**, ESLint, TypeScript, changed-file Prettier checks and the
+production build. Regressions were observed failing before their fixes.
+The first full API attempt could not reach Docker; Docker Desktop was stopped,
+then started with its lifecycle CLI and verification passed. Docker remains
+running; Testcontainers owns its temporary resources. Corepack could not fetch
+pnpm, so web checks used the installed pinned Node entry points. Sandbox
+temporary-file/Mockito restrictions required outside-sandbox test runs.
+Owner self-review checked spec-to-code/test and behavior-to-spec alignment.
+No additional browser/live MinIO acceptance, commit, push or merge is claimed.
+
+### Native folder streaming supersession — 2026-10-21
+
+The user subsequently authorized the
+[browser streaming plan](2026-10-21-drive-browser-streaming-downloads.md).
+It replaces only the temporary client ZIP cap/Blob transport above with a
+native download link and a fixed Node streaming route. The historical 85-test
+cap evidence remains historical; it does not prove streaming. Private-name,
+portable-name and bounded cleanup fixes are preserved. Spec impact:
+**update existing spec**. The HTTP cleanup assertion still polls every 25 ms
+for at most five seconds; service close assertions remain immediate.
+
+Streaming verification: 136 web tests, lint, typecheck, formatting and production
+build; 219 API verification tests; local/Compose 41,678,188-byte synthetic ZIPs
+with all three entry hashes matching; Edge desktop keyboard and mobile-emulated
+touch downloads in both environments with Drive retained and sanitized failure
+text. Kubernetes base/dev/prod validate statically; no live cluster proof.
+No runtime dependencies, Java contract, events or permissions change. Temporary
+stack/data/browser downloads are removed after verification; Docker stays running.
+No commit, push or merge is performed.
+
+The seven tasks are deliberately scoped so every implementation/verification gate can be reviewed independently. Confirm approved upload validation and safe preview are covered in both implementation and tests, including legacy files. Full MVP Core still requires the [Trash plan](2026-10-18-mvp-core-drive-trash.md) and later OCR/Search/invoice/image-PDF plans. Continue in the isolated worktree/branch and update the execution record after each verified slice.

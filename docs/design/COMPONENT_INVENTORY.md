@@ -65,6 +65,16 @@ This file defines the reusable UI building blocks humans and coding agents shoul
 - `PermissionModal`
 - `VersionHistoryPanel`
 
+Implemented Drive organization components (`apps/web/src/features/drive/`):
+
+- `DriveFolderExplorer`: folder breadcrumbs, immediate child folders and folder creation.
+- `DriveFileActions` / `DriveFolderActions`: protected download, rename and move actions.
+- `DriveActionDialog`, `DriveNameDialog`, `DriveMoveDialog`: native modal focus containment,
+  keyboard dismissal and focus restoration; centered desktop dialogs become bottom sheets on mobile.
+- `DrivePreview`: protected bounded fetch, escaped text and image blob lifecycle.
+- `DrivePdfPreview`: lazy PDF.js worker and canvas-only paginated rendering of the
+  backend's rasterized preview; no embedded viewer, annotation layer, forms or document scripts.
+
 ## AI components
 
 - `AssistantChat`

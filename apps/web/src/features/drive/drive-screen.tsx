@@ -7,7 +7,7 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import {
@@ -23,10 +23,19 @@ import {
   StatusChip,
   UploadDropzone,
 } from "@/components/ui";
-import { DriveUploadError, type DriveFile } from "@/lib/drive-api";
+import {
+  DriveApiError,
+  DriveUploadError,
+  fetchDriveFile,
+  fetchDriveFolderPath,
+  type DriveFile,
+  type DriveFolder,
+} from "@/lib/drive-api";
 import { driveMockFiles, type DriveState } from "@/lib/drive-mock-data";
 import { cn } from "@/lib/cn";
-import { useDriveFiles, useUploadDriveFile } from "./use-drive-files";
+import { useDriveFolderContents, useUploadDriveFile } from "./use-drive-files";
+import { DriveFolderExplorer } from "./drive-folder-explorer";
+import { DriveFileActions } from "./drive-file-actions";
 
 type DriveScreenProps = {
   initialFileId?: string;
@@ -37,11 +46,66 @@ export function DriveScreen({
   initialFileId,
   stateOverride,
 }: DriveScreenProps) {
-  const filesQuery = useDriveFiles(stateOverride === undefined);
+  const [folderPath, setFolderPath] = useState<DriveFolder[]>([]);
+  const [retainedFile, setRetainedFile] = useState<DriveFile | null>(null);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(
     initialFileId ?? null,
   );
+  const [initialLocation, setInitialLocation] = useState<{
+    resolved: boolean;
+    error: Error | null;
+  }>({ resolved: !initialFileId, error: null });
+  const navigationVersion = useRef(0);
+  const folderId = folderPath.at(-1)?.folderId ?? null;
+  const filesQuery = useDriveFolderContents(
+    folderId,
+    stateOverride === undefined &&
+      initialLocation.resolved &&
+      !initialLocation.error,
+  );
+  useEffect(() => {
+    if (!initialFileId || stateOverride !== undefined) return;
+    const version = ++navigationVersion.current;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const file = await fetchDriveFile(initialFileId, controller.signal);
+        let path: DriveFolder[];
+        try {
+          path = await fetchDriveFolderPath(
+            file.folderId ?? null,
+            controller.signal,
+          );
+        } catch (error) {
+          if (
+            !(error instanceof DriveApiError) ||
+            ![403, 404].includes(error.status)
+          )
+            throw error;
+          path = [];
+        }
+        if (
+          !controller.signal.aborted &&
+          version === navigationVersion.current
+        ) {
+          setFolderPath(path);
+          setRetainedFile(file);
+          setSelectedFileId(file.fileId);
+          setInitialLocation({ resolved: true, error: null });
+        }
+      } catch (error) {
+        if (!controller.signal.aborted && version === navigationVersion.current)
+          setInitialLocation({
+            resolved: true,
+            error:
+              error instanceof Error ? error : new Error("File unavailable"),
+          });
+      }
+    })();
+    return () => controller.abort();
+  }, [initialFileId, stateOverride]);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const [navigationError, setNavigationError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [rejectedUploadMessage, setRejectedUploadMessage] = useState<
     string | null
@@ -76,17 +140,58 @@ export function DriveScreen({
   }, [files, searchQuery]);
   const selectedFile =
     filteredFiles.find((file) => file.fileId === selectedFileId) ??
+    (retainedFile?.fileId === selectedFileId && !searchQuery
+      ? retainedFile
+      : null) ??
     filteredFiles[0] ??
     null;
-  const state = resolveState(
-    stateOverride,
-    filesQuery.isPending,
-    filesQuery.isError,
-    files,
-  );
+  const folders =
+    stateOverride === undefined && !filesQuery.isError
+      ? (filesQuery.data?.folders ?? [])
+      : [];
+  const readError = initialLocation.error ?? filesQuery.error;
+  const denied =
+    readError instanceof DriveApiError && [403, 404].includes(readError.status);
+  const state = denied
+    ? "permission-denied"
+    : resolveState(
+        stateOverride,
+        filesQuery.isPending && !initialLocation.error,
+        filesQuery.isError || !!initialLocation.error,
+        files.length + folders.length + (retainedFile ? 1 : 0),
+      );
+  function handleChanged(file: DriveFile, moved: boolean) {
+    setRetainedFile(file);
+    setSelectedFileId(file.fileId);
+    if (!moved) return;
+    void navigateToFile(file);
+  }
+  async function navigateToFile(file: DriveFile) {
+    const version = ++navigationVersion.current;
+    try {
+      const path = await fetchDriveFolderPath(file.folderId ?? null);
+      if (version !== navigationVersion.current) return;
+      setFolderPath(path);
+      setSearchQuery("");
+      setNavigationError(null);
+    } catch {
+      if (version !== navigationVersion.current) return;
+      setNavigationError(
+        "The destination could not be opened. Return to Drive and try again.",
+      );
+    }
+  }
+  const actions =
+    selectedFile && stateOverride === undefined ? (
+      <DriveFileActions
+        key={selectedFile.fileId}
+        file={selectedFile}
+        onChanged={handleChanged}
+      />
+    ) : null;
   const inspector =
     state === "normal" && selectedFile ? (
-      <DriveFileInspector file={selectedFile} />
+      <DriveFileInspector file={selectedFile} actions={actions} />
     ) : undefined;
   const uploadErrorMessage = uploadMutation.isError
     ? uploadMutation.error instanceof DriveUploadError
@@ -97,7 +202,7 @@ export function DriveScreen({
 
   function handleUpload(file: File) {
     setRejectedUploadMessage(null);
-    uploadMutation.mutate(file);
+    uploadMutation.mutate({ file, folderId });
   }
 
   function handleRejectedUpload() {
@@ -129,6 +234,41 @@ export function DriveScreen({
           }
         />
 
+        {stateOverride === undefined ? (
+          <DriveFolderExplorer
+            path={folderPath}
+            folders={state === "normal" ? folders : []}
+            available={!filesQuery.isPending && !readError}
+            onNavigate={(path) => {
+              navigationVersion.current++;
+              setInitialLocation({ resolved: true, error: null });
+              setFolderPath(path);
+              setSelectedFileId(null);
+              setRetainedFile(null);
+              setSearchQuery("");
+              setMobileSheetOpen(false);
+              setNavigationError(null);
+            }}
+          />
+        ) : null}
+        {navigationError ? <p role="alert">{navigationError}</p> : null}
+        {state === "normal" &&
+        retainedFile &&
+        !files.some((file) => file.fileId === retainedFile.fileId) ? (
+          <SectionCard
+            title="Linked file"
+            description="This authorized file is outside the current folder."
+          >
+            <button
+              type="button"
+              className="min-h-10 text-left font-medium text-primary focus-visible:outline-2 focus-visible:outline-primary"
+              onClick={() => setMobileSheetOpen(true)}
+            >
+              Inspect {retainedFile.name}
+            </button>
+          </SectionCard>
+        ) : null}
+
         {uploadFeedback ? (
           <div
             role="alert"
@@ -142,7 +282,11 @@ export function DriveScreen({
           <LoadingState label="Loading Drive files" />
         ) : state === "empty" ? (
           <EmptyState
-            title="No files uploaded yet"
+            title={
+              stateOverride === undefined
+                ? "This folder is empty"
+                : "No files uploaded yet"
+            }
             description="Upload the first invoice or workspace document to start the Drive slice."
             action={
               <UploadDropzone
@@ -197,7 +341,9 @@ export function DriveScreen({
         open={state === "normal" && mobileSheetOpen && selectedFile !== null}
         onClose={() => setMobileSheetOpen(false)}
       >
-        {selectedFile ? <DriveFileDetails file={selectedFile} /> : null}
+        {selectedFile ? (
+          <DriveFileDetails file={selectedFile} actions={actions} />
+        ) : null}
       </MobileBottomSheet>
     </AppShell>
   );
@@ -207,7 +353,7 @@ function resolveState(
   override: DriveState | undefined,
   loading: boolean,
   error: boolean,
-  files: DriveFile[],
+  itemCount: number,
 ): DriveState {
   if (override) {
     return override;
@@ -218,7 +364,7 @@ function resolveState(
   if (error) {
     return "error";
   }
-  return files.length === 0 ? "empty" : "normal";
+  return itemCount === 0 ? "empty" : "normal";
 }
 
 function DriveNormalState({
@@ -256,7 +402,7 @@ function DriveNormalState({
         <DriveMetric
           label="Files"
           value={files.length.toString()}
-          detail="Current workspace"
+          detail="Current folder"
         />
         <DriveMetric
           label="Stored"
@@ -272,10 +418,10 @@ function DriveNormalState({
         />
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid min-w-0 gap-6">
         <SectionCard
           title="Files"
-          description="Newest uploads in this workspace."
+          description="Files in the current folder."
           action={<StatusChip status="completed" label="Encrypted" />}
         >
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -308,7 +454,7 @@ function DriveNormalState({
             </div>
           ) : (
             <>
-              <div className="hidden overflow-hidden rounded-card border border-border md:block">
+              <div className="hidden overflow-x-auto rounded-card border border-border md:block">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-surface-muted text-xs font-medium uppercase tracking-normal text-text-secondary">
                     <tr>
@@ -430,20 +576,33 @@ function DriveMetric({
   );
 }
 
-function DriveFileInspector({ file }: { file: DriveFile }) {
+function DriveFileInspector({
+  file,
+  actions,
+}: {
+  file: DriveFile;
+  actions?: React.ReactNode;
+}) {
   return (
     <RightInspectorPanel
       title="File details"
       description="Selected Drive object metadata."
     >
-      <DriveFileDetails file={file} />
+      <DriveFileDetails file={file} actions={actions} />
     </RightInspectorPanel>
   );
 }
 
-function DriveFileDetails({ file }: { file: DriveFile }) {
+function DriveFileDetails({
+  file,
+  actions,
+}: {
+  file: DriveFile;
+  actions?: React.ReactNode;
+}) {
   return (
     <div className="space-y-5">
+      {actions}
       <div className="rounded-card border border-border bg-surface-muted p-4">
         <div className="flex items-start gap-3">
           <FileBadge contentType={file.contentType} />

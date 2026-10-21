@@ -38,6 +38,14 @@ Use this checklist before opening a pull request.
 
 ## Infrastructure
 
+- [ ] Host-local Next.js has an explicit reachable server origin, for example
+      `$env:API_BASE_URL='http://localhost:8080'` before starting it. Missing or
+      invalid origins fail folder downloads closed with a sanitized 502.
+- [ ] Compose web uses `http://api:8080` independently of host `.env` API origins;
+      browser `NEXT_PUBLIC_API_BASE_URL` remains configured separately.
+- [ ] The seeded download proxy is behind the trusted private Core access boundary;
+      it does not authenticate callers. Check full-size downloads and cancellation.
+
 - [ ] Docker Compose still validates.
 - [ ] Kubernetes manifests still validate.
 - [ ] Health/readiness endpoints are considered.

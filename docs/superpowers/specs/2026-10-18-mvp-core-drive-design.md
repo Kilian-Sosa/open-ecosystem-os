@@ -98,7 +98,9 @@ Drive must work independently of OCR or invoice extraction success.
   folder name/path strings: renames and moves should not rewrite objects.
 - Persist encrypted folder names using existing encryption conventions.
   Enforce normalized sibling-name uniqueness across folders and files in a
-  parent, with safe concurrency handling despite randomized name encryption.
+  parent's owner namespace, with safe concurrency handling despite randomized
+  name encryption. Another owner's items must not influence conflict responses
+  or require decrypting their private names, including at the workspace root.
   Do not persist plaintext names or full paths in audit/event payloads.
 - Authorize each folder operation in the source and destination context.
   In Core, folders are private organization containers; they do not
@@ -112,6 +114,14 @@ Drive must work independently of OCR or invoice extraction success.
   independent acceptance criterion.
 - The ZIP contains only safely normalized relative entry names; reject or
   escape traversal names, archive entry collisions and unbounded archives.
+  Valid Drive names with nonportable ZIP filename characters are reversibly
+  escaped during export without changing stored names. Browser ZIP downloads
+  use the native download manager through the same-origin Next.js
+  `/downloads/drive/folders/{folderId}` route, streaming every server-permitted
+  archive without collecting it into JavaScript memory or imposing a client
+  byte cap. The fixed seeded identity adapter is trusted-private-Core only;
+  it provides no public authentication. See the approved
+  [streaming contract](2026-10-21-drive-browser-streaming-downloads-design.md).
   Stream or spool ZIP creation in a controlled temporary workspace with
   guaranteed cleanup, never exposing plaintext at rest outside that boundary.
 

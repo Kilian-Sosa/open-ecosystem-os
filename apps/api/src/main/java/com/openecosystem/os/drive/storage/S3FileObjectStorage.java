@@ -1,5 +1,6 @@
 package com.openecosystem.os.drive.storage;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.springframework.stereotype.Service;
@@ -7,6 +8,7 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -24,6 +26,32 @@ public class S3FileObjectStorage implements FileObjectStorage {
   public S3FileObjectStorage(S3Client s3Client, S3StorageProperties properties) {
     this.s3Client = s3Client;
     this.properties = properties;
+  }
+
+  @Override
+  public byte[] getEncryptedObject(String storageKey, long maxCiphertextBytes) {
+    if (maxCiphertextBytes <= 0 || maxCiphertextBytes >= Integer.MAX_VALUE) {
+      throw new IllegalArgumentException("Invalid encrypted object size limit");
+    }
+    var request = GetObjectRequest.builder().bucket(properties.bucket()).key(storageKey).build();
+    try (var stream = s3Client.getObject(request)) {
+      try {
+        Long length = stream.response().contentLength();
+        if (length != null && (length < 0 || length > maxCiphertextBytes)) {
+          throw new IllegalStateException("Encrypted object exceeds size limit");
+        }
+        byte[] bytes = stream.readNBytes((int) maxCiphertextBytes + 1);
+        if (bytes.length > maxCiphertextBytes || (length != null && bytes.length != length)) {
+          throw new IllegalStateException("Encrypted object size is invalid");
+        }
+        return bytes;
+      } catch (IOException | RuntimeException exception) {
+        stream.abort();
+        throw new IllegalStateException("Encrypted object could not be read");
+      }
+    } catch (IOException exception) {
+      throw new IllegalStateException("Encrypted object could not be read");
+    }
   }
 
   @Override

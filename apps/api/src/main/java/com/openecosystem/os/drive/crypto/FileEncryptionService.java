@@ -46,6 +46,10 @@ public class FileEncryptionService {
     return encrypt(plaintext);
   }
 
+  public byte[] decryptBytes(byte[] ciphertext, String ivBase64) {
+    return decrypt(ciphertext, ivBase64);
+  }
+
   private EncryptedBytes encrypt(byte[] plaintext) {
     byte[] iv = randomIv();
     try {
@@ -59,12 +63,15 @@ public class FileEncryptionService {
 
   private byte[] decrypt(byte[] ciphertext, String ivBase64) {
     byte[] iv = Base64.getDecoder().decode(ivBase64);
+    if (iv.length != IV_BYTES) {
+      throw new IllegalStateException("Drive file decryption failed");
+    }
     try {
       Cipher cipher = Cipher.getInstance(CIPHER_NAME);
       cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_BITS, iv));
       return cipher.doFinal(ciphertext);
     } catch (GeneralSecurityException exception) {
-      throw new IllegalStateException("Drive file name decryption failed", exception);
+      throw new IllegalStateException("Drive file decryption failed", exception);
     }
   }
 

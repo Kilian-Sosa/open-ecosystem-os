@@ -233,6 +233,7 @@ class DriveFileSharingServiceTest {
         WORKSPACE_ID,
         OWNER_ID,
         visibility,
+        null,
         "encrypted-name",
         "application/pdf",
         10,
