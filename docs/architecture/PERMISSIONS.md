@@ -228,3 +228,18 @@ Media/OCR and both Search backends inherit source-file denial. Retained metadata
 queries are internal and must be authorized separately before Trash display or
 restoration. Worker/workflow mutation fencing and physical cleanup remain later
 Phase 2 tasks; these endpoints alone do not establish complete retention.
+
+### Trash listing and restoration (Phase 2 Task 3)
+
+`GET /api/drive/trash` lists only the active member's owned group roots, including
+UTC deletion/expiry, lifecycle and `canRestore` state. Names are decrypted only
+after ownership checks. `POST /api/drive/trash/{groupId}/restore` also rechecks
+ownership of every retained member and the destination, serialized with cleanup
+claims through the workspace row lock and group state transition. Missing or
+inaccessible group IDs return the same generic 404.
+
+Restore is rejected at or after the exact 720-hour deadline, and after a purge
+claim. Destination omission uses the original active parent; explicit JSON null
+selects Drive root. An unavailable original parent requires a chosen destination.
+Name conflicts return 409 without overwriting another item. Only the selected
+group's membership is cleared; independent child groups remain hidden.

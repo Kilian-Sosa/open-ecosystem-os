@@ -31,6 +31,16 @@ class DriveTrashControllerTest {
   @Autowired JdbcTemplate jdbc;
   @Autowired DriveFileControllerTest.FakeFileObjectStorage storage;
   @Autowired FileViewAuthorizationRepository authorization;
+
+  @org.springframework.test.context.bean.override.mockito.MockitoBean(name = "driveClock")
+  java.time.Clock clock;
+
+  @org.junit.jupiter.api.BeforeEach
+  void resetClock() {
+    org.mockito.Mockito.when(clock.instant())
+        .thenReturn(java.time.Instant.parse("2026-10-22T12:00:00Z"));
+  }
+
   final HttpClient client = HttpClient.newHttpClient();
   final JsonMapper json = JsonMapper.builder().build();
 
@@ -255,6 +265,154 @@ class DriveTrashControllerTest {
         .isEqualTo(deadline);
     assertThat(json.readTree(parent.body()).get("groupId").asString()).isNotEqualTo(group);
     assertThat(post("/folders/" + child + "/trash", null, null).statusCode()).isEqualTo(404);
+  }
+
+  @Test
+  void restoreBeforeDeadlinePreservesBytesAndIds() throws Exception {
+    String parent = folder(null), root = folder(parent), child = folder(root), file = upload(child);
+    byte[] bytes =
+        client
+            .send(
+                request("/files/" + file + "/download").GET().build(),
+                HttpResponse.BodyHandlers.ofByteArray())
+            .body();
+    String group = group(post("/folders/" + root + "/trash", null, null));
+    var listing = get("/trash");
+    assertThat(listing.statusCode()).isEqualTo(200);
+    assertThat(listing.body()).contains(group, root, "2026-11-21T12:00:00Z");
+    assertThat(post("/trash/" + group + "/restore", null, null).statusCode()).isEqualTo(200);
+    assertThat(get("/folders/" + root).statusCode()).isEqualTo(200);
+    assertThat(get("/folders/contents?folderId=" + child).body()).contains(file);
+    assertThat(
+            client
+                .send(
+                    request("/files/" + file + "/download").GET().build(),
+                    HttpResponse.BodyHandlers.ofByteArray())
+                .body())
+        .isEqualTo(bytes);
+    assertThat(
+            jdbc.queryForObject(
+                "select parent_folder_id from drive_folders where folder_id=?", String.class, root))
+        .isEqualTo(parent);
+    assertThat(post("/trash/" + group + "/restore", null, null).statusCode()).isEqualTo(200);
+    assertThat(get("/trash").body()).doesNotContain(group);
+  }
+
+  @Test
+  void restoreRejectsAtExactDeadline() throws Exception {
+    String file = upload(null);
+    String group = group(post("/files/" + file + "/trash", null, null));
+    org.mockito.Mockito.when(clock.instant())
+        .thenReturn(java.time.Instant.parse("2026-11-21T12:00:00Z"));
+    assertThat(post("/trash/" + group + "/restore", null, null).statusCode()).isEqualTo(409);
+    assertThat(get("/files/" + file + "/download").statusCode()).isEqualTo(404);
+    assertThat(get("/trash").body()).contains("\"canRestore\":false");
+  }
+
+  @Test
+  void restoreMissingParentRequiresExplicitDestination() throws Exception {
+    String parent = folder(null), file = upload(parent);
+    String group = group(post("/files/" + file + "/trash", null, null));
+    post("/folders/" + parent + "/trash", null, null);
+    assertThat(post("/trash/" + group + "/restore", null, null).statusCode()).isEqualTo(409);
+    assertThat(post("/trash/" + group + "/restore", "{}", null).statusCode()).isEqualTo(409);
+    assertThat(
+            post("/trash/" + group + "/restore", "{\"destinationFolderId\":null}", null)
+                .statusCode())
+        .isEqualTo(200);
+    assertThat(
+            jdbc.queryForObject(
+                "select folder_id from drive_files where file_id=?", String.class, file))
+        .isNull();
+    assertThat(get("/files/" + file + "/download").statusCode()).isEqualTo(200);
+  }
+
+  @Test
+  void restoreFolderIntoChosenDestinationAndPreserveIndependentChild() throws Exception {
+    String root = folder(null), child = folder(root), file = upload(child), target = folder(null);
+    String independent = group(post("/files/" + file + "/trash", null, null));
+    String group = group(post("/folders/" + root + "/trash", null, null));
+    assertThat(
+            post(
+                    "/trash/" + group + "/restore",
+                    "{\"destinationFolderId\":\"" + target + "\"}",
+                    null)
+                .statusCode())
+        .isEqualTo(200);
+    assertThat(
+            jdbc.queryForObject(
+                "select parent_folder_id from drive_folders where folder_id=?", String.class, root))
+        .isEqualTo(target);
+    assertThat(get("/folders/" + child).statusCode()).isEqualTo(200);
+    assertThat(get("/files/" + file + "/download").statusCode()).isEqualTo(404);
+    assertThat(get("/trash").body()).contains(independent).doesNotContain(group);
+  }
+
+  @Test
+  void restoreDuplicateSiblingConflictsNotOverwritten() throws Exception {
+    String file = upload(null);
+    String group = group(post("/files/" + file + "/trash", null, null));
+    String replacement = upload(null);
+    jdbc.update(
+        "update drive_files set encrypted_name=(select encrypted_name from drive_files where"
+            + " file_id=?), name_iv=(select name_iv from drive_files where file_id=?) where"
+            + " file_id=?",
+        file,
+        file,
+        replacement);
+    assertThat(post("/trash/" + group + "/restore", null, null).statusCode()).isEqualTo(409);
+    assertThat(get("/files/" + replacement + "/download").statusCode()).isEqualTo(200);
+    assertThat(get("/files/" + file + "/download").statusCode()).isEqualTo(404);
+  }
+
+  @Test
+  void unauthorizedTrashGroupNotEnumeratedOrRestored() throws Exception {
+    seedViewer();
+    String file = upload(null);
+    String group = group(post("/files/" + file + "/trash", null, null));
+    var listing =
+        client.send(
+            request("/trash").header("X-Actor-Id", "usr_trash_viewer").GET().build(),
+            HttpResponse.BodyHandlers.ofString());
+    assertThat(listing.statusCode()).isEqualTo(200);
+    assertThat(listing.body()).doesNotContain(group, file, "synthetic");
+    assertThat(post("/trash/" + group + "/restore", null, "usr_trash_viewer").statusCode())
+        .isEqualTo(404);
+    assertThat(post("/trash/nonexistent/restore", null, null).statusCode()).isEqualTo(404);
+  }
+
+  @Test
+  void restoreOneSecondBeforeDeadlineStillWorks() throws Exception {
+    String file = upload(null);
+    String group = group(post("/files/" + file + "/trash", null, null));
+    org.mockito.Mockito.when(clock.instant())
+        .thenReturn(java.time.Instant.parse("2026-11-21T11:59:59Z"));
+    assertThat(post("/trash/" + group + "/restore", "{}", null).statusCode()).isEqualTo(200);
+    assertThat(get("/files/" + file + "/download").statusCode()).isEqualTo(200);
+  }
+
+  @Test
+  void invalidRestoreDestinationNeverMutatesGroup() throws Exception {
+    String file = upload(null);
+    String group = group(post("/files/" + file + "/trash", null, null));
+    for (String destination : new String[] {"true", "123", "\"\"", "[]", "{}"})
+      assertThat(
+              post(
+                      "/trash/" + group + "/restore",
+                      "{\"destinationFolderId\":" + destination + "}",
+                      null)
+                  .statusCode())
+          .isEqualTo(400);
+    assertThat(
+            jdbc.queryForObject(
+                "select state from drive_trash_groups where group_id=?", String.class, group))
+        .isEqualTo("TRASHED");
+    assertThat(get("/files/" + file + "/download").statusCode()).isEqualTo(404);
+  }
+
+  String group(HttpResponse<String> response) {
+    assertThat(response.statusCode()).isEqualTo(200);
+    return json.readTree(response.body()).get("groupId").asString();
   }
 
   String folder(String parent) throws Exception {

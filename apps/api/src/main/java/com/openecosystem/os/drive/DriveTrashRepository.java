@@ -247,6 +247,56 @@ public class DriveTrashRepository {
             folderId));
   }
 
+  public List<DriveFileMetadata> filesInGroup(String workspaceId, String groupId) {
+    var files = new DriveFileRepository(jdbc);
+    return jdbc
+        .queryForList(
+            "select file_id from drive_files where workspace_id = ? and deletion_group_id = ? order"
+                + " by file_id",
+            String.class,
+            workspaceId,
+            groupId)
+        .stream()
+        .map(id -> files.findByIdForWorkspace(id, workspaceId).orElseThrow())
+        .toList();
+  }
+
+  public List<DriveFolderMetadata> foldersInGroup(String workspaceId, String groupId) {
+    var folders = new DriveFolderRepository(jdbc);
+    return jdbc
+        .queryForList(
+            "select folder_id from drive_folders where workspace_id = ? and deletion_group_id = ?"
+                + " order by folder_id",
+            String.class,
+            workspaceId,
+            groupId)
+        .stream()
+        .map(id -> folders.findByIdForWorkspace(id, workspaceId).orElseThrow())
+        .toList();
+  }
+
+  public boolean restoreGroup(String groupId, String workspaceId, Instant now) {
+    int changed =
+        jdbc.update(
+            "update drive_trash_groups set state = 'RESTORED' where group_id = ? and workspace_id ="
+                + " ? and state = 'TRASHED' and purge_after > ?",
+            groupId,
+            workspaceId,
+            Timestamp.from(now));
+    if (changed == 0) return false;
+    jdbc.update(
+        "update drive_files set deletion_group_id = null, original_folder_id = null where"
+            + " workspace_id = ? and deletion_group_id = ?",
+        workspaceId,
+        groupId);
+    jdbc.update(
+        "update drive_folders set deletion_group_id = null, original_parent_folder_id = null where"
+            + " workspace_id = ? and deletion_group_id = ?",
+        workspaceId,
+        groupId);
+    return true;
+  }
+
   private static DriveTrashGroup mapGroup(ResultSet row, int number) throws SQLException {
     return new DriveTrashGroup(
         row.getString("group_id"),

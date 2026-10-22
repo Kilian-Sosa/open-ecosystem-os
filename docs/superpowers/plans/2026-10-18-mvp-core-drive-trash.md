@@ -10,7 +10,7 @@
 
 **Spec:** [Drive Trash and retention design](../specs/2026-10-18-mvp-core-drive-trash-design.md), [Drive folder design](../specs/2026-10-18-mvp-core-drive-design.md), [Search design](../specs/2026-10-18-mvp-core-search-design.md). **Prerequisite plan:** [Drive organization](2026-10-18-mvp-core-drive-organization.md), whose V10 folder model and read services must already be implemented and verified.
 
-**Status:** Execution approved 2026-10-22; inline execution on isolated `feat/drive-trash-retention` from `develop`. Tasks 1–2 completed and verified; Tasks 3–7 pending.
+**Status:** Execution approved 2026-10-22; inline execution on isolated `feat/drive-trash-retention` from `develop`. Tasks 1–3 completed and verified; Tasks 4–7 pending.
 
 **Spec impact:** No spec change. The review revisions below make the approved workflow invisibility, durable purge, search cleanup, explicit restore destination and recursive Trash confirmation requirements executable and testable.
 
@@ -88,11 +88,11 @@
 
 **Interfaces:** `DriveTrashService.listTrash(): List<DriveTrashResponse>`; `restore(String groupId, DriveRestoreDestination destination): DriveTrashResponse`. `DriveRestoreDestination(boolean supplied, String folderId)` preserves request-field presence: omitted body/field means original parent, explicit `{destinationFolderId: null}` means root, and a supplied string means that folder. Default to the original parent only if it is still active; when unavailable, omission returns a destination-required error and explicit root remains valid if authorized. HTTP `GET /api/drive/trash`, `POST /api/drive/trash/{groupId}/restore`; do not collapse omitted and explicit null during request binding.
 
-- [ ] **Step 1: Write RED tests** `restoreBeforeDeadlinePreservesBytesAndIds`, `restoreRejectsAtExactDeadline`, `restoreMissingParentRequiresExplicitDestination`, `restoreExplicitNullToRootWhenOriginalParentUnavailable`, `restoreOmittedDestinationUsesActiveOriginalParent`, `restoreDuplicateSiblingConflictsNotOverwritten`, `folderRestoreDoesNotRestoreIndependentlyTrashedChild`, `unauthorizedTrashGroupNotEnumerated`.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveTrashControllerTest,DriveTrashRepositoryTest test`.
-- [ ] **Step 3: Implement:** row-lock group, preserve explicit destination intent, recheck lifecycle and destination ownership, enforce normalized sibling-name conflict policy, atomically clear group membership only for its snapshot; retain original file IDs and encrypted object keys. Emit a metadata-only restored event for current/later search reindexing; never auto-confirm invoice drafts.
-- [ ] **Step 4: Verify GREEN:** same tests; add an idempotent duplicate-restore test and ensure no index duplication.
-- [ ] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): restore Trash files and folder trees"`.
+- [x] **Step 1: Write RED tests** `restoreBeforeDeadlinePreservesBytesAndIds`, `restoreRejectsAtExactDeadline`, `restoreMissingParentRequiresExplicitDestination`, `restoreExplicitNullToRootWhenOriginalParentUnavailable`, `restoreOmittedDestinationUsesActiveOriginalParent`, `restoreDuplicateSiblingConflictsNotOverwritten`, `folderRestoreDoesNotRestoreIndependentlyTrashedChild`, `unauthorizedTrashGroupNotEnumerated`.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveTrashControllerTest,DriveTrashRepositoryTest test`.
+- [x] **Step 3: Implement:** row-lock group, preserve explicit destination intent, recheck lifecycle and destination ownership, enforce normalized sibling-name conflict policy, atomically clear group membership only for its snapshot; retain original file IDs and encrypted object keys. Emit a metadata-only restored event for current/later search reindexing; never auto-confirm invoice drafts.
+- [x] **Step 4: Verify GREEN:** same tests; add an idempotent duplicate-restore test and ensure no index duplication.
+- [x] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): restore Trash files and folder trees"`.
 
 ### Task 4: Fence worker and search paths against stale events
 
@@ -201,3 +201,33 @@ and workflow fences, durable remote search cleanup, purge, UI and acceptance.
 Do not deploy this partial phase as completed Trash/retention functionality.
 The referenced `instructions/backend-endpoint-naming.md` is absent in this
 checkout; approved plan routes and existing controller conventions were used.
+
+Task 3 implements `GET /api/drive/trash` and
+`POST /api/drive/trash/{groupId}/restore`. Listing authorizes group roots before
+name decryption; restoration rechecks every member and the destination under the
+workspace/group locks. An omitted destination selects the active original parent;
+explicit `{destinationFolderId: null}` selects root. An inaccessible original
+parent requires an explicit destination. Invalid destination types return 400,
+missing/unauthorized groups return 404, and expiry or name collisions return 409.
+Restoration clears only the selected group's snapshot and preserves nested IDs,
+bytes and independent child groups; duplicate requests do not repeat mutations.
+
+Task 3 RED: six restore/list HTTP scenarios failed on missing endpoints. GREEN:
+full API offline `verify` passed 255 tests with zero failures/errors/skips,
+Spotless and packaging. After import cleanup, 36 focused HTTP/repository tests
+passed, including PostgreSQL restore-versus-purge serialization. Tests cover
+one second before expiry, the exact expiry instant, omitted/null/explicit folder
+destinations, collision, malformed destination, authorization, duplicate restore,
+stable bytes/IDs and independent child Trash groups.
+
+Ruling: introduce restore lifecycle events atomically with Task 4's registered
+consumers instead of publishing an unconsumed event in Task 3. This resolves the
+plan's conflicting instructions; remote reconciliation and confirmation-aware
+reindexing remain explicitly unimplemented until Task 4. Existing source indexes
+are still filtered by source-file authorization. This is not a completed Phase 2
+or a safe independent production rollout of Trash/retention.
+
+Spec impact: **no spec change**; the approved restore contract is unchanged.
+No UI/components, responsive behavior, worker code or event contract changed.
+Next execution starts at Task 4's database/event fence, then its separate durable
+remote-search reconciliation slice, before any Task 5 physical purge work.

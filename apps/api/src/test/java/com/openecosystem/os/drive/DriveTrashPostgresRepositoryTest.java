@@ -50,6 +50,59 @@ class DriveTrashPostgresRepositoryTest extends DriveTrashRepositoryTest {
     }
   }
 
+  @org.junit.jupiter.api.Test
+  void restoreAndPurgeShareTheWorkspaceFenceAndOnlyOneWins() throws Exception {
+    repository.createGroup(
+        DriveTrashGroup.trashed(
+            "restore-race", WORKSPACE, "file", "legacy", null, "usr_dev_placeholder", NOW));
+    repository.attachFile(WORKSPACE, "legacy", "restore-race");
+    String schema = jdbc.queryForObject("select current_schema()", String.class);
+    String url =
+        POSTGRES.getJdbcUrl()
+            + (POSTGRES.getJdbcUrl().contains("?") ? "&" : "?")
+            + "currentSchema="
+            + schema;
+    var dataSource =
+        new org.springframework.jdbc.datasource.DriverManagerDataSource(
+            url, POSTGRES.getUsername(), POSTGRES.getPassword());
+    var concurrentJdbc = new JdbcTemplate(dataSource);
+    var concurrentRepository = new DriveTrashRepository(concurrentJdbc);
+    var transaction =
+        new org.springframework.transaction.support.TransactionTemplate(
+            new org.springframework.jdbc.support.JdbcTransactionManager(dataSource));
+    var gate = new java.util.concurrent.CountDownLatch(1);
+    try (var pool = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+      var restore =
+          pool.submit(
+              () -> {
+                gate.await();
+                return transaction.execute(
+                    status -> {
+                      new DriveFolderRepository(concurrentJdbc).lockWorkspaceForMutation(WORKSPACE);
+                      concurrentRepository.lockGroup("restore-race", WORKSPACE).orElseThrow();
+                      return concurrentRepository.restoreGroup("restore-race", WORKSPACE, NOW);
+                    });
+              });
+      var purge =
+          pool.submit(
+              () -> {
+                gate.await();
+                return concurrentRepository
+                    .claimForPurge("restore-race", WORKSPACE, NOW)
+                    .isPresent();
+              });
+      gate.countDown();
+      boolean restored = restore.get(10, java.util.concurrent.TimeUnit.SECONDS);
+      boolean claimed = purge.get(10, java.util.concurrent.TimeUnit.SECONDS);
+      org.assertj.core.api.Assertions.assertThat(restored).isNotEqualTo(claimed);
+      org.assertj.core.api.Assertions.assertThat(
+              repository.findByIdForWorkspace("restore-race", WORKSPACE).orElseThrow().state())
+          .isEqualTo(restored ? DriveTrashState.RESTORED : DriveTrashState.PURGING);
+      org.assertj.core.api.Assertions.assertThat(repository.isActiveFile(WORKSPACE, "legacy", NOW))
+          .isEqualTo(restored);
+    }
+  }
+
   @Override
   SingleConnectionDataSource createDatabase() {
     var dataSource =
