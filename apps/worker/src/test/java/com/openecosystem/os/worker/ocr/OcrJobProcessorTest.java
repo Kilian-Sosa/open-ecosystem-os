@@ -549,6 +549,34 @@ class OcrJobProcessorTest {
     assertThat(provider.calls.get()).isZero();
   }
 
+  @Test
+  void replacementRestoreRequestCompletesPreviouslyAcknowledgedQueuedJob() {
+    insertJob("ocr_replacement", "file_replacement", 2);
+    var original = requestedEvent("evt_original", "ocr_replacement", "file_replacement");
+    jdbcTemplate.update("update drive_files set deletion_group_id='trash_test'");
+    assertThat(processor.process(original).outcome()).isEqualTo(OcrProcessingOutcome.NO_OP);
+    jdbcTemplate.update("update drive_files set deletion_group_id=null");
+    var replacement =
+        new OcrRequestedEvent(
+            "evt_restored",
+            1,
+            original.occurredAt(),
+            original.workspaceId(),
+            original.actorId(),
+            original.correlationId(),
+            original.causationId(),
+            "drive:restore:trash_test:file_replacement:ocr:v1",
+            original.jobId(),
+            original.fileId(),
+            original.contentType(),
+            original.storageKey(),
+            original.attemptCount(),
+            original.maxAttempts(),
+            original.requestedAt());
+    assertThat(processor.process(replacement).outcome()).isEqualTo(OcrProcessingOutcome.COMPLETED);
+    assertThat(provider.calls.get()).isEqualTo(1);
+  }
+
   private void insertJob(String jobId, String fileId, int maxAttempts) {
     Instant now = Instant.parse("2026-05-22T10:00:00Z");
     jdbcTemplate.update(

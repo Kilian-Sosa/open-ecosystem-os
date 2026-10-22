@@ -34,6 +34,32 @@ class SearchIndexingProcessorTest {
   void createSchema() {
     indexClient.fail.set(false);
     indexClient.indexedCount = 0;
+    jdbcTemplate.update("drop table if exists drive_search_remote_documents");
+    jdbcTemplate.update("drop table if exists drive_search_lifecycle");
+    jdbcTemplate.update("drop table if exists invoice_extractions");
+    jdbcTemplate.update("drop table if exists drive_files cascade");
+    jdbcTemplate.update("drop table if exists drive_folders");
+    jdbcTemplate.update("drop table if exists workspaces cascade");
+    jdbcTemplate.update("create table workspaces(workspace_id varchar(128) primary key)");
+    jdbcTemplate.update("insert into workspaces values ('wrk_123')");
+    jdbcTemplate.update(
+        "create table drive_folders(folder_id varchar(64), workspace_id varchar(128),"
+            + " parent_folder_id varchar(64), deletion_group_id varchar(64))");
+    jdbcTemplate.update(
+        "create table drive_files(file_id varchar(64), workspace_id varchar(128), folder_id"
+            + " varchar(64), deletion_group_id varchar(64))");
+    jdbcTemplate.update(
+        "create table invoice_extractions(extraction_id varchar(64), workspace_id varchar(128),"
+            + " file_id varchar(64), status varchar(32))");
+    try {
+      for (String sql :
+          java.nio.file.Files.readString(
+                  java.nio.file.Path.of(
+                      "../api/src/main/resources/db/migration/V12__drive_search_lifecycle.sql"))
+              .split(";")) if (!sql.isBlank()) jdbcTemplate.execute(sql);
+    } catch (java.io.IOException exception) {
+      throw new IllegalStateException(exception);
+    }
     jdbcTemplate.update("drop table if exists event_consumptions");
     jdbcTemplate.update("drop table if exists event_outbox");
     jdbcTemplate.update("drop table if exists search_documents");
@@ -157,6 +183,18 @@ class SearchIndexingProcessorTest {
     assertThat(searchCounter("dead-letter")).isEqualTo(deadLetterBefore + 1);
   }
 
+  @Test
+  void delayedDriveIndexEventCannotSendRetainedProjectionAfterTrash() {
+    insertDocument("srch_trashed", 3);
+    jdbcTemplate.update("insert into drive_files values ('file_test','wrk_123',null,'trash_test')");
+    jdbcTemplate.update(
+        "update search_documents set metadata_json='{\"fileId\":\"file_test\"}' where"
+            + " search_document_id='srch_trashed'");
+    assertThat(processor.process(event("evt_trashed", "srch_trashed")).outcome())
+        .isEqualTo(SearchIndexingOutcome.NO_OP);
+    assertThat(indexClient.indexedCount).isZero();
+  }
+
   private void insertDocument(String searchDocumentId, int maxAttempts) {
     Instant now = Instant.parse("2026-05-23T10:00:00Z");
     jdbcTemplate.update(
@@ -185,7 +223,7 @@ class SearchIndexingProcessorTest {
         """,
         searchDocumentId,
         "wrk_123",
-        "demo_invoice_extraction",
+        "page",
         "invx_123",
         "Fake/test invoice",
         "Fake/test invoice summary",
@@ -211,7 +249,7 @@ class SearchIndexingProcessorTest {
         "evt_ocr_completed",
         "search:document:" + searchDocumentId + ":requested:v1",
         searchDocumentId,
-        "demo_invoice_extraction",
+        "page",
         "invx_123",
         "/app/search?q=TEST-INV-2026-0001",
         0,
@@ -242,6 +280,27 @@ class SearchIndexingProcessorTest {
 
     private final AtomicBoolean fail = new AtomicBoolean(false);
     private int indexedCount;
+
+    public long submitUpsert(SearchDocument document, String operation) {
+      index(document);
+      return 0;
+    }
+
+    public long submitRemoval(String documentId, String operation) {
+      return 0;
+    }
+
+    public TaskState taskState(long uid) {
+      return TaskState.SUCCEEDED;
+    }
+
+    public TaskLookup findTask(String operation, java.time.Instant startedAt, Long cursor) {
+      return new TaskLookup(java.util.OptionalLong.empty(), null);
+    }
+
+    public boolean isAbsent(String documentId) {
+      return true;
+    }
 
     @Override
     public void index(SearchDocument document) {

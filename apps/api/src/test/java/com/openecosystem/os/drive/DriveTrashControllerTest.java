@@ -176,7 +176,7 @@ class DriveTrashControllerTest {
         insert into search_documents (search_document_id, workspace_id, source_type, source_id,
           title, summary, content, resource_href, correlation_id, status, attempt_count, max_attempts,
           metadata_json, created_at, updated_at)
-        values (?, 'wrk_dev_placeholder', 'invoice_extraction', ?, 'synthetic-secret-title',
+        values (?, 'wrk_dev_placeholder', 'ocr_result', ?, 'synthetic-secret-title',
           'synthetic-secret-summary', 'synthetic-secret-term', '/app/drive', 'synthetic-correlation',
           'indexed', 0, 3, ?, current_timestamp, current_timestamp)
         """,
@@ -188,7 +188,7 @@ class DriveTrashControllerTest {
     String hit =
         "{\"hits\":[{\"id\":\""
             + document
-            + "\",\"workspaceId\":\"wrk_dev_placeholder\",\"sourceType\":\"invoice_extraction\",\"sourceId\":\""
+            + "\",\"workspaceId\":\"wrk_dev_placeholder\",\"sourceType\":\"ocr_result\",\"sourceId\":\""
             + document
             + "\",\"title\":\"synthetic-secret-title\",\"summary\":\"synthetic-secret-summary\",\"resourceHref\":\"/app/drive\",\"correlationId\":\"synthetic-correlation\",\"metadata\":"
             + metadata
@@ -408,6 +408,126 @@ class DriveTrashControllerTest {
                 "select state from drive_trash_groups where group_id=?", String.class, group))
         .isEqualTo("TRASHED");
     assertThat(get("/files/" + file + "/download").statusCode()).isEqualTo(404);
+  }
+
+  @Autowired com.openecosystem.os.media.FileUploadedEventParser uploadedParser;
+  @Autowired com.openecosystem.os.media.FileUploadedOcrJobService uploadedConsumer;
+
+  @Test
+  void restoreAutomaticallyCreatesJobAfterUploadWasConsumedInTrash() throws Exception {
+    String file = uploadPdf();
+    String group = group(post("/files/" + file + "/trash", null, null));
+    String envelope =
+        jdbc.queryForObject(
+            "select envelope_json from event_outbox where idempotency_key=?",
+            String.class,
+            "drive:" + file + ":uploaded:v1");
+    uploadedConsumer.queueOcrJobIfEligible(uploadedParser.parse(envelope));
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from ocr_jobs where file_id=?", Integer.class, file))
+        .isZero();
+    assertThat(post("/trash/" + group + "/restore", null, null).statusCode()).isEqualTo(200);
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from ocr_jobs where file_id=?", Integer.class, file))
+        .isEqualTo(1);
+    assertThat(post("/trash/" + group + "/restore", null, null).statusCode()).isEqualTo(200);
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from ocr_jobs where file_id=?", Integer.class, file))
+        .isEqualTo(1);
+  }
+
+  @Test
+  void restoreDurablySchedulesQueuedOcrWithoutManualRedelivery() throws Exception {
+    String file = uploadPdf();
+    String envelope =
+        jdbc.queryForObject(
+            "select envelope_json from event_outbox where idempotency_key=?",
+            String.class,
+            "drive:" + file + ":uploaded:v1");
+    uploadedConsumer.queueOcrJobIfEligible(uploadedParser.parse(envelope));
+    jdbc.update(
+        "update event_outbox set published_at=current_timestamp where event_type='OcrRequested'");
+    String group = group(post("/files/" + file + "/trash", null, null));
+    assertThat(post("/trash/" + group + "/restore", null, null).statusCode()).isEqualTo(200);
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from event_outbox where event_type='OcrRequested' and published_at"
+                    + " is null and idempotency_key like ?",
+                Integer.class,
+                "%" + group + "%"))
+        .isEqualTo(1);
+    assertThat(post("/trash/" + group + "/restore", null, null).statusCode()).isEqualTo(200);
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from event_outbox where event_type='OcrRequested' and published_at"
+                    + " is null and idempotency_key like ?",
+                Integer.class,
+                "%" + group + "%"))
+        .isEqualTo(1);
+  }
+
+  @Autowired DriveSearchLifecycle searchLifecycle;
+
+  @Test
+  void lifecycleRevisionsAndCleanupProofFollowTrashRestoreTransitions() throws Exception {
+    String file = upload(null);
+    String firstGroup = group(post("/files/" + file + "/trash", null, null));
+    assertThat(
+            jdbc.queryForObject(
+                "select revision from drive_search_lifecycle where file_id=?", Long.class, file))
+        .isEqualTo(1L);
+    assertThat(searchLifecycle.cleanupComplete("wrk_dev_placeholder", file, 1)).isFalse();
+    assertThat(post("/trash/" + firstGroup + "/restore", null, null).statusCode()).isEqualTo(200);
+    assertThat(post("/trash/" + firstGroup + "/restore", null, null).statusCode()).isEqualTo(200);
+    assertThat(
+            jdbc.queryForObject(
+                "select revision from drive_search_lifecycle where file_id=?", Long.class, file))
+        .isEqualTo(2L);
+    jdbc.update(
+        "update drive_search_lifecycle set reconciled_revision=revision where file_id=?", file);
+    assertThat(searchLifecycle.cleanupComplete("wrk_dev_placeholder", file, 2)).isFalse();
+    post("/files/" + file + "/trash", null, null);
+    assertThat(searchLifecycle.cleanupComplete("wrk_dev_placeholder", file, 3)).isFalse();
+    jdbc.update(
+        "update drive_search_lifecycle set reconciled_revision=revision where file_id=?", file);
+    assertThat(searchLifecycle.cleanupComplete("wrk_dev_placeholder", file, 3)).isTrue();
+    assertThat(searchLifecycle.cleanupComplete("wrk_dev_placeholder", file, 1)).isFalse();
+    assertThat(
+            jdbc.queryForList(
+                "select payload_json from event_outbox where event_type='DriveFileLifecycleChanged'"
+                    + " and idempotency_key like ?",
+                String.class,
+                "drive:" + file + ":lifecycle:%"))
+        .hasSize(3)
+        .allSatisfy(
+            payload ->
+                assertThat(payload)
+                    .doesNotContain("synthetic-", "encryptedName", "storageKey", "ocrText"));
+  }
+
+  String uploadPdf() throws Exception {
+    var body =
+        HttpRequest.BodyPublishers.concat(
+            HttpRequest.BodyPublishers.ofString(
+                "--synthetic-boundary\r\n"
+                    + "Content-Disposition: form-data; name=\"file\";"
+                    + " filename=\"synthetic-recovery-"
+                    + UUID.randomUUID()
+                    + ".pdf\"\r\nContent-Type: application/pdf\r\n\r\n"),
+            HttpRequest.BodyPublishers.ofByteArray(SyntheticDriveFiles.pdf()),
+            HttpRequest.BodyPublishers.ofString("\r\n--synthetic-boundary--\r\n"));
+    var response =
+        client.send(
+            request("/files")
+                .header("Content-Type", "multipart/form-data; boundary=synthetic-boundary")
+                .POST(body)
+                .build(),
+            HttpResponse.BodyHandlers.ofString());
+    assertThat(response.statusCode()).isEqualTo(201);
+    return json.readTree(response.body()).get("fileId").asString();
   }
 
   String group(HttpResponse<String> response) {

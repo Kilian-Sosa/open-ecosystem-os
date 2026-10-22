@@ -179,3 +179,61 @@ Initial restore test should be scripted.
 - backup jobs
 - observability stack
 - persistent volumes
+
+## Drive lifecycle rollout and remote cleanup proof
+
+Drive Trash now requires API and worker lifecycle fences together. Stop the old
+API and workers, let outstanding legacy Meilisearch writes settle, migrate the
+shared database through V12, then start the matching API/worker versions. An old
+worker ignores tombstones and has untracked remote writes; it is not a safe
+rolling upgrade or ordinary rollback after Trash is used. The API remains the
+final read-authorization boundary. No new service or infrastructure is required.
+
+Meilisearch must support asynchronous tasks and `customMetadata` on document
+mutations and task responses. The local contract tests passed against 1.49.0.
+Keep task history for unresolved operations, and disable automatic proxy retries
+of mutation POSTs. Drive-derived writes must use the tracked client exclusively.
+The worker's `openecosystem.search.lifecycle.enabled` defaults to true;
+`openecosystem.search.lifecycle.poll-ms` defaults to 2000, with 25 source files
+per poll. Known failures persist a ten-second retry time; normal progress is
+polled after two seconds. Invalid lifecycle envelopes use the existing Search
+DLQ; valid deliveries can be acknowledged once reconciliation is durably tracked.
+
+Inspect metadata-only state, never projection values or source document content:
+
+```sql
+select workspace_id, file_id, revision, desired_state, reconciled_revision,
+       next_attempt_at, last_error_code
+from drive_search_lifecycle
+where reconciled_revision <> revision;
+
+select workspace_id, file_id, document_id, desired_revision, desired_present,
+       completed_revision, operation_id, operation_state, task_uid, lookup_cursor
+from drive_search_remote_documents
+where operation_id is not null or completed_revision <> desired_revision;
+```
+
+`SUBMITTING`/`UNCERTAIN` without a task UID means the request might have been
+accepted. The poller searches paginated remote task history for that exact
+operation ID. Once found, it waits for a terminal outcome before applying the
+current desired revision. A task that never appears stays unresolved, including
+a crash between persisting submission intent and actually sending the request.
+Do not clear it because a lease or timeout elapsed. Operator resolution requires
+quiescing writers and establishing the fate of that specific request; otherwise
+cleanup must remain pending. Gateway 5xx/timeouts are ambiguous, not evidence of
+rejection. No error message or diagnostic includes source content.
+
+`DriveSearchLifecycle.cleanupComplete(workspaceId, fileId, revision)` is true
+only for that exact current `ABSENT` revision after reconciliation, with no
+outstanding write/removal. The later permanent-purge service must use this proof
+before declaring remote cleanup complete; this change adds no physical-purge
+endpoint and makes no S3-erasure claim. Retain the lifecycle/operation identifiers
+needed for reconciliation independently of deletable source/projection rows.
+
+Restoration resumes eligible pipeline work transactionally. Original completed
+OCR envelopes must remain in the outbox so their event identity can be replayed
+without duplicate extraction. Missing jobs are recreated, pending OCR receives a
+replacement outbox request, and completed OCR resumes skipped triggering. Failed
+OCR is not implicitly retried. Existing invoice projections remain excluded
+until the separate confirmation feature supplies persisted user confirmation;
+restoration never confirms a draft.

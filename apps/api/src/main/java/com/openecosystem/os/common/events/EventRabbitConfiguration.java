@@ -236,6 +236,13 @@ public class EventRabbitConfiguration {
         .with(properties.queues().searchIndexingRequestedDlq());
   }
 
+  @Bean
+  Binding driveFileLifecycleBinding(
+      @Qualifier("searchIndexingRequestedQueue") Queue queue,
+      @Qualifier("eventExchange") DirectExchange exchange) {
+    return BindingBuilder.bind(queue).to(exchange).with("DriveFileLifecycleChanged");
+  }
+
   private Queue primaryQueue(String queueName, String retryExchange, String retryRoutingKey) {
     return new Queue(
         queueName,

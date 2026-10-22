@@ -4,6 +4,7 @@ import com.openecosystem.os.worker.common.Ids;
 import com.openecosystem.os.worker.common.events.EventConsumptionRepository;
 import com.openecosystem.os.worker.common.events.EventEnvelope;
 import com.openecosystem.os.worker.common.events.JdbcEventOutboxRepository;
+import com.openecosystem.os.worker.drive.DriveLifecycleFence;
 import com.openecosystem.os.worker.metrics.WorkerMetrics;
 import java.time.Duration;
 import java.time.Instant;
@@ -17,6 +18,8 @@ public class SearchIndexingProcessor {
   private static final String INDEXING_COMPLETED = "IndexingCompleted";
   private static final String INDEXING_FAILED = "IndexingFailed";
 
+  private final DriveSearchLifecycleProcessor lifecycle;
+  private final DriveLifecycleFence fence;
   private final SearchIndexClient searchIndexClient;
   private final SearchDocumentRepository searchDocumentRepository;
   private final JdbcEventOutboxRepository eventOutboxRepository;
@@ -25,12 +28,16 @@ public class SearchIndexingProcessor {
   private final WorkerMetrics workerMetrics;
 
   public SearchIndexingProcessor(
+      DriveSearchLifecycleProcessor lifecycle,
+      DriveLifecycleFence fence,
       SearchIndexClient searchIndexClient,
       SearchDocumentRepository searchDocumentRepository,
       JdbcEventOutboxRepository eventOutboxRepository,
       EventConsumptionRepository eventConsumptionRepository,
       TransactionTemplate transactionTemplate,
       WorkerMetrics workerMetrics) {
+    this.lifecycle = lifecycle;
+    this.fence = fence;
     this.searchIndexClient = searchIndexClient;
     this.searchDocumentRepository = searchDocumentRepository;
     this.eventOutboxRepository = eventOutboxRepository;
@@ -62,6 +69,36 @@ public class SearchIndexingProcessor {
         || eventConsumptionRepository.exists(CONSUMER_NAME, event.idempotencyKey()))
       return new SearchIndexingResult(SearchIndexingOutcome.NO_OP, event.searchDocumentId());
 
+    var source = searchDocumentRepository.findSourceById(event.searchDocumentId()).orElse(null);
+    if (source == null
+        || !source.workspaceId().equals(event.workspaceId())
+        || !source.sourceId().equals(event.sourceId())
+        || !source.sourceType().equals(event.sourceType()))
+      return new SearchIndexingResult(SearchIndexingOutcome.NO_OP, event.searchDocumentId());
+    String fileId = source.fileId();
+    if (fileId != null) {
+      lifecycle.reconcileFile(source.workspaceId(), fileId);
+      if (!lifecycle.projectionDesired(source.workspaceId(), source.documentId()))
+        return new SearchIndexingResult(SearchIndexingOutcome.NO_OP, source.documentId());
+      boolean completed =
+          Boolean.TRUE.equals(
+              transactionTemplate.execute(
+                  status -> {
+                    if (!fence.lockActiveFile(source.workspaceId(), fileId)
+                        || !lifecycle.projectionReady(
+                            source.workspaceId(), fileId, source.documentId())) return false;
+                    var activeDocument =
+                        searchDocumentRepository.findById(source.documentId()).orElse(null);
+                    if (activeDocument == null) return false;
+                    complete(event, activeDocument);
+                    return true;
+                  }));
+      return new SearchIndexingResult(
+          completed ? SearchIndexingOutcome.INDEXED : SearchIndexingOutcome.RETRY,
+          source.documentId());
+    }
+    if (source.driveDerived())
+      return new SearchIndexingResult(SearchIndexingOutcome.NO_OP, source.documentId());
     SearchDocument document = claimDocument(event);
     if (document == null)
       return new SearchIndexingResult(SearchIndexingOutcome.NO_OP, event.searchDocumentId());

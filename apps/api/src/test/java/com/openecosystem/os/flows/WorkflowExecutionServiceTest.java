@@ -75,6 +75,7 @@ class WorkflowExecutionServiceTest {
     jdbcTemplate.update("delete from ocr_results");
     jdbcTemplate.update("delete from ocr_jobs");
     jdbcTemplate.update("delete from drive_files");
+    jdbcTemplate.update("delete from drive_trash_groups");
   }
 
   @Test
@@ -184,6 +185,78 @@ class WorkflowExecutionServiceTest {
             "\"status\":\"review_required\"",
             "\"reviewRequired\":\"true\"")
         .doesNotContain(PRIVATE_OCR_TEXT, PRIVATE_IBAN, PRIVATE_TAX_ID, "TEST-INV-2026-42");
+  }
+
+  @Autowired com.openecosystem.os.drive.DriveRestoreRecovery restoreRecovery;
+  @Autowired com.openecosystem.os.common.events.JdbcEventOutboxRepository outbox;
+  @Autowired org.springframework.transaction.support.TransactionTemplate transaction;
+
+  @Test
+  void restorationAutomaticallyResumesSkippedCompletedOcrWithoutDuplicateExtraction()
+      throws Exception {
+    createWorkflow(invoiceDefinition());
+    insertCompletedStructuredOcr("ocr_recovery", "file_recovery");
+    var event = ocrCompletedEvent("evt_recovery", "ocr_recovery", "file_recovery");
+    outbox.save(
+        new com.openecosystem.os.common.events.EventEnvelope<>(
+            event.eventId(),
+            "OcrCompleted",
+            1,
+            NOW,
+            event.workspaceId(),
+            event.actorId(),
+            event.correlationId(),
+            event.causationId(),
+            "media",
+            event.idempotencyKey(),
+            Map.of(
+                "jobId",
+                event.jobId(),
+                "fileId",
+                event.fileId(),
+                "provider",
+                event.provider(),
+                "attemptCount",
+                event.attemptCount(),
+                "extractedTextLength",
+                event.extractedTextLength(),
+                "completedAt",
+                event.completedAt())));
+    var trash = new com.openecosystem.os.drive.DriveTrashRepository(jdbcTemplate);
+    var group =
+        com.openecosystem.os.drive.DriveTrashGroup.trashed(
+            "trash_recovery",
+            event.workspaceId(),
+            "file",
+            event.fileId(),
+            null,
+            event.actorId(),
+            Instant.now());
+    trash.createGroup(group);
+    trash.attachFile(event.workspaceId(), event.fileId(), group.groupId());
+    triggerService.trigger(event);
+    assertThat(count("invoice_extractions")).isZero();
+    transaction.executeWithoutResult(
+        status -> {
+          new com.openecosystem.os.drive.DriveFolderRepository(jdbcTemplate)
+              .lockWorkspaceForMutation(event.workspaceId());
+          var members = trash.filesInGroup(event.workspaceId(), group.groupId());
+          assertThat(trash.restoreGroup(group.groupId(), event.workspaceId(), Instant.now()))
+              .isTrue();
+          restoreRecovery.resume(members, group.groupId());
+        });
+    assertThat(count("invoice_extractions")).isEqualTo(1);
+    assertThat(count("workflow_executions")).isEqualTo(1);
+    transaction.executeWithoutResult(
+        status ->
+            restoreRecovery.resume(
+                List.of(
+                    new com.openecosystem.os.drive.DriveFileRepository(jdbcTemplate)
+                        .findByIdForWorkspace(event.fileId(), event.workspaceId())
+                        .orElseThrow()),
+                group.groupId()));
+    assertThat(count("invoice_extractions")).isEqualTo(1);
+    assertThat(count("workflow_executions")).isEqualTo(1);
   }
 
   private String createWorkflow(String definitionJson) throws Exception {

@@ -394,31 +394,45 @@ make k8s-validate
 trivy config infra/k8s
 ```
 
-### Drive Trash source fences (Task 4 database/event slice)
+### Drive Trash lifecycle fences and restore recovery (Task 4)
 
 From `apps/api`:
 
 ```powershell
-.\mvnw.cmd -o '-Dtest=FileUploadedOcrJobServiceTest,OcrCompletedWorkflowTriggerServiceTest,WorkflowRunnerTest,DriveLifecycleFencePostgresTest,SearchServiceTest,OcrJobControllerTest' test
+.\mvnw.cmd -o '-Dtest=FileUploadedOcrJobServiceTest,OcrCompletedWorkflowTriggerServiceTest,WorkflowRunnerTest,DriveLifecycleFencePostgresTest,DriveTrashControllerTest,WorkflowExecutionServiceTest,SearchServiceTest,OcrJobControllerTest' test
 .\mvnw.cmd -o verify
 ```
 
 From `apps/worker`:
 
 ```powershell
-.\mvnw.cmd -o '-Dtest=OcrJobProcessorTest,JdbcDriveOcrMetadataRepositoryTest,SearchIndexingProcessorTest' test
+.\mvnw.cmd -o '-Dtest=OcrJobProcessorTest,JdbcDriveOcrMetadataRepositoryTest,SearchIndexingProcessorTest,DriveSearchLifecycleProcessorTest,DriveSearchLifecyclePostgresTest,MeilisearchLifecycleClientTest,DriveFileLifecycleRoutingTest' test
 .\mvnw.cmd -o verify
 ```
 
-The PostgreSQL fence tests require Docker and test both transaction orders:
-source commit holds the workspace lock through its derived write, or committed
-Trash prevents the source read/write. OCR regressions cover ancestor tombstones,
-in-flight processing, suppressed completion/failure events and preservation of
-retry capacity after a discarded attempt. Metadata lookup and workflow tests
-assert that inactive sources are rejected before loading retained content.
+Docker is required for PostgreSQL and Meilisearch tests. Testcontainers owns and
+removes the disposable test containers; leave Docker Desktop running. The real
+Meilisearch contract was verified with the cached `getmeili/meilisearch:latest`
+image reporting **1.49.0**, including operation-marker lookup, task completion
+and document absence. An offline Maven run can still need a container image
+already cached locally; Maven's `-o` does not prevent Docker image downloads.
 
-This is partial Task 4 coverage. Remote Meilisearch ordering/cleanup, lifecycle
-consumers and automatic replay after restoration are pending; the successful
-suites do not establish physical erasure or complete Trash acceptance. Existing
-Search tests verify API filtering and ordinary indexing only. Spec impact:
-**no spec change**, implementing the approved Trash invisibility/fencing contract.
+Coverage includes source commit/Trash ordering on PostgreSQL, ancestor
+exclusion, in-flight OCR, replacement restore requests, HTTP restore creating
+missing jobs, completed-OCR extraction resumption without duplicate workflows,
+exact lifecycle revision proof, concurrent remote reconcilers, delayed upserts,
+stale removals, restart/lost acknowledgements, definitive-rejection retry,
+uncertain gateway outcomes, event routing/DLQ handling, and draft exclusion in
+both search backends. Mutation tests also verified that removing completed-event
+replay or outstanding-operation ordering makes the corresponding regression fail.
+
+This completes Task 4 coverage, not physical purge, the frontend or the private
+Compose journey. Those remain Tasks 5–7. Filename/raw-OCR source creation and
+invoice review/confirmation remain separate plans. Spec impact: **no spec change**;
+this implements the approved Trash lifecycle contract.
+
+Verified 2026-10-22: API offline `spotless:apply verify` passed **266 tests**;
+worker offline `spotless:apply verify` passed **88 tests**, all without failures,
+errors or skips. A repository-root Maven invocation also passed the 20 focused
+worker lifecycle/PostgreSQL/indexing tests. Formatting and packaging passed.
+The full private Compose journey and frontend gates remain Task 7 work.

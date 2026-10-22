@@ -497,20 +497,44 @@ Consumers:
 - Open Ecosystem Flows triggers receipt and budget workflows
 - Reports module updates cached snapshots
 
-### Drive Trash source fencing (partial Task 4)
+### Drive Trash lifecycle and recovery
 
-API `FileUploaded` job creation and `OcrCompleted` workflow triggering reject
-missing or inactive Drive sources. The active-source check and any derived
-writes share Trash's workspace-row transaction lock. Workflow execution repeats
-this check before reading retained OCR data. Worker OCR claims, completion and
-failure use the equivalent lock and ancestor-aware predicate; a result discarded
-because of Trash emits neither `OcrCompleted` nor `OcrFailed`. Its queued claim
-retains retry capacity and uses monotonic attempt IDs to avoid duplicate outbox
-keys on resumption. No document content is added to lifecycle diagnostics.
+`DriveFileLifecycleChanged` v1 is emitted through the API outbox in the same
+transaction as file/subtree Trash or restore. Source is `drive`; its payload is
+`{fileId, revision, desiredState}`, where `desiredState` is `ABSENT` or `ACTIVE`.
+Its key is `drive:{fileId}:lifecycle:{revision}:v1`. File revisions increase under
+the workspace mutation fence; payloads contain no filenames or extracted values.
+Folder transitions emit one event per file in that group's snapshot, excluding
+independent earlier Trash groups. Duplicate restores emit no extra transitions.
 
-Skipped API events are consumed idempotently. Worker inactive-source deliveries
-are acknowledged without consuming the job's completion key; retained queued
-work can be replayed after restore. The registered restore consumer and automatic
-replay, plus remote Search removal/reconciliation, remain pending in Task 4.
-No new lifecycle event is emitted until those consumers exist. This checkpoint
-must not be treated as a complete retention deployment or physical-cleanup proof.
+The worker binds this event to the existing Search indexing queue. Its registered
+consumer validates the envelope and reconciles the current persisted desired
+state, so stale removal/restoration deliveries cannot replace a newer state.
+Malformed lifecycle events go to the Search DLQ. Valid deliveries wake durable
+work; a bounded poller also recovers it after restart. Transport retries retain
+the original envelope even though the existing retry route is `IndexingRequested`.
+
+API upload/OCR consumers and workflow writes share Trash's source transaction
+fence. Restore now resumes each eligible file inside the restore transaction:
+a missing OCR job is queued directly through the existing upload service; queued
+or in-flight OCR gets a durable replacement `OcrRequested` with a restore-specific
+key; completed OCR reuses its original persisted completion envelope and event
+identity to resume skipped workflow triggering. Original completion outbox rows
+are retained. Already-executed workflows stay idempotent. No operator redelivery
+or browser request is needed to resume this work. Failed OCR remains failed.
+
+Drive-derived indexing reads metadata before its active-source check and loads a
+retained projection only while the source is active under the same workspace
+fence. Each remote mutation has a persisted operation ID, revision, direction,
+submission state and task UID. A pending/uncertain write must settle before a
+later removal or restoration of that projection is submitted. Task completion
+and verified document absence are required for removal proof; an accepted HTTP
+request or an expired lease is insufficient. Both Meilisearch and PostgreSQL
+results exclude invoice projections without explicit persisted confirmation;
+`completed` and `review_required` are not confirmation. Existing filename/raw-OCR
+projections may be restored; this change creates no new Search source classes.
+
+Unknown submissions are discovered through their metadata-only operation ID in
+Meilisearch task `customMetadata`, using paginated task lookup. They are never
+blindly resubmitted or declared erased. An undiscoverable operation remains
+unresolved and requires operator investigation; see [deployment guidance](DEPLOYMENT.md).

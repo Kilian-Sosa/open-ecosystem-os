@@ -10,7 +10,7 @@
 
 **Spec:** [Drive Trash and retention design](../specs/2026-10-18-mvp-core-drive-trash-design.md), [Drive folder design](../specs/2026-10-18-mvp-core-drive-design.md), [Search design](../specs/2026-10-18-mvp-core-search-design.md). **Prerequisite plan:** [Drive organization](2026-10-18-mvp-core-drive-organization.md), whose V10 folder model and read services must already be implemented and verified.
 
-**Status:** Execution approved 2026-10-22; inline execution on isolated `feat/drive-trash-retention` from `develop`. Tasks 1–3 completed and verified. Task 4 is in progress: API event/workflow and OCR database fences are implemented; remote search reconciliation and restore replay remain. Tasks 5–7 pending.
+**Status:** Execution approved 2026-10-22; inline execution on isolated `feat/drive-trash-retention` from `develop`. Tasks 1–4 completed and verified. Tasks 5–7 pending.
 
 **Spec impact:** No spec change. The review revisions below make the approved workflow invisibility, durable purge, search cleanup, explicit restore destination and recursive Trash confirmation requirements executable and testable.
 
@@ -96,29 +96,29 @@
 
 ### Task 4: Fence worker and search paths against stale events
 
-**Execution checkpoint (2026-10-22):** Database/event slice implemented for
-`FileUploadedOcrJobService`, `OcrCompletedWorkflowTriggerService`, `WorkflowRunner`,
-OCR metadata lookup, claim, completion and failure. API and worker use the same
-workspace-row transaction fence as Trash. Regression tests cover delayed events,
-ancestor-only tombstones, Trash during processing, retry capacity after restore,
-rich-read exclusion and real PostgreSQL commit ordering. Task 4 remains **open**:
-Search indexing claims, durable remote lifecycle reconciliation, registered
-Trash/restore consumers and automatic replay after restore are still required.
-No lifecycle events have been introduced by this slice. Do not start Task 5 or
-advertise physical cleanup before the remaining Task 4 contract is verified.
-
+**Execution checkpoint (2026-10-22):** Database/event fences are in commit
+`3494674`. The remaining slice adds forward-only V12 lifecycle/operation state,
+metadata-only `DriveFileLifecycleChanged` events with a registered worker consumer,
+asynchronous Meilisearch task tracking, paginated recovery of lost acknowledgements,
+ordered removal/restoration, exact-revision cleanup proof, and automatic pipeline
+resumption in the restore transaction. Invoice drafts are excluded in both search
+backends. Tests cover HTTP recovery, real PostgreSQL concurrency/restart ordering
+and actual Meilisearch task lookup/removal. Unknown submissions never count as
+cleanup and are not blindly resubmitted; an undiscoverable request requires
+operator investigation as documented in `DEPLOYMENT.md`. New filename/raw-OCR
+source creation and invoice confirmation remain the separate Search/Invoice plans.
 **Files:** Modify API `media/FileUploadedOcrJobService.java`, `flows/OcrCompletedWorkflowTriggerService.java`, `flows/WorkflowRunner.java`, `search/SearchService.java` and Search indexing-producing code as appropriate; worker `ocr/DriveOcrMetadataRepository.java`, its JDBC implementation, `ocr/OcrJobProcessor.java`, `search/SearchDocumentRepository.java`, `search/SearchIndexingProcessor.java`, `search/SearchIndexClient.java`, `search/MeilisearchIndexClient.java` and lifecycle consumers. Update `FileViewAuthorizationRepository.java`, durable lifecycle/projection state and focused API/worker tests. Create API `flows/OcrCompletedWorkflowTriggerServiceTest.java`, `flows/WorkflowRunnerTest.java`, `drive/DriveLifecycleFencePostgresTest.java` and a worker lifecycle-consumer test alongside its new consumer; retain the existing `FileUploadedOcrJobServiceTest`. Locate exact worker types before edits. Implement the database/event fence and remote-index reconciliation as sequential verified slices under one owner.
 
 **Interfaces:** Reuse `DriveTrashRepository.isActiveFile` semantics through equivalent worker database query, with source file ID/workspace; user-facing Search always invokes active-aware `file:view` authorization. Metadata-only events for trash/restore/purge drive idempotent remote-index removal/restoration; never index candidate invoice fields before explicit confirmation.
 
 Extend the search client with removal and cleanup-outcome handling rather than reusing its current upsert-only contract. Define durable per-source desired state and lifecycle revisions, event version/idempotency keys, consumers and retry/DLQ behavior. Event payloads contain IDs/revision/status only. Specify how stale or ambiguously completed remote requests are ordered or reconciled; a revision stored only in PostgreSQL cannot fence a remote write by itself. Expose durable cleanup completion for a specific file/workspace/lifecycle revision to the purge service. Test this reconciliation contract independently using persisted tombstones and a controlled search client before integrating permanent deletion.
 
-- [ ] **Step 1: Write RED tests** `ocrJobQueuedBeforeTrashCannotExposeCompletedResult`, `delayedFileUploadedAfterTrashOrPurgeCannotCreateJob`, `delayedOcrCompletedAfterTrashCannotReadRetainedSourceOrRunWorkflow`, `workflowCommitRacingWithTrashIsFenced`, `searchIndexingRequestedBeforeTrashCannotResurrectHit`, `lateRemoteUpsertAfterRemovalIsReconciledBeforeCleanupCompletes`, `staleLifecycleRemovalCannotEraseRestoredProjection`, `folderTrashFiltersRawOcrAndConfirmedInvoiceResults`, `restoreReindexesOnlyAllowedSources`; fake delayed queues and Meilisearch operations with deterministic barriers. Assert denied API consumers never load rich OCR content or create extraction/search side effects; use PostgreSQL for transaction-fence races. Seed lifecycle states directly for this task; the permanent-deletion integration belongs to the later purge task.
-- [ ] **Step 2: Verify RED:** `cd apps/worker && ./mvnw -Dtest=OcrJobProcessorTest,SearchIndexingProcessorTest test` and `cd apps/api && ./mvnw -Dtest=FileUploadedOcrJobServiceTest,OcrCompletedWorkflowTriggerServiceTest,WorkflowRunnerTest,SearchServiceTest,OcrJobControllerTest test`; add focused PostgreSQL fence and lifecycle-consumer test classes to the selectors when created.
-- [ ] **Step 3: Implement database/event fencing:** revalidate active-file predicates before work claim and after expensive processing/before persistence. Make the final check and derived writes atomic against the same source/workspace mutation fence used by Trash/purge; do not leave a check-then-write race. Apply this to API job creation, `OcrCompleted` triggering/source reads and `WorkflowRunner` persistence, as well as worker completion/index claims. Define idempotent skipped-event handling for trashed/missing/purged sources and how any intentionally deferred work resumes after restoration. API remains the final authorization gate.
-- [ ] **Step 4: Implement remote lifecycle reconciliation:** remove/reindex **existing** projections with metadata-only lifecycle events that have a registered consumer; do not invent unconsumed events. Coordinate index writes/removal and recover outstanding work after restart so an old upsert cannot survive a completed purge, while stale removal cannot delete a restored projection. Prove remote absence before Task 5 advertises physical cleanup. Restore filename/raw OCR/confirmed invoice fields only if those source projections already exist; existing pre-confirmation invoice projections are not proof of confirmation and must not become searchable on restore. Otherwise explicitly record the dependency on the separately scoped Search plan.
-- [ ] **Step 5: Verify GREEN:** repeat both API/worker scoped suites, PostgreSQL concurrency tests and lifecycle-consumer/replay/restart tests; delayed outbox cannot make trashed data visible or recreate a remote copy after cleanup is reported complete.
-- [ ] **Step 6: Commit:** `git add apps/api/src apps/worker/src && git commit -m "fix(drive): fence trashed content from workers and search"`.
+- [x] **Step 1: Write RED tests** `ocrJobQueuedBeforeTrashCannotExposeCompletedResult`, `delayedFileUploadedAfterTrashOrPurgeCannotCreateJob`, `delayedOcrCompletedAfterTrashCannotReadRetainedSourceOrRunWorkflow`, `workflowCommitRacingWithTrashIsFenced`, `searchIndexingRequestedBeforeTrashCannotResurrectHit`, `lateRemoteUpsertAfterRemovalIsReconciledBeforeCleanupCompletes`, `staleLifecycleRemovalCannotEraseRestoredProjection`, `folderTrashFiltersRawOcrAndConfirmedInvoiceResults`, `restoreReindexesOnlyAllowedSources`; fake delayed queues and Meilisearch operations with deterministic barriers. Assert denied API consumers never load rich OCR content or create extraction/search side effects; use PostgreSQL for transaction-fence races. Seed lifecycle states directly for this task; the permanent-deletion integration belongs to the later purge task.
+- [x] **Step 2: Verify RED:** `cd apps/worker && ./mvnw -Dtest=OcrJobProcessorTest,SearchIndexingProcessorTest test` and `cd apps/api && ./mvnw -Dtest=FileUploadedOcrJobServiceTest,OcrCompletedWorkflowTriggerServiceTest,WorkflowRunnerTest,SearchServiceTest,OcrJobControllerTest test`; add focused PostgreSQL fence and lifecycle-consumer test classes to the selectors when created.
+- [x] **Step 3: Implement database/event fencing:** revalidate active-file predicates before work claim and after expensive processing/before persistence. Make the final check and derived writes atomic against the same source/workspace mutation fence used by Trash/purge; do not leave a check-then-write race. Apply this to API job creation, `OcrCompleted` triggering/source reads and `WorkflowRunner` persistence, as well as worker completion/index claims. Define idempotent skipped-event handling for trashed/missing/purged sources and how any intentionally deferred work resumes after restoration. API remains the final authorization gate.
+- [x] **Step 4: Implement remote lifecycle reconciliation:** remove/reindex **existing** projections with metadata-only lifecycle events that have a registered consumer; do not invent unconsumed events. Coordinate index writes/removal and recover outstanding work after restart so an old upsert cannot survive a completed purge, while stale removal cannot delete a restored projection. Prove remote absence before Task 5 advertises physical cleanup. Restore filename/raw OCR/confirmed invoice fields only if those source projections already exist; existing pre-confirmation invoice projections are not proof of confirmation and must not become searchable on restore. Otherwise explicitly record the dependency on the separately scoped Search plan.
+- [x] **Step 5: Verify GREEN:** repeat both API/worker scoped suites, PostgreSQL concurrency tests and lifecycle-consumer/replay/restart tests; delayed outbox cannot make trashed data visible or recreate a remote copy after cleanup is reported complete.
+- [x] **Step 6: Commit:** `git add apps/api/src apps/worker/src && git commit -m "fix(drive): fence trashed content from workers and search"`.
 
 ### Task 5: Immediate permanent deletion and automatic 30-day purge
 

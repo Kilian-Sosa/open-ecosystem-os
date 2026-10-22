@@ -98,6 +98,13 @@ public class SearchService {
             ResourceAction.VIEW);
     return candidates.stream()
         .filter(candidate -> sourceFileId(candidate).filter(allowedFileIds::contains).isPresent())
+        .filter(
+            candidate ->
+                !candidate.sourceType().contains("invoice_extraction")
+                    || searchDocumentRepository.isConfirmedInvoice(
+                        principal.workspaceId(),
+                        sourceFileId(candidate).orElseThrow(),
+                        candidate.sourceId()))
         .toList();
   }
 

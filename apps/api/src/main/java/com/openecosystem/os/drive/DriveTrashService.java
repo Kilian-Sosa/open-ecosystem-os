@@ -30,6 +30,8 @@ public class DriveTrashService {
   private final Clock clock;
   private final DriveFolderService directory;
   private final FileEncryptionService encryption;
+  private final DriveRestoreRecovery recovery;
+  private final DriveSearchLifecycle searchLifecycle;
 
   public DriveTrashService(
       AuthenticationContext authentication,
@@ -39,7 +41,9 @@ public class DriveTrashService {
       JdbcAuditRecordRepository audits,
       Clock clock,
       DriveFolderService directory,
-      FileEncryptionService encryption) {
+      FileEncryptionService encryption,
+      DriveRestoreRecovery recovery,
+      DriveSearchLifecycle searchLifecycle) {
     this.authentication = authentication;
     this.trash = trash;
     this.files = files;
@@ -48,6 +52,8 @@ public class DriveTrashService {
     this.clock = clock;
     this.directory = directory;
     this.encryption = encryption;
+    this.recovery = recovery;
+    this.searchLifecycle = searchLifecycle;
   }
 
   @Transactional
@@ -73,6 +79,14 @@ public class DriveTrashService {
             clock.instant());
     trash.createGroup(group);
     if (!trash.attachFile(actor.workspaceId(), fileId, group.groupId())) throw notFound();
+    for (var member : trash.filesInGroup(actor.workspaceId(), group.groupId()))
+      searchLifecycle.transition(
+          actor.workspaceId(),
+          member.fileId(),
+          "ABSENT",
+          actor.actorId(),
+          CorrelationContext.currentOrCreate(),
+          clock.instant());
     audit(group, actor);
     return group;
   }
@@ -127,6 +141,14 @@ public class DriveTrashService {
             id -> {
               if (!trash.attachFile(actor.workspaceId(), id, group.groupId())) throw notFound();
             });
+    for (var member : trash.filesInGroup(actor.workspaceId(), group.groupId()))
+      searchLifecycle.transition(
+          actor.workspaceId(),
+          member.fileId(),
+          "ABSENT",
+          actor.actorId(),
+          CorrelationContext.currentOrCreate(),
+          clock.instant());
     audit(group, actor);
     return group;
   }
@@ -149,8 +171,8 @@ public class DriveTrashService {
     if (group.state() == DriveTrashState.RESTORED) return response(group, actor);
     var now = clock.instant();
     if (!group.canRestoreAt(now)) throw conflict("Drive item can no longer be restored");
-    for (var file : trash.filesInGroup(actor.workspaceId(), groupId))
-      if (!file.ownerId().equals(actor.actorId())) throw notFound();
+    var restoredFiles = trash.filesInGroup(actor.workspaceId(), groupId);
+    for (var file : restoredFiles) if (!file.ownerId().equals(actor.actorId())) throw notFound();
     for (var folder : trash.foldersInGroup(actor.workspaceId(), groupId))
       if (!folder.ownerId().equals(actor.actorId())) throw notFound();
     String target =
@@ -185,6 +207,15 @@ public class DriveTrashService {
     else folders.updateParent(actor.workspaceId(), folderId, target, now);
     if (!trash.restoreGroup(groupId, actor.workspaceId(), now))
       throw conflict("Drive item can no longer be restored");
+    for (var member : restoredFiles)
+      searchLifecycle.transition(
+          actor.workspaceId(),
+          member.fileId(),
+          "ACTIVE",
+          actor.actorId(),
+          CorrelationContext.currentOrCreate(),
+          now);
+    recovery.resume(restoredFiles, groupId);
     audits.save(
         new AuditRecord(
             Ids.newId("aud"),

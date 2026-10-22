@@ -36,6 +36,68 @@ public class SearchDocumentRepository {
     return results.stream().findFirst();
   }
 
+  public record SourceReference(
+      String documentId,
+      String workspaceId,
+      String sourceType,
+      String sourceId,
+      String fileId,
+      boolean driveDerived) {
+    public SourceReference(
+        String documentId, String workspaceId, String sourceType, String sourceId, String fileId) {
+      this(documentId, workspaceId, sourceType, sourceId, fileId, true);
+    }
+  }
+
+  public Optional<SourceReference> findSourceById(String documentId) {
+    return jdbcTemplate
+        .query(
+            "select search_document_id,workspace_id,source_type,source_id,metadata_json from"
+                + " search_documents where search_document_id=?",
+            (row, n) -> {
+              var metadata = jsonNode(row.getString("metadata_json"));
+              String type = row.getString("source_type");
+              return new SourceReference(
+                  row.getString("search_document_id"),
+                  row.getString("workspace_id"),
+                  type,
+                  row.getString("source_id"),
+                  sourceFileId(metadata),
+                  metadata.has("fileId")
+                      || type.contains("invoice_extraction")
+                      || type.equals("drive_file")
+                      || type.equals("ocr_result"));
+            },
+            documentId)
+        .stream()
+        .findFirst();
+  }
+
+  public static String sourceFileId(com.fasterxml.jackson.databind.JsonNode metadata) {
+    var value = metadata == null ? null : metadata.get("fileId");
+    if (value == null || !value.isTextual() || !value.asText().matches("[A-Za-z0-9_-]{1,64}"))
+      return null;
+    return value.asText();
+  }
+
+  public List<SourceReference> findSourcesForFile(String workspaceId, String fileId) {
+    return jdbcTemplate
+        .query(
+            "select search_document_id,workspace_id,source_type,source_id,metadata_json from"
+                + " search_documents where workspace_id=?",
+            (row, n) ->
+                new SourceReference(
+                    row.getString("search_document_id"),
+                    row.getString("workspace_id"),
+                    row.getString("source_type"),
+                    row.getString("source_id"),
+                    sourceFileId(jsonNode(row.getString("metadata_json")))),
+            workspaceId)
+        .stream()
+        .filter(ref -> fileId.equals(ref.fileId()))
+        .toList();
+  }
+
   public Optional<SearchDocument> startAttempt(String searchDocumentId, Instant now) {
     jdbcTemplate.update(
         """
