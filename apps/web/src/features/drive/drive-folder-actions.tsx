@@ -6,6 +6,7 @@ import {
   moveDriveFolder,
   renameDriveFolder,
   type DriveFolder,
+  type DriveTrashMutation,
 } from "@/lib/drive-api";
 import { driveFolderQueryKey } from "./use-drive-files";
 import {
@@ -13,8 +14,15 @@ import {
   DriveNameDialog,
   driveButton,
 } from "./drive-action-dialog";
+import { DriveTrashAction } from "./drive-trash-action";
 
-export function DriveFolderActions({ folder }: { folder: DriveFolder }) {
+export function DriveFolderActions({
+  folder,
+  onTrashed,
+}: {
+  folder: DriveFolder;
+  onTrashed?: (group: DriveTrashMutation) => void;
+}) {
   const [action, setAction] = useState<"rename" | "move" | null>(null);
   const client = useQueryClient();
   async function changed(updated: DriveFolder) {
@@ -52,6 +60,12 @@ export function DriveFolderActions({ folder }: { folder: DriveFolder }) {
       >
         Download ZIP
       </a>
+      <DriveTrashAction
+        kind="folder"
+        id={folder.folderId}
+        name={folder.name}
+        onTrashed={onTrashed}
+      />
       {action === "rename" ? (
         <DriveNameDialog
           title="Rename folder"

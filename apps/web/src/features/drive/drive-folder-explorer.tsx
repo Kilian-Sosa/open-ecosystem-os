@@ -4,7 +4,11 @@ import { useState } from "react";
 import { Folder } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { SectionCard } from "@/components/ui";
-import { createDriveFolder, type DriveFolder } from "@/lib/drive-api";
+import {
+  createDriveFolder,
+  type DriveFolder,
+  type DriveTrashMutation,
+} from "@/lib/drive-api";
 import { driveFolderQueryKey } from "./use-drive-files";
 import { DriveFolderActions } from "./drive-folder-actions";
 import { DriveNameDialog, driveButton } from "./drive-action-dialog";
@@ -14,11 +18,13 @@ export function DriveFolderExplorer({
   folders,
   onNavigate,
   available,
+  onTrashed,
 }: {
   path: DriveFolder[];
   folders: DriveFolder[];
   onNavigate: (path: DriveFolder[]) => void;
   available: boolean;
+  onTrashed?: (group: DriveTrashMutation) => void;
 }) {
   const [creating, setCreating] = useState(false);
   const client = useQueryClient();
@@ -78,7 +84,7 @@ export function DriveFolderExplorer({
                   />
                   <span className="break-all">{folder.name}</span>
                 </button>
-                <DriveFolderActions folder={folder} />
+                <DriveFolderActions folder={folder} onTrashed={onTrashed} />
               </li>
             ))}
           </ul>

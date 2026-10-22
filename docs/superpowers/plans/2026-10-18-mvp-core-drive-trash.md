@@ -10,7 +10,7 @@
 
 **Spec:** [Drive Trash and retention design](../specs/2026-10-18-mvp-core-drive-trash-design.md), [Drive folder design](../specs/2026-10-18-mvp-core-drive-design.md), [Search design](../specs/2026-10-18-mvp-core-search-design.md). **Prerequisite plan:** [Drive organization](2026-10-18-mvp-core-drive-organization.md), whose V10 folder model and read services must already be implemented and verified.
 
-**Status:** Execution approved 2026-10-22; inline execution on isolated `feat/drive-trash-retention` from `develop`. Tasks 1–4 completed and verified. Tasks 5–7 pending.
+**Status:** Execution approved 2026-10-22; inline execution on isolated `feat/drive-trash-retention` from `develop`. Tasks 1–6 completed and verified. Task 7 pending.
 
 **Spec impact:** No spec change. The review revisions below make the approved workflow invisibility, durable purge, search cleanup, explicit restore destination and recursive Trash confirmation requirements executable and testable.
 
@@ -128,11 +128,11 @@ Extend the search client with removal and cleanup-outcome handling rather than r
 
 **Prerequisite:** Task 4's database fences and remote cleanup/reconciliation contract must be verified before implementing permanent deletion. `purgeNow` initiates its first cleanup attempt immediately after the durable claim, without waiting for the next scheduled poll.
 
-- [ ] **Step 1: Write RED tests** `manualPurgeImmediatelyPreventsRestore`, `expiryBlocksRestoreWhileSchedulerPaused`, `failedS3DeleteRetriedWithoutLosingTombstone`, `failedManualPurgeRetriesBeforeThirtyDayDeadline`, `restartAfterPurgeClaimResumesCleanup`, `restartAfterObjectDeleteResumesRemainingPhases`, `purgeClaimRacesWithRestoreAndOnlyOneWins`, `purgingFolderDoesNotErasePriorSeparateTrashGroup`, `duplicatePurgeNeverDeletesUnrelatedObject`, `purgeWaitsForLateIndexWriteReconciliation`.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveTrashPurgeServiceTest,DriveTrashControllerTest test`.
-- [ ] **Step 3: Implement:** claim group under transaction before irreversible work, persist cleanup progress for idempotent retries, strictly delete encrypted objects and associated OCR/invoice/search projections in FK-safe order, then mark purged. Recover due `PURGING` groups and abandoned claims after restart independently of `purgeAfter`; checkpoint each cleanup phase and use bounded batches/backoff. Coordinate remote search cleanup with Task 4: a delete request being sent, or a database active check passing, is not proof that an older in-flight upsert cannot recreate a remote copy. Keep `PURGING` until outstanding writes are drained or durably reconciled and remote removal is confirmed; retain the identifiers needed to retry. If independent previously-trashed children reference a purged parent, detach their placement safely without resetting their expiry. Ensure cleanup errors do not advertise physical erasure; never delete a restored object after race resolution.
-- [ ] **Step 4: Verify GREEN:** same scoped tests, then scheduled-clock integration test with 30-day deadline; audit contains IDs/status only.
-- [ ] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test .env.example && git commit -m "feat(drive): purge Trash explicitly or after 30 days"`.
+- [x] **Step 1: Write RED tests** `manualPurgeImmediatelyPreventsRestore`, `expiryBlocksRestoreWhileSchedulerPaused`, `failedS3DeleteRetriedWithoutLosingTombstone`, `failedManualPurgeRetriesBeforeThirtyDayDeadline`, `restartAfterPurgeClaimResumesCleanup`, `restartAfterObjectDeleteResumesRemainingPhases`, `purgeClaimRacesWithRestoreAndOnlyOneWins`, `purgingFolderDoesNotErasePriorSeparateTrashGroup`, `duplicatePurgeNeverDeletesUnrelatedObject`, `purgeWaitsForLateIndexWriteReconciliation`.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveTrashPurgeServiceTest,DriveTrashControllerTest test`.
+- [x] **Step 3: Implement:** claim group under transaction before irreversible work, persist cleanup progress for idempotent retries, strictly delete encrypted objects and associated OCR/invoice/search projections in FK-safe order, then mark purged. Recover due `PURGING` groups and abandoned claims after restart independently of `purgeAfter`; checkpoint each cleanup phase and use bounded batches/backoff. Coordinate remote search cleanup with Task 4: a delete request being sent, or a database active check passing, is not proof that an older in-flight upsert cannot recreate a remote copy. Keep `PURGING` until outstanding writes are drained or durably reconciled and remote removal is confirmed; retain the identifiers needed to retry. If independent previously-trashed children reference a purged parent, detach their placement safely without resetting their expiry. Ensure cleanup errors do not advertise physical erasure; never delete a restored object after race resolution.
+- [x] **Step 4: Verify GREEN:** same scoped tests, then scheduled-clock integration test with 30-day deadline; audit contains IDs/status only.
+- [x] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test .env.example && git commit -m "feat(drive): purge Trash explicitly or after 30 days"`.
 
 ### Task 6: Accessible Trash view and recovery controls
 
@@ -140,11 +140,11 @@ Extend the search client with removal and cleanup-outcome handling rather than r
 
 **Interfaces:** `fetchDriveTrash(): Promise<DriveTrashResponse[]>`, `trashDriveFile(fileId: string)`, `trashDriveFolder(folderId: string)`, `restoreDriveTrashItem(groupId: string, destinationFolderId?: string | null)`, `permanentlyDeleteDriveTrashItem(groupId: string)`. Serialize `undefined` as an omitted destination and `null` as an explicit root destination. TanStack key `["drive-trash"]` and invalidation of affected folder contents.
 
-- [ ] **Step 1: Write RED UI tests** `trashActionHidesFileWithUndoNotPermanentWarning`, `nonEmptyFolderTrashExplainsRecursiveImpact`, `cancelFolderTrashMakesNoRequest`, `confirmFolderTrashSubmitsOnce`, `trashShowsDeletionAndPurgeDates`, `restoreFolderIntoChosenDestination`, `restoreToRootSendsExplicitNull`, `permanentDeleteRequiresExplicitConfirmation`, `failedPurgeShowsStillProcessing`, `responsiveKeyboardAccessibleTrashActions`.
-- [ ] **Step 2: Verify RED:** `cd apps/web && pnpm test -- drive-trash`, expected missing screen/actions.
-- [ ] **Step 3: Implement:** separate Drive Trash route, normal-item Move to Trash action, restore and permanent-delete dialogs. Before trashing a non-empty folder, require a keyboard-accessible confirmation explaining that all active nested contents will be hidden together and recoverable for 30 days; Cancel sends no mutation, and confirm prevents duplicate submissions. This recursive warning is separate from irreversible permanent-delete confirmation. Provide an explicit root option in the restore picker using Task 3's presence-aware contract. Show UTC-derived remaining retention, expiry and appropriate error/purging states; no client-only deletion timer. Revalidate/refresh after every mutation, keep existing uploader/folder browsing accessible.
-- [ ] **Step 4: Verify GREEN:** `cd apps/web && pnpm test -- drive && pnpm lint && pnpm typecheck && pnpm build`.
-- [ ] **Step 5: Commit:** `git add apps/web/src && git commit -m "feat(drive): restore and purge items from Trash UI"`.
+- [x] **Step 1: Write RED UI tests** `trashActionHidesFileWithUndoNotPermanentWarning`, `nonEmptyFolderTrashExplainsRecursiveImpact`, `cancelFolderTrashMakesNoRequest`, `confirmFolderTrashSubmitsOnce`, `trashShowsDeletionAndPurgeDates`, `restoreFolderIntoChosenDestination`, `restoreToRootSendsExplicitNull`, `permanentDeleteRequiresExplicitConfirmation`, `failedPurgeShowsStillProcessing`, `responsiveKeyboardAccessibleTrashActions`.
+- [x] **Step 2: Verify RED:** `cd apps/web && pnpm test -- drive-trash`, expected missing screen/actions.
+- [x] **Step 3: Implement:** separate Drive Trash route, normal-item Move to Trash action, restore and permanent-delete dialogs. Before trashing a non-empty folder, require a keyboard-accessible confirmation explaining that all active nested contents will be hidden together and recoverable for 30 days; Cancel sends no mutation, and confirm prevents duplicate submissions. This recursive warning is separate from irreversible permanent-delete confirmation. Provide an explicit root option in the restore picker using Task 3's presence-aware contract. Show UTC-derived remaining retention, expiry and appropriate error/purging states; no client-only deletion timer. Revalidate/refresh after every mutation, keep existing uploader/folder browsing accessible.
+- [x] **Step 4: Verify GREEN:** `cd apps/web && pnpm test -- drive && pnpm lint && pnpm typecheck && pnpm build`.
+- [x] **Step 5: Commit:** `git add apps/web/src && git commit -m "feat(drive): restore and purge items from Trash UI"`.
 
 ### Task 7: Acceptance tests and retention operations guide
 
@@ -244,4 +244,7 @@ Next execution starts at Task 4's database/event fence, then its separate durabl
 remote-search reconciliation slice, before any Task 5 physical purge work.
 
 Task 5: implemented strict S3 deletion, immediate purge requests, hourly bounded cleanup, durable retries, lease-fenced checkpoints and FK-safe derived cleanup. Remote lifecycle absence is required before metadata removal; tombstones remain for delayed events. Independent Trash descendants detach from removed parents and retain their deadlines. API offline verify: 283 tests, zero failures/errors/skips; Spotless and package passed. No spec change; approved retention contract. Tasks 6–7 remain.
+
+
+Task 6: implemented accessible Trash route, UTC dates, original/explicit destination restore, pending purge state, native permanent-delete and recursive-folder confirmations, normal Drive Trash actions and Undo. Reused existing responsive shell/dialogs and design tokens. Web: 146 tests, lint, typecheck and standard production build passed. No spec change; Task 7 acceptance/operations remains.
 

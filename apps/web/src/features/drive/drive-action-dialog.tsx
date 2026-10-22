@@ -102,19 +102,25 @@ export function DriveMoveDialog({
   sourceFolderId,
   onMove,
   onClose,
+  title,
+  submitLabel = "Move here",
+  allowCurrentDestination = false,
 }: {
   kind: "file" | "folder";
   excludeFolderId?: string;
   sourceFolderId: string | null;
   onMove: (id: string | null) => Promise<unknown>;
   onClose: () => void;
+  title?: string;
+  submitLabel?: string;
+  allowCurrentDestination?: boolean;
 }) {
   const [path, setPath] = useState<{ id: string; name: string }[]>([]);
   const destination = path.at(-1)?.id ?? null;
   const contents = useDriveFolderContents(destination);
   const mutation = useMutation({ mutationFn: onMove, onSuccess: onClose });
   return (
-    <DriveActionDialog title={`Move ${kind}`} onClose={onClose}>
+    <DriveActionDialog title={title ?? `Move ${kind}`} onClose={onClose}>
       <nav
         aria-label="Destination folders"
         className="mb-4 flex flex-wrap gap-2"
@@ -179,12 +185,12 @@ export function DriveMoveDialog({
         disabled={
           contents.isPending ||
           contents.isError ||
-          destination === sourceFolderId ||
+          (!allowCurrentDestination && destination === sourceFolderId) ||
           mutation.isPending
         }
         onClick={() => mutation.mutate(destination)}
       >
-        {mutation.isPending ? "Moving…" : "Move here"}
+        {mutation.isPending ? "Saving…" : submitLabel}
       </button>
     </DriveActionDialog>
   );

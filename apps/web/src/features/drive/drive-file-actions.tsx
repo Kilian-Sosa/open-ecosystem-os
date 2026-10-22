@@ -7,6 +7,7 @@ import {
   moveDriveFile,
   renameDriveFile,
   type DriveFile,
+  type DriveTrashMutation,
 } from "@/lib/drive-api";
 import { driveFolderQueryKey } from "./use-drive-files";
 import {
@@ -15,13 +16,16 @@ import {
   driveButton,
 } from "./drive-action-dialog";
 import { DrivePreview } from "./drive-preview";
+import { DriveTrashAction } from "./drive-trash-action";
 
 export function DriveFileActions({
   file,
   onChanged,
+  onTrashed,
 }: {
   file: DriveFile;
   onChanged: (file: DriveFile, moved: boolean) => void;
+  onTrashed?: (group: DriveTrashMutation) => void;
 }) {
   const [action, setAction] = useState<"rename" | "move" | "preview" | null>(
     null,
@@ -58,6 +62,12 @@ export function DriveFileActions({
         <button className={driveButton} onClick={() => setAction("move")}>
           Move file
         </button>
+        <DriveTrashAction
+          kind="file"
+          id={file.fileId}
+          name={file.name}
+          onTrashed={onTrashed}
+        />
       </div>
       {download.isError ? <p role="alert">{download.error.message}</p> : null}
       {action === "rename" ? (

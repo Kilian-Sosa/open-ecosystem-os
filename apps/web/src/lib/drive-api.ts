@@ -41,6 +41,57 @@ export type DriveFolderContents = {
   files: DriveFile[];
 };
 
+export type DriveTrashResponse = {
+  groupId: string;
+  rootItemType: "file" | "folder";
+  rootItemId: string;
+  name: string;
+  originalParentFolderId: string | null;
+  originalLocation: string | null;
+  trashedAt: string;
+  purgeAfter: string;
+  state: "TRASHED" | "PURGING" | "PURGED" | "RESTORED";
+  canRestore: boolean;
+};
+
+export type DriveTrashMutation = Pick<
+  DriveTrashResponse,
+  "groupId" | "trashedAt" | "purgeAfter"
+>;
+
+export async function fetchDriveTrash(
+  signal?: AbortSignal,
+): Promise<DriveTrashResponse[]> {
+  return (await driveRequest("trash", { signal })).json();
+}
+export const trashDriveFile = (fileId: string) =>
+  writeDrive<DriveTrashMutation>(
+    `files/${encodeURIComponent(fileId)}/trash`,
+    "POST",
+    {},
+  );
+export const trashDriveFolder = (folderId: string) =>
+  writeDrive<DriveTrashMutation>(
+    `folders/${encodeURIComponent(folderId)}/trash`,
+    "POST",
+    {},
+  );
+export const restoreDriveTrashItem = (
+  groupId: string,
+  destinationFolderId?: string | null,
+) =>
+  writeDrive<DriveTrashResponse>(
+    `trash/${encodeURIComponent(groupId)}/restore`,
+    "POST",
+    { destinationFolderId },
+  );
+export const permanentlyDeleteDriveTrashItem = (groupId: string) =>
+  writeDrive<Pick<DriveTrashResponse, "groupId" | "state">>(
+    `trash/${encodeURIComponent(groupId)}/purge`,
+    "POST",
+    {},
+  );
+
 async function driveRequest(
   path: string,
   init?: RequestInit,

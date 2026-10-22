@@ -69,6 +69,12 @@ Implemented Drive organization components (`apps/web/src/features/drive/`):
 
 - `DriveFolderExplorer`: folder breadcrumbs, immediate child folders and folder creation.
 - `DriveFileActions` / `DriveFolderActions`: protected download, rename and move actions.
+- `DriveTrashAction`: recoverable file deletion and recursive folder confirmation.
+- `DriveTrashScreen`: retained items, original or selected restore destination,
+  permanent deletion confirmation and server-reported cleanup state.
+- Trash and restore reuse `DriveActionDialog` / `DriveMoveDialog` with native
+  keyboard focus containment and mobile bottom sheet behavior. Drive offers Undo
+  after moving an item to Trash; restore failures remain visible.
 - `DriveActionDialog`, `DriveNameDialog`, `DriveMoveDialog`: native modal focus containment,
   keyboard dismissal and focus restoration; centered desktop dialogs become bottom sheets on mobile.
 - `DrivePreview`: protected bounded fetch, escaped text and image blob lifecycle.
