@@ -16,7 +16,7 @@ public class DriveFolderRepository {
   private static final String METADATA_COLUMNS =
       """
       folder_id, workspace_id, owner_id, parent_folder_id, encrypted_name, name_iv,
-      created_at, updated_at
+      created_at, updated_at, deletion_group_id, original_parent_folder_id
       """;
   private static final RowMapper<DriveFolderMetadata> ROW_MAPPER = DriveFolderRepository::mapRow;
   private final JdbcTemplate jdbcTemplate;
@@ -135,6 +135,8 @@ public class DriveFolderRepository {
         resultSet.getString("encrypted_name"),
         resultSet.getString("name_iv"),
         resultSet.getTimestamp("created_at").toInstant(),
-        resultSet.getTimestamp("updated_at").toInstant());
+        resultSet.getTimestamp("updated_at").toInstant(),
+        resultSet.getString("deletion_group_id"),
+        resultSet.getString("original_parent_folder_id"));
   }
 }

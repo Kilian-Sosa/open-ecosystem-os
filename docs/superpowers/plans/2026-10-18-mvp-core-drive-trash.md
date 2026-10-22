@@ -10,7 +10,7 @@
 
 **Spec:** [Drive Trash and retention design](../specs/2026-10-18-mvp-core-drive-trash-design.md), [Drive folder design](../specs/2026-10-18-mvp-core-drive-design.md), [Search design](../specs/2026-10-18-mvp-core-search-design.md). **Prerequisite plan:** [Drive organization](2026-10-18-mvp-core-drive-organization.md), whose V10 folder model and read services must already be implemented and verified.
 
-**Status:** Proposed implementation plan for user review; not authorized for execution.
+**Status:** Execution approved 2026-10-22; inline execution on isolated `feat/drive-trash-retention` from `develop`. Task 1 completed and verified; Tasks 2–7 pending.
 
 **Spec impact:** No spec change. The review revisions below make the approved workflow invisibility, durable purge, search cleanup, explicit restore destination and recursive Trash confirmation requirements executable and testable.
 
@@ -61,11 +61,11 @@
 - `DriveTrashRepository.createGroup(DriveTrashGroup group)`, `findVisibleGroups(String workspaceId)`, `findByIdForWorkspace(String groupId, String workspaceId)`, `lockGroup(String groupId)`, `claimCleanupWork(Instant now, int maxGroups)`; file/folder rows gain nullable deletion-group ID and original placement metadata. Record **only active descendants** as group members. Cleanup claims include newly expired `TRASHED` groups and due or abandoned `PURGING` groups regardless of their original expiry. Persist per-phase progress, next retry time and a bounded lease/claim token; reject stale claim completion.
 - `DriveTrashClock` or injectable `Clock` returns UTC instants. `purgeAfter = trashedAt.plus(Duration.ofDays(30))`, with restore eligibility `now.isBefore(purgeAfter)`.
 
-- [ ] **Step 1: Write RED tests** `fileAndFolderGroupPersistWithoutPlaintext`, `retentionIs720HoursAcrossDst`, `independentlyTrashedChildKeepsOwnDeadline`, `V10FilesMigrateActiveWithoutGroups`, `claimsDuePurgingGroupBeforeOriginalExpiry`, `expiredClaimCanBeRecoveredButStaleOwnerCannotComplete`. Assert H2 and PostgreSQL schema consistency, group uniqueness and no mixing workspaces.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveTrashRepositoryTest test`, expected missing schema/type.
-- [ ] **Step 3: Implement:** add group+member records, workspace-scoped FK/indexes and lifecycle flags; lock rows consistently in group/item ID order. Avoid broad ON DELETE CASCADE that would erase separate previously trashed descendants. Use the existing workspace mutation lock.
-- [ ] **Step 4: Verify GREEN:** same tests and targeted existing DB/migration tests, including Testcontainers PostgreSQL.
-- [ ] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): persist Trash groups and expiry metadata"`.
+- [x] **Step 1: Write RED tests** `fileAndFolderGroupPersistWithoutPlaintext`, `retentionIs720HoursAcrossDst`, `independentlyTrashedChildKeepsOwnDeadline`, `V10FilesMigrateActiveWithoutGroups`, `claimsDuePurgingGroupBeforeOriginalExpiry`, `expiredClaimCanBeRecoveredButStaleOwnerCannotComplete`. Assert H2 and PostgreSQL schema consistency, group uniqueness and no mixing workspaces.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveTrashRepositoryTest test`, expected missing schema/type.
+- [x] **Step 3: Implement:** add group+member records, workspace-scoped FK/indexes and lifecycle flags; lock rows consistently in group/item ID order. Avoid broad ON DELETE CASCADE that would erase separate previously trashed descendants. Use the existing workspace mutation lock.
+- [x] **Step 4: Verify GREEN:** same tests and targeted existing DB/migration tests, including Testcontainers PostgreSQL.
+- [x] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): persist Trash groups and expiry metadata"`.
 
 ### Task 2: Move files and folder trees to Trash, immediately hiding descendants
 
@@ -152,3 +152,24 @@ Extend the search client with removal and cleanup-outcome handling rather than r
 Reviewers must confirm state-machine correctness at the 30-day boundary, folder group separation, ACL authorization, API-consumer and worker transaction fences, recovery of unexpired manual purges after restart, ordered/reconciled remote cleanup, strict S3 deletion, explicit root restoration, recursive Trash confirmation and restoration idempotency. Check these approved requirements against the named tests and implementation in both directions. The independent Search workstream must still implement filename/raw-OCR/confirmed-invoice source projections to complete the entire MVP Core; this plan owns Trash gating and cleanup/recovery of existing projections, without introducing those new source classes or treating draft invoice fields as confirmed.
 
 After approval and execution-method selection, execute on an isolated worktree/branch under Superpowers with task-level tests, review and commits. No automatic production changes are implied by this document.
+
+## Execution record — 2026-10-22
+
+Task 1 adds forward-only V11, typed Trash state, nullable file/folder membership
+and original placement, exact 720-hour expiry, workspace-scoped group queries,
+cleanup checkpoints, bounded leases, retry scheduling and token-fenced completion.
+Legacy metadata constructors remain available for active uploads and existing
+consumers; lifecycle projections are populated on reads. No public Trash endpoint,
+worker fence, physical cleanup or frontend action is enabled by this task.
+
+The eight repository contract tests run on both H2 and PostgreSQL 16; PostgreSQL
+also verifies concurrent cleanup claims using independent connections. RED runs
+showed missing types, the calendar-day/DST constraint defect, and late membership
+acceptance after a purge claim. GREEN: 32 focused tests and full API offline
+`verify` (236 tests, zero failures/errors/skips, Spotless and packaging).
+
+Spec impact: **no spec change**; this implements the approved persistence contract.
+Ruling: adapt the skill's Bash bookkeeping scripts to PowerShell with the same
+plan-scoped ignored ledger because this repository requires Windows commands.
+The new schema's duration constraint uses `interval '720' hour`, since PostgreSQL
+calendar-day arithmetic depends on the session timezone across DST.
