@@ -263,11 +263,21 @@ API settings, also forwarded by Compose:
 | `DRIVE_TRASH_PURGE_POLL_MS`    | `3600000` | Delay between bounded polls    |
 | `DRIVE_TRASH_PURGE_BATCH_SIZE` | `25`      | Groups per poll, capped at 100 |
 
-Cleanup uses five-minute token-fenced claims. It processes expired `TRASHED`
-groups and due or abandoned `PURGING` groups, including manual purges whose
-original retention deadline is still in the future. Failures retain identifiers
-and checkpoints and back off from 60 seconds to at most an hour. A retry becomes
-eligible at `next_retry_at`; actual execution waits for the next poll. Do not
+Cleanup uses five-minute token-fenced claims, acquired one group at a time just
+before processing it. It selects the oldest due work before workspace/group ID
+tie-breakers, so repeatedly failing groups cannot monopolize later polls. Expired
+`TRASHED` groups use their retention deadline; `PURGING` retries and abandoned
+claims use their retry time or expired lease, including manual purges whose
+original retention deadline is still in the future. The current owner renews an
+unexpired lease before each object deletion and before transactional derived
+cleanup. Strict S3 deletion has a one-minute total API-call timeout, including
+SDK retries, below the lease duration. An expired lease cannot start another
+cleanup transaction. A transaction that acquired the workspace and group locks
+while its lease was valid may renew the same token before committing even if
+its database work passed the deadline: competing claims remain blocked by those
+locks. Replaced tokens cannot renew or advance cleanup. Failures retain identifiers and phase checkpoints and
+back off from 60 seconds to at most an hour. A retry becomes eligible at
+`next_retry_at`; actual execution waits for the next poll. Do not
 reset a group to `TRASHED`, clear an uncertain remote operation, or remove its
 tombstone to resolve a failure.
 
@@ -290,6 +300,12 @@ existed. An outstanding or ambiguous upsert still blocks cleanup. If a task
 fails while the document remains present, reconciliation retries.
 `DERIVED_DELETE_FAILED` requires checking database availability and constraints.
 Exception text and source values are never persisted as cleanup diagnostics.
+
+Derived cleanup commits one file or folder per transaction, with at most 100
+items per claimed run. Removed member rows are durable progress; the group
+remains PURGING and its folder root is removed last. DERIVED_CLEANUP_PENDING
+is normal bounded progress and uses the existing retry schedule. A later failure
+or restart resumes remaining members without re-deleting object bytes.
 
 Object deletion is strict and idempotent. After remote absence is proven,
 derived records and file/folder metadata are removed transactionally in foreign

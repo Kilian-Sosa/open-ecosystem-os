@@ -285,3 +285,59 @@ isolated continuation branch because the original worktree belongs to another ch
 already-green composed acceptance scenarios while requiring RED→GREEN for newly found defects;
 use Maven verify's included test phase instead of duplicate full test runs. These choices change
 execution/bookkeeping only; no approved product requirement was relaxed. No deferred code findings.
+
+### Review remediation — cleanup fairness and renewable leases (2026-10-22)
+
+User requested fixes for the two review findings on `feat/drive-trash-completion`.
+This bounded API-only change preserves the approved Trash contract. **Spec impact:
+no spec change**; reliable expiry cleanup and retry recovery were already required.
+
+- Regressions first reproduced a retrying 25-group batch starving the 26th expired
+  group, a folder exceeding its five-minute object-cleanup lease, and subsequent
+  groups losing their leases while waiting for earlier cleanup.
+- Order eligible groups by their effective due time, with workspace/group IDs
+  only breaking ties. Claim one group immediately before its cleanup begins,
+  retaining the existing per-poll cap and backoff.
+- Renew only the current unexpired token before each object delete and before
+  derived cleanup. Bound strict S3 deletion to one minute including SDK retries,
+  below the five-minute lease. Preserve phase checkpoints and stale-owner fences.
+- Acceptance: a ten-file synthetic folder taking 45 seconds per object reaches
+  `PURGED`; the next group receives a fresh claim; untouched expired work precedes
+  retried groups; renewal cannot revive expired or replaced tokens. Repository
+  regressions run against both H2 and real PostgreSQL.
+- Verification: focused tests went RED before the fix and GREEN afterward
+  (**50 tests**). Full offline API `verify` passed **298 tests**, zero
+  failures/errors/skips, with Spotless and packaging. Self-review matched both
+  fixes and tests to the approved durable-purge contract.
+- Updated operational and test guidance. No schema, REST, event, permission,
+  frontend or responsive-layout changes. Browser/Compose smoke was not repeated
+  for this API scheduling change. No commit, push or PR was requested.
+
+### Independent review remediation: derived cleanup and OCR recovery (2026-10-22)
+
+The user approved fixing both independent review findings. **Spec impact: no
+spec change**; durable purge retries and automatic restore recovery already
+belong to the approved Trash contract.
+
+- RED: slow derived cleanup rolled back after lease expiry; later failures
+  rolled back earlier files; large file/folder groups did not yield; interrupted
+  final-attempt OCR remained processing after restore.
+- Commit one file or folder cleanup per fenced transaction, at most 100 items per
+  claimed run. Keep the purge tombstone and remove folder roots last. Persisted
+  member removal checkpoints progress without a schema migration; retries reuse
+  the object/search phase checkpoints. Only a transaction holding the workspace
+  and group locks continuously may extend its own token after elapsed lease time.
+- Requeue interrupted OCR under the restore transaction, clear the old processing
+  claim and add one replacement attempt. Repeated restores remain idempotent;
+  completed and failed jobs retain their existing policies. Event schemas stay
+  unchanged; replacement payloads use the updated persisted attempt budget.
+- Regression tests cover restart progress, bounded work, PostgreSQL competing
+  claims, stale tokens, final-attempt recovery, workspace/claim isolation,
+  duplicate restore budgets and stale provider output rejection.
+- No frontend, responsive-layout, REST, permission or schema changes. Verification
+  completed: API offline `spotless:apply verify` passed **305 tests**; worker
+  offline `verify` passed **93 tests**, both with zero failures/errors/skips,
+  Spotless checks and packaging. The first worker run used an ERROR-only logging
+  override and failed `OcrTemporaryWorkspaceCleanerTest`'s warning assertion;
+  rerunning with normal logging passed without altering that test. Self-review
+  checked both fixes against the approved contract and their regression tests.

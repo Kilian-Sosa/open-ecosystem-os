@@ -503,3 +503,44 @@ See [retention operations](../architecture/DEPLOYMENT.md#drive-trash-retention-a
 for metadata-only retry/lease inspection and backup/rollback limitations.
 
 Verified 2026-10-22: API **286** and worker **92** tests passed in full offline verify; web **146** tests, lint, typecheck and production build passed. The private Compose smoke and desktop/mobile browser checks passed. Spec impact: **no spec change**. No production rollout or external security scan is implied.
+
+### Drive Trash cleanup fairness and lease regressions
+
+From `apps/api`:
+
+```powershell
+.\mvnw.cmd -o '-Dtest=DriveTrashRepositoryTest,DriveTrashPostgresRepositoryTest,DriveTrashPurgeServiceTest,S3FileObjectStorageTest' test
+.\mvnw.cmd -o verify
+```
+
+The repository tests run against H2 and PostgreSQL and cover oldest-due selection,
+26 expired groups with a 25-group batch, renewable leases, exact expiry and stale
+token rejection. Service tests advance a controlled clock by 45 seconds per
+object: a ten-file folder exceeds five minutes, finishes cleanup and lets the
+next group acquire a fresh claim. The S3 test verifies a one-minute total delete
+call timeout below the five-minute lease. No real-time sleeps are needed.
+
+Verified 2026-10-22: the focused suite passed **50 tests**; full offline API
+`verify` passed **298 tests**, with zero failures/errors/skips, plus Spotless and
+packaging. Spec impact: **no spec change**; these regressions enforce the approved
+durable automatic-purge and safe-retry requirements.
+
+### Trash review regressions: derived cleanup and interrupted OCR
+
+From `apps/api`, run `mvnw.cmd -o verify`; from `apps/worker`, run
+`mvnw.cmd -o verify`. Focused API selectors are `DriveTrashPurgeServiceTest`,
+`DriveTrashPostgresRepositoryTest`, `DriveTrashControllerTest`, and
+`OcrJobRepositoryTest`; the worker selector is `OcrJobProcessorTest`.
+
+Coverage includes a simulated six-minute derived deletion, persisted partial
+progress after failure/restart, yielding large file and folder groups while
+retaining tombstones, locked PostgreSQL renewal across lease expiry and stale
+token rejection, final-attempt OCR restore recovery, duplicate restore budgets,
+workspace/claim checks and rejection of old provider results. These restore the
+approved Trash contract; **spec impact: no spec change**.
+
+Verified 2026-10-22: full offline API verification passed **305 tests** and worker
+verification passed **93 tests**, all without failures/errors/skips; formatting
+and packaging passed. Use normal logging for the worker suite: its cleanup-signal
+regression intentionally captures a warning. Browser and Compose smoke were not
+repeated for these backend-only corrections.

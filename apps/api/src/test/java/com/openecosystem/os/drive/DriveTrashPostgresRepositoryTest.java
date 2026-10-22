@@ -103,6 +103,95 @@ class DriveTrashPostgresRepositoryTest extends DriveTrashRepositoryTest {
     }
   }
 
+  @org.junit.jupiter.api.Test
+  void lockedCleanupRenewsPastExpiryBeforeACompetingClaimCanTakeOver() throws Exception {
+    repository.createGroup(
+        DriveTrashGroup.trashed(
+            "locked-renewal", WORKSPACE, "file", "legacy", null, "usr_dev_placeholder", NOW));
+    var claim = repository.claimForPurge("locked-renewal", WORKSPACE, NOW).orElseThrow();
+    String schema = jdbc.queryForObject("select current_schema()", String.class);
+    String url =
+        POSTGRES.getJdbcUrl()
+            + (POSTGRES.getJdbcUrl().contains("?") ? "&" : "?")
+            + "currentSchema="
+            + schema;
+    var dataSource =
+        new org.springframework.jdbc.datasource.DriverManagerDataSource(
+            url, POSTGRES.getUsername(), POSTGRES.getPassword());
+    var concurrentJdbc = new JdbcTemplate(dataSource);
+    var concurrentRepository = new DriveTrashRepository(concurrentJdbc);
+    var transaction =
+        new org.springframework.transaction.support.TransactionTemplate(
+            new org.springframework.jdbc.support.JdbcTransactionManager(dataSource));
+    var locked = new java.util.concurrent.CountDownLatch(1);
+    var finishCleanup = new java.util.concurrent.CountDownLatch(1);
+    var competitorStarted = new java.util.concurrent.CountDownLatch(1);
+    var afterExpiry = NOW.plusSeconds(360);
+    try (var pool = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+      var cleanup =
+          pool.submit(
+              () ->
+                  transaction.execute(
+                      status -> {
+                        new DriveFolderRepository(concurrentJdbc)
+                            .lockWorkspaceForMutation(WORKSPACE);
+                        concurrentRepository.lockGroup("locked-renewal", WORKSPACE).orElseThrow();
+                        org.assertj.core.api.Assertions.assertThat(
+                                concurrentRepository.renewClaim(claim, NOW))
+                            .isTrue();
+                        locked.countDown();
+                        try {
+                          if (!finishCleanup.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                            throw new IllegalStateException("Synthetic cleanup barrier timed out");
+                        } catch (InterruptedException exception) {
+                          Thread.currentThread().interrupt();
+                          throw new IllegalStateException(exception);
+                        }
+                        return concurrentRepository.renewLockedClaim(claim, afterExpiry);
+                      }));
+      org.assertj.core.api.Assertions.assertThat(
+              locked.await(10, java.util.concurrent.TimeUnit.SECONDS))
+          .isTrue();
+      var competitor =
+          pool.submit(
+              () -> {
+                competitorStarted.countDown();
+                return concurrentRepository.claimForPurge("locked-renewal", WORKSPACE, afterExpiry);
+              });
+      try {
+        org.assertj.core.api.Assertions.assertThat(
+                competitorStarted.await(10, java.util.concurrent.TimeUnit.SECONDS))
+            .isTrue();
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> competitor.get(200, java.util.concurrent.TimeUnit.MILLISECONDS))
+            .isInstanceOf(java.util.concurrent.TimeoutException.class);
+      } finally {
+        finishCleanup.countDown();
+      }
+      org.assertj.core.api.Assertions.assertThat(
+              cleanup.get(10, java.util.concurrent.TimeUnit.SECONDS))
+          .isTrue();
+      org.assertj.core.api.Assertions.assertThat(
+              competitor.get(10, java.util.concurrent.TimeUnit.SECONDS))
+          .isEmpty();
+      var recovered =
+          concurrentRepository
+              .claimForPurge("locked-renewal", WORKSPACE, afterExpiry.plusSeconds(360))
+              .orElseThrow();
+      org.assertj.core.api.Assertions.assertThat(recovered.token()).isNotEqualTo(claim.token());
+      transaction.executeWithoutResult(
+          status -> {
+            new DriveFolderRepository(concurrentJdbc).lockWorkspaceForMutation(WORKSPACE);
+            concurrentRepository.lockGroup("locked-renewal", WORKSPACE).orElseThrow();
+            org.assertj.core.api.Assertions.assertThat(
+                    concurrentRepository.renewLockedClaim(claim, afterExpiry.plusSeconds(360)))
+                .isFalse();
+          });
+    } finally {
+      finishCleanup.countDown();
+    }
+  }
+
   @Override
   SingleConnectionDataSource createDatabase() {
     var dataSource =

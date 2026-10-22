@@ -214,11 +214,61 @@ class DriveTrashRepositoryTest {
     assertThat(repository.isActiveFile("foreign", "legacy", NOW)).isFalse();
   }
 
+  @Test
+  void retryingGroupsDoNotStarveUnattemptedExpiredGroups() {
+    for (int i = 0; i < 26; i++) {
+      String id = "fair-" + String.format("%02d", i);
+      file(id, null);
+      repository.createGroup(group(id, "file", id, NOW.minus(Duration.ofDays(30))));
+      repository.attachFile(WORKSPACE, id, id);
+    }
+    var first = repository.claimCleanupWork(NOW, 25);
+    assertThat(first).hasSize(25);
+    for (var claim : first)
+      repository.retryCleanup(claim, NOW.plusSeconds(60), "SEARCH_CLEANUP_PENDING");
+
+    var second = repository.claimCleanupWork(NOW.plusSeconds(3600), 25);
+    assertThat(second).hasSize(25);
+    assertThat(second.getFirst().group().groupId()).isEqualTo("fair-25");
+    assertThat(second.getFirst().attempt()).isEqualTo(1);
+  }
+
+  @Test
+  void renewalExtendsOnlyTheCurrentUnexpiredClaim() {
+    repository.createGroup(group("renewal", "file", "legacy", NOW));
+    var claim = repository.claimForPurge("renewal", WORKSPACE, NOW).orElseThrow();
+    Instant renewedAt = NOW.plus(Duration.ofMinutes(4));
+    assertThat(repository.renewClaim(claim, renewedAt)).isTrue();
+    assertThat(repository.claimCleanupWork(claim.leaseUntil(), 1)).isEmpty();
+    assertThat(
+            repository.checkpoint(
+                claim, DriveTrashCleanupPhase.OBJECTS, claim.leaseUntil().plusSeconds(1)))
+        .isTrue();
+
+    Instant renewedExpiry = renewedAt.plus(Duration.ofMinutes(5));
+    assertThat(repository.renewClaim(claim, renewedExpiry)).isFalse();
+    var recovered = repository.claimCleanupWork(renewedExpiry, 1).getFirst();
+    assertThat(repository.renewClaim(claim, renewedExpiry.plusSeconds(1))).isFalse();
+    assertThat(repository.renewClaim(recovered, renewedExpiry.plusSeconds(1))).isTrue();
+    assertThat(
+            repository.checkpoint(
+                claim, DriveTrashCleanupPhase.DERIVED, renewedExpiry.plusSeconds(1)))
+        .isFalse();
+  }
+
+  @Test
+  void cleanupSelectsTheOldestDueGroupBeforeLexicalIds() {
+    repository.createGroup(group("a-newer", "file", "legacy", NOW.minus(Duration.ofDays(30))));
+    repository.createGroup(group("z-older", "file", "legacy", NOW.minus(Duration.ofDays(31))));
+    assertThat(repository.claimCleanupWork(NOW, 1).getFirst().group().groupId())
+        .isEqualTo("z-older");
+  }
+
   private DriveTrashGroup group(String id, String type, String root, Instant when) {
     return DriveTrashGroup.trashed(id, WORKSPACE, type, root, null, "usr_dev_placeholder", when);
   }
 
-  private void folder(String id, String parent) {
+  void folder(String id, String parent) {
     new DriveFolderRepository(jdbc)
         .save(
             new DriveFolderMetadata(
@@ -232,7 +282,7 @@ class DriveTrashRepositoryTest {
                 NOW));
   }
 
-  private void file(String id, String folder) {
+  void file(String id, String folder) {
     jdbc.update(
         """
         insert into drive_files (file_id, workspace_id, owner_id, folder_id, encrypted_name,

@@ -112,7 +112,9 @@ public class DriveTrashRepository {
               (state = 'TRASHED' and purge_after <= ?) or
               (state = 'PURGING' and (next_retry_at is null or next_retry_at <= ?)
                 and (lease_until is null or lease_until <= ?))
-            order by workspace_id, group_id limit ?
+            order by case when state = 'TRASHED' then purge_after
+              else coalesce(next_retry_at, lease_until, trashed_at) end,
+              workspace_id, group_id limit ?
             """,
             DriveTrashRepository::mapGroup,
             Timestamp.from(now),
@@ -172,6 +174,33 @@ public class DriveTrashRepository {
               .stream()
               .findFirst();
         });
+  }
+
+  public boolean renewClaim(DriveTrashCleanupClaim claim, Instant now) {
+    return jdbc.update(
+            """
+            update drive_trash_groups set lease_until = ?
+            where group_id = ? and workspace_id = ? and state = 'PURGING'
+              and claim_token = ? and lease_until > ?
+            """,
+            Timestamp.from(now.plus(LEASE)),
+            claim.group().groupId(),
+            claim.group().workspaceId(),
+            claim.token(),
+            Timestamp.from(now))
+        == 1;
+  }
+
+  // Only after holding the workspace and group locks continuously through cleanup.
+  public boolean renewLockedClaim(DriveTrashCleanupClaim claim, Instant now) {
+    return jdbc.update(
+            "update drive_trash_groups set lease_until=? where group_id=? and workspace_id=?"
+                + " and state='PURGING' and claim_token=?",
+            Timestamp.from(now.plus(LEASE)),
+            claim.group().groupId(),
+            claim.group().workspaceId(),
+            claim.token())
+        == 1;
   }
 
   public boolean checkpoint(
@@ -248,14 +277,19 @@ public class DriveTrashRepository {
   }
 
   public List<DriveFileMetadata> filesInGroup(String workspaceId, String groupId) {
+    return filesInGroup(workspaceId, groupId, Integer.MAX_VALUE);
+  }
+
+  public List<DriveFileMetadata> filesInGroup(String workspaceId, String groupId, int limit) {
     var files = new DriveFileRepository(jdbc);
     return jdbc
         .queryForList(
             "select file_id from drive_files where workspace_id = ? and deletion_group_id = ? order"
-                + " by file_id",
+                + " by file_id limit ?",
             String.class,
             workspaceId,
-            groupId)
+            groupId,
+            limit)
         .stream()
         .map(id -> files.findByIdForWorkspace(id, workspaceId).orElseThrow())
         .toList();

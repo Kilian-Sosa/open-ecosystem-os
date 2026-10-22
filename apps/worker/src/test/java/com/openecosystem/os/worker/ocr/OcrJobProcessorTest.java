@@ -577,6 +577,34 @@ class OcrJobProcessorTest {
     assertThat(provider.calls.get()).isEqualTo(1);
   }
 
+  @Test
+  void replacedProcessingClaimRejectsTheOldProviderResult() {
+    insertJob("ocr_restored_claim", "file_restored_claim", 2);
+    var replacementStarted = Instant.now().plusSeconds(60);
+    provider.onExtract =
+        () ->
+            jdbcTemplate.update(
+                "update ocr_jobs set processing_started_at=?, attempt_count=2 where job_id=?",
+                java.sql.Timestamp.from(replacementStarted),
+                "ocr_restored_claim");
+    assertThat(
+            processor
+                .process(
+                    requestedEvent("evt_old_claim", "ocr_restored_claim", "file_restored_claim"))
+                .outcome())
+        .isEqualTo(OcrProcessingOutcome.RETRY);
+    assertThat(jdbcTemplate.queryForObject("select count(*) from ocr_results", Integer.class))
+        .isZero();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "select count(*) from event_outbox where event_type='OcrCompleted'", Integer.class))
+        .isZero();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "select status from ocr_jobs where job_id='ocr_restored_claim'", String.class))
+        .isEqualTo("processing");
+  }
+
   private void insertJob(String jobId, String fileId, int maxAttempts) {
     Instant now = Instant.parse("2026-05-22T10:00:00Z");
     jdbcTemplate.update(

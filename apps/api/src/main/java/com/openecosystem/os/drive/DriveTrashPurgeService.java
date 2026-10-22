@@ -16,6 +16,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class DriveTrashPurgeService {
+  private static final int MAX_DERIVED_ITEMS_PER_RUN = 100;
   private final DriveTrashRepository trash;
   private final DriveFolderRepository folders;
   private final DriveFileRepository files;
@@ -78,9 +79,17 @@ public class DriveTrashPurgeService {
   }
 
   public int runCleanup(Instant now, int batchSize) {
-    var claims = trash.claimCleanupWork(now, Math.min(Math.max(batchSize, 0), 100));
-    for (var claim : claims) cleanup(claim);
-    return claims.size();
+    int limit = Math.min(Math.max(batchSize, 0), 100);
+    int processed = 0;
+    Instant claimAt = now;
+    while (processed < limit) {
+      var claims = trash.claimCleanupWork(claimAt, 1);
+      if (claims.isEmpty()) break;
+      cleanup(claims.getFirst());
+      processed++;
+      claimAt = clock.instant();
+    }
+    return processed;
   }
 
   private void cleanup(DriveTrashCleanupClaim claim) {
@@ -90,7 +99,7 @@ public class DriveTrashPurgeService {
       if (!ownsClaim(claim)) return;
       if (!claim.objectsDeleted()) {
         for (var file : trash.filesInGroup(workspace, group)) {
-          if (!ownsClaim(claim)) return;
+          if (!trash.renewClaim(claim, clock.instant())) return;
           objects.deleteEncryptedObject(file.storageKey());
         }
         if (!trash.checkpoint(claim, DriveTrashCleanupPhase.OBJECTS, clock.instant())) return;
@@ -104,54 +113,76 @@ public class DriveTrashPurgeService {
         if (!trash.checkpoint(claim, DriveTrashCleanupPhase.SEARCH, clock.instant())) return;
       }
       errorCode = "DERIVED_DELETE_FAILED";
-      transactions.executeWithoutResult(
-          status -> {
-            folders.lockWorkspaceForMutation(workspace);
-            trash.lockGroup(group, workspace);
-            if (!ownsClaim(claim)) return;
-            if (!searchAbsent(workspace, group)) {
-              retry(claim, "SEARCH_CLEANUP_PENDING");
-              return;
-            }
-            if (!claim.derivedDeleted()) {
-              for (var file : trash.filesInGroup(workspace, group))
-                deleteDerived(workspace, file.fileId());
-              String memberFolders =
-                  "select folder_id from drive_folders where workspace_id=? and"
-                      + " deletion_group_id=?";
-              jdbc.update(
-                  "update drive_files set folder_id=null where workspace_id=? and folder_id in ("
-                      + memberFolders
-                      + ")",
-                  workspace,
-                  workspace,
-                  group);
-              jdbc.update(
-                  "update drive_folders set parent_folder_id=null where workspace_id=? and"
-                      + " parent_folder_id in ("
-                      + memberFolders
-                      + ")",
-                  workspace,
-                  workspace,
-                  group);
-              jdbc.update(
-                  "delete from drive_files where workspace_id=? and deletion_group_id=?",
-                  workspace,
-                  group);
-              jdbc.update(
-                  "delete from drive_folders where workspace_id=? and deletion_group_id=?",
-                  workspace,
-                  group);
-              if (!trash.checkpoint(claim, DriveTrashCleanupPhase.DERIVED, clock.instant()))
-                throw new IllegalStateException("Cleanup lease expired");
-            }
-            if (!trash.completeCleanup(claim, clock.instant()))
-              throw new IllegalStateException("Cleanup lease expired");
-            audit(claim.group(), "purged");
-          });
+      for (int batch = 0; batch < MAX_DERIVED_ITEMS_PER_RUN; batch++) {
+        Boolean complete = transactions.execute(status -> cleanupDerivedItem(claim));
+        if (complete == null || complete) return;
+      }
+      retry(claim, "DERIVED_CLEANUP_PENDING");
     } catch (RuntimeException exception) {
       retry(claim, errorCode);
     }
+  }
+
+  private Boolean cleanupDerivedItem(DriveTrashCleanupClaim claim) {
+    String workspace = claim.group().workspaceId(), group = claim.group().groupId();
+    folders.lockWorkspaceForMutation(workspace);
+    trash.lockGroup(group, workspace);
+    if (!trash.renewClaim(claim, clock.instant())) return null;
+    if (!searchAbsent(workspace, group)) {
+      retry(claim, "SEARCH_CLEANUP_PENDING");
+      return null;
+    }
+    var members = trash.filesInGroup(workspace, group, 1);
+    if (!members.isEmpty()) {
+      String file = members.getFirst().fileId();
+      deleteDerived(workspace, file);
+      jdbc.update(
+          "delete from drive_files where workspace_id=? and deletion_group_id=? and file_id=?",
+          workspace,
+          group,
+          file);
+      if (claim.group().rootItemType().equals("folder")) {
+        if (!trash.renewLockedClaim(claim, clock.instant()))
+          throw new IllegalStateException("Cleanup claim changed");
+        return false;
+      }
+    }
+    var memberFolders =
+        jdbc.queryForList(
+            "select folder_id from drive_folders where workspace_id=? and deletion_group_id=?"
+                + " order by case when folder_id=? then 1 else 0 end, folder_id limit 1",
+            String.class,
+            workspace,
+            group,
+            claim.group().rootItemId());
+    if (!memberFolders.isEmpty()) {
+      String folder = memberFolders.getFirst();
+      jdbc.update(
+          "update drive_files set folder_id=null where workspace_id=? and folder_id=?",
+          workspace,
+          folder);
+      jdbc.update(
+          "update drive_folders set parent_folder_id=null where workspace_id=? and"
+              + " parent_folder_id=?",
+          workspace,
+          folder);
+      jdbc.update(
+          "delete from drive_folders where workspace_id=? and deletion_group_id=? and folder_id=?",
+          workspace,
+          group,
+          folder);
+      if (!folder.equals(claim.group().rootItemId())) {
+        if (!trash.renewLockedClaim(claim, clock.instant()))
+          throw new IllegalStateException("Cleanup claim changed");
+        return false;
+      }
+    }
+    if (!trash.renewLockedClaim(claim, clock.instant())
+        || !trash.checkpoint(claim, DriveTrashCleanupPhase.DERIVED, clock.instant())
+        || !trash.completeCleanup(claim, clock.instant()))
+      throw new IllegalStateException("Cleanup claim changed");
+    audit(claim.group(), "purged");
+    return true;
   }
 
   private boolean ownsClaim(DriveTrashCleanupClaim claim) {

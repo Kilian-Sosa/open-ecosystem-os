@@ -518,7 +518,10 @@ API upload/OCR consumers and workflow writes share Trash's source transaction
 fence. Restore now resumes each eligible file inside the restore transaction:
 a missing OCR job is queued directly through the existing upload service; queued
 or in-flight OCR gets a durable replacement `OcrRequested` with a restore-specific
-key; completed OCR reuses its original persisted completion envelope and event
+key. An interrupted processing claim is atomically requeued with its claim
+timestamp cleared and one replacement attempt added, including an interrupted
+final attempt. Old workers cannot persist against the cleared/replaced claim;
+duplicate restores add neither attempts nor events. Completed OCR reuses its original persisted completion envelope and event
 identity to resume skipped workflow triggering. Original completion outbox rows
 are retained. Already-executed workflows stay idempotent. No operator redelivery
 or browser request is needed to resume this work. Failed OCR remains failed.

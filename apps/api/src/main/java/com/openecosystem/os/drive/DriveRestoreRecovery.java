@@ -119,7 +119,13 @@ public class DriveRestoreRecovery {
       }
       var job =
           jobs.findDetailByIdForWorkspace(jobIds.getFirst(), file.workspaceId()).orElseThrow();
-      if (job.status() == OcrJobStatus.QUEUED || job.status() == OcrJobStatus.PROCESSING) {
+      if (job.status() == OcrJobStatus.PROCESSING) {
+        if (!jobs.requeueInterruptedForRestore(
+            job.jobId(), file.workspaceId(), job.processingStartedAt(), now))
+          throw new IllegalStateException("OCR claim changed during restore");
+        job = jobs.findDetailByIdForWorkspace(job.jobId(), file.workspaceId()).orElseThrow();
+      }
+      if (job.status() == OcrJobStatus.QUEUED) {
         outbox.save(
             new EventEnvelope<>(
                 Ids.newId("evt"),

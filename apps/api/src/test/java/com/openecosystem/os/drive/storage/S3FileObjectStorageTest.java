@@ -24,6 +24,20 @@ class S3FileObjectStorageTest {
           s3, new S3StorageProperties(null, null, "synthetic-bucket", null, null, false));
 
   @Test
+  void permanentDeleteHasCallTimeoutBelowCleanupLease() {
+    storage.deleteEncryptedObject("synthetic/key");
+    var request =
+        org.mockito.ArgumentCaptor.forClass(
+            software.amazon.awssdk.services.s3.model.DeleteObjectRequest.class);
+    verify(s3).deleteObject(request.capture());
+    assertThat(request.getValue().bucket()).isEqualTo("synthetic-bucket");
+    assertThat(request.getValue().key()).isEqualTo("synthetic/key");
+    assertThat(request.getValue().overrideConfiguration()).isPresent();
+    assertThat(request.getValue().overrideConfiguration().orElseThrow().apiCallTimeout())
+        .contains(java.time.Duration.ofMinutes(1));
+  }
+
+  @Test
   void oversizedObjectRejectedBeforeBuffering() {
     AtomicInteger reads = new AtomicInteger();
     AtomicInteger aborts = new AtomicInteger();

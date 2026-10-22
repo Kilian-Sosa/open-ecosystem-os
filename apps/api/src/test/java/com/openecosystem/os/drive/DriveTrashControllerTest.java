@@ -469,6 +469,51 @@ class DriveTrashControllerTest {
         .isEqualTo(1);
   }
 
+  @Test
+  void restoreRequeuesInterruptedFinalOcrAttemptExactlyOnce() throws Exception {
+    String file = uploadPdf();
+    String envelope =
+        jdbc.queryForObject(
+            "select envelope_json from event_outbox where idempotency_key=?",
+            String.class,
+            "drive:" + file + ":uploaded:v1");
+    uploadedConsumer.queueOcrJobIfEligible(uploadedParser.parse(envelope));
+    jdbc.update(
+        "update ocr_jobs set status='processing', attempt_count=max_attempts,"
+            + " processing_started_at=? where file_id=?",
+        java.sql.Timestamp.from(java.time.Instant.parse("2026-10-22T10:00:00Z")),
+        file);
+    int originalBudget =
+        jdbc.queryForObject(
+            "select max_attempts from ocr_jobs where file_id=?", Integer.class, file);
+    String group = group(post("/files/" + file + "/trash", null, null));
+    assertThat(post("/trash/" + group + "/restore", null, null).statusCode()).isEqualTo(200);
+    var job = jdbc.queryForMap("select * from ocr_jobs where file_id=?", file);
+    assertThat(job.get("status")).isEqualTo("queued");
+    assertThat(job.get("processing_started_at")).isNull();
+    assertThat(((Number) job.get("attempt_count")).intValue())
+        .isLessThan(((Number) job.get("max_attempts")).intValue());
+    assertThat(post("/trash/" + group + "/restore", null, null).statusCode()).isEqualTo(200);
+    assertThat(
+            jdbc.queryForObject(
+                "select max_attempts from ocr_jobs where file_id=?", Integer.class, file))
+        .isEqualTo(originalBudget + 1);
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from event_outbox where event_type='OcrRequested'"
+                    + " and idempotency_key like ?",
+                Integer.class,
+                "%" + group + "%"))
+        .isEqualTo(1);
+    String recovery =
+        jdbc.queryForObject(
+            "select payload_json from event_outbox"
+                + " where event_type='OcrRequested' and idempotency_key like ?",
+            String.class,
+            "%" + group + "%");
+    assertThat(json.readTree(recovery).get("maxAttempts").asInt()).isEqualTo(originalBudget + 1);
+  }
+
   @Autowired DriveSearchLifecycle searchLifecycle;
 
   @Test

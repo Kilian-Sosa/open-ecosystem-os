@@ -155,6 +155,20 @@ public class OcrJobRepository {
     return results.stream().findFirst();
   }
 
+  public boolean requeueInterruptedForRestore(
+      String jobId, String workspaceId, Instant claimStartedAt, Instant now) {
+    return jdbcTemplate.update(
+            "update ocr_jobs set status='queued', max_attempts=max_attempts+1,"
+                + " processing_started_at=null, next_attempt_at=?, updated_at=? where job_id=? and"
+                + " workspace_id=? and status='processing' and processing_started_at=?",
+            timestamp(now),
+            timestamp(now),
+            jobId,
+            workspaceId,
+            timestamp(claimStartedAt))
+        == 1;
+  }
+
   public boolean existsByFileId(String fileId) {
     return Boolean.TRUE.equals(
         jdbcTemplate.queryForObject(
