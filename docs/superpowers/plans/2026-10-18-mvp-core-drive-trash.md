@@ -10,7 +10,7 @@
 
 **Spec:** [Drive Trash and retention design](../specs/2026-10-18-mvp-core-drive-trash-design.md), [Drive folder design](../specs/2026-10-18-mvp-core-drive-design.md), [Search design](../specs/2026-10-18-mvp-core-search-design.md). **Prerequisite plan:** [Drive organization](2026-10-18-mvp-core-drive-organization.md), whose V10 folder model and read services must already be implemented and verified.
 
-**Status:** Execution approved 2026-10-22; inline execution on isolated `feat/drive-trash-retention` from `develop`. Tasks 1–3 completed and verified; Tasks 4–7 pending.
+**Status:** Execution approved 2026-10-22; inline execution on isolated `feat/drive-trash-retention` from `develop`. Tasks 1–3 completed and verified. Task 4 is in progress: API event/workflow and OCR database fences are implemented; remote search reconciliation and restore replay remain. Tasks 5–7 pending.
 
 **Spec impact:** No spec change. The review revisions below make the approved workflow invisibility, durable purge, search cleanup, explicit restore destination and recursive Trash confirmation requirements executable and testable.
 
@@ -95,6 +95,17 @@
 - [x] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): restore Trash files and folder trees"`.
 
 ### Task 4: Fence worker and search paths against stale events
+
+**Execution checkpoint (2026-10-22):** Database/event slice implemented for
+`FileUploadedOcrJobService`, `OcrCompletedWorkflowTriggerService`, `WorkflowRunner`,
+OCR metadata lookup, claim, completion and failure. API and worker use the same
+workspace-row transaction fence as Trash. Regression tests cover delayed events,
+ancestor-only tombstones, Trash during processing, retry capacity after restore,
+rich-read exclusion and real PostgreSQL commit ordering. Task 4 remains **open**:
+Search indexing claims, durable remote lifecycle reconciliation, registered
+Trash/restore consumers and automatic replay after restore are still required.
+No lifecycle events have been introduced by this slice. Do not start Task 5 or
+advertise physical cleanup before the remaining Task 4 contract is verified.
 
 **Files:** Modify API `media/FileUploadedOcrJobService.java`, `flows/OcrCompletedWorkflowTriggerService.java`, `flows/WorkflowRunner.java`, `search/SearchService.java` and Search indexing-producing code as appropriate; worker `ocr/DriveOcrMetadataRepository.java`, its JDBC implementation, `ocr/OcrJobProcessor.java`, `search/SearchDocumentRepository.java`, `search/SearchIndexingProcessor.java`, `search/SearchIndexClient.java`, `search/MeilisearchIndexClient.java` and lifecycle consumers. Update `FileViewAuthorizationRepository.java`, durable lifecycle/projection state and focused API/worker tests. Create API `flows/OcrCompletedWorkflowTriggerServiceTest.java`, `flows/WorkflowRunnerTest.java`, `drive/DriveLifecycleFencePostgresTest.java` and a worker lifecycle-consumer test alongside its new consumer; retain the existing `FileUploadedOcrJobServiceTest`. Locate exact worker types before edits. Implement the database/event fence and remote-index reconciliation as sequential verified slices under one owner.
 

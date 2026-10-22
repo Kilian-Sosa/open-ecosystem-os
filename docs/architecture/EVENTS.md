@@ -496,3 +496,21 @@ Consumers:
 - Audit service records sensitive finance changes
 - Open Ecosystem Flows triggers receipt and budget workflows
 - Reports module updates cached snapshots
+
+### Drive Trash source fencing (partial Task 4)
+
+API `FileUploaded` job creation and `OcrCompleted` workflow triggering reject
+missing or inactive Drive sources. The active-source check and any derived
+writes share Trash's workspace-row transaction lock. Workflow execution repeats
+this check before reading retained OCR data. Worker OCR claims, completion and
+failure use the equivalent lock and ancestor-aware predicate; a result discarded
+because of Trash emits neither `OcrCompleted` nor `OcrFailed`. Its queued claim
+retains retry capacity and uses monotonic attempt IDs to avoid duplicate outbox
+keys on resumption. No document content is added to lifecycle diagnostics.
+
+Skipped API events are consumed idempotently. Worker inactive-source deliveries
+are acknowledged without consuming the job's completion key; retained queued
+work can be replayed after restore. The registered restore consumer and automatic
+replay, plus remote Search removal/reconciliation, remain pending in Task 4.
+No new lifecycle event is emitted until those consumers exist. This checkpoint
+must not be treated as a complete retention deployment or physical-cleanup proof.

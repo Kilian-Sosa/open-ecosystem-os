@@ -9,6 +9,7 @@ import com.openecosystem.os.audit.JdbcAuditRecordRepository;
 import com.openecosystem.os.common.events.EventEnvelope;
 import com.openecosystem.os.common.events.JdbcEventOutboxRepository;
 import com.openecosystem.os.common.ids.Ids;
+import com.openecosystem.os.drive.DriveSourceLifecycle;
 import com.openecosystem.os.invoice.InvoiceExtraction;
 import com.openecosystem.os.invoice.InvoiceExtractionField;
 import com.openecosystem.os.invoice.InvoiceExtractionPort;
@@ -53,6 +54,7 @@ public class WorkflowRunner {
   private static final String RESOURCE_TYPE_WORKFLOW_EXECUTION = "workflow_execution";
   private static final String SEARCH_SOURCE_TYPE_INVOICE_EXTRACTION = "invoice_extraction";
 
+  private final DriveSourceLifecycle lifecycle;
   private final WorkflowDefinitionValidator definitionValidator;
   private final JdbcWorkflowExecutionRepository executionRepository;
   private final JdbcNotificationRepository notificationRepository;
@@ -69,6 +71,7 @@ public class WorkflowRunner {
   private final TransactionTemplate transactionTemplate;
 
   public WorkflowRunner(
+      DriveSourceLifecycle lifecycle,
       WorkflowDefinitionValidator definitionValidator,
       JdbcWorkflowExecutionRepository executionRepository,
       JdbcNotificationRepository notificationRepository,
@@ -83,6 +86,7 @@ public class WorkflowRunner {
       SearchProperties searchProperties,
       ObjectMapper objectMapper,
       TransactionTemplate transactionTemplate) {
+    this.lifecycle = lifecycle;
     this.definitionValidator = definitionValidator;
     this.executionRepository = executionRepository;
     this.notificationRepository = notificationRepository;
@@ -104,6 +108,12 @@ public class WorkflowRunner {
     Workflow workflow = workflowWithVersion.workflow();
     return transactionTemplate.execute(
         status -> {
+          var source = command.ocrCompletedEvent();
+          if (source != null
+              && (!workflow.workspaceId().equals(source.workspaceId())
+                  || !lifecycle.lockActiveFile(workflow.workspaceId(), source.fileId()))) {
+            throw new IllegalStateException("Workflow source is unavailable");
+          }
           WorkflowExecution existing =
               executionRepository
                   .findByTriggerIdempotencyKey(

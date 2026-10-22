@@ -48,12 +48,19 @@ class OcrJobProcessorTest {
     jdbcTemplate.update("drop table if exists ocr_results");
     jdbcTemplate.update("drop table if exists ocr_jobs");
     jdbcTemplate.update("drop table if exists drive_files");
+    jdbcTemplate.update("drop table if exists drive_folders");
+    jdbcTemplate.update("drop table if exists workspaces");
+    jdbcTemplate.update("create table workspaces(workspace_id varchar(128) primary key)");
+    jdbcTemplate.update("insert into workspaces values ('wrk_123')");
+    jdbcTemplate.update(
+        "create table drive_folders(folder_id varchar(64) primary key, workspace_id varchar(128),"
+            + " parent_folder_id varchar(64), deletion_group_id varchar(64))");
     jdbcTemplate.update(
         """
         create table drive_files (
           file_id varchar(64) primary key,
           workspace_id varchar(128) not null,
-          unique (file_id, workspace_id)
+          folder_id varchar(64), deletion_group_id varchar(64), unique (file_id, workspace_id)
         )
         """);
     jdbcTemplate.update(
@@ -466,6 +473,80 @@ class OcrJobProcessorTest {
     assertThat(consumptions).isEqualTo(1);
     assertThat(ocrCounter("retry")).isEqualTo(retryBefore + 1);
     assertThat(ocrCounter("dead-letter")).isEqualTo(deadLetterBefore + 1);
+  }
+
+  @Test
+  void queuedBeforeTrashNeverInvokesProviderAndCanResumeAfterRestore() {
+    insertJob("ocr_trash", "file_trash", 2);
+    jdbcTemplate.update("update drive_files set deletion_group_id = 'trash_test'");
+    var event = requestedEvent("evt_trash", "ocr_trash", "file_trash");
+    assertThat(processor.process(event).outcome()).isEqualTo(OcrProcessingOutcome.NO_OP);
+    assertThat(provider.calls.get()).isZero();
+    assertThat(jdbcTemplate.queryForObject("select count(*) from ocr_results", Integer.class))
+        .isZero();
+    jdbcTemplate.update("update drive_files set deletion_group_id = null");
+    assertThat(processor.process(event).outcome()).isEqualTo(OcrProcessingOutcome.COMPLETED);
+  }
+
+  @Test
+  void trashDuringExtractionDiscardsResultAndCompletionEvent() {
+    insertJob("ocr_race", "file_race", 2);
+    provider.onExtract =
+        () -> jdbcTemplate.update("update drive_files set deletion_group_id = 'trash_test'");
+    assertThat(processor.process(requestedEvent("evt_race", "ocr_race", "file_race")).outcome())
+        .isEqualTo(OcrProcessingOutcome.NO_OP);
+    assertThat(jdbcTemplate.queryForObject("select count(*) from ocr_results", Integer.class))
+        .isZero();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "select count(*) from event_outbox where event_type = 'OcrCompleted'",
+                Integer.class))
+        .isZero();
+  }
+
+  @Test
+  void trashAtLastAttemptCanResumeWithoutExhaustingRetryBudget() {
+    insertJob("ocr_resume", "file_resume", 1);
+    var event = requestedEvent("evt_resume", "ocr_resume", "file_resume");
+    provider.onExtract =
+        () -> jdbcTemplate.update("update drive_files set deletion_group_id = 'trash_test'");
+    assertThat(processor.process(event).outcome()).isEqualTo(OcrProcessingOutcome.NO_OP);
+    provider.onExtract = () -> {};
+    jdbcTemplate.update("update drive_files set deletion_group_id = null");
+    assertThat(processor.process(event).outcome()).isEqualTo(OcrProcessingOutcome.COMPLETED);
+  }
+
+  @Test
+  void providerFailureAfterTrashDoesNotEmitFailureOrConsumeAttempt() {
+    insertJob("ocr_failure_trash", "file_failure_trash", 1);
+    provider.fail.set(true);
+    provider.onExtract =
+        () -> jdbcTemplate.update("update drive_files set deletion_group_id = 'trash_test'");
+    assertThat(
+            processor
+                .process(
+                    requestedEvent("evt_failure_trash", "ocr_failure_trash", "file_failure_trash"))
+                .outcome())
+        .isEqualTo(OcrProcessingOutcome.NO_OP);
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "select count(*) from event_outbox where event_type = 'OcrFailed'", Integer.class))
+        .isZero();
+  }
+
+  @Test
+  void ancestorTombstoneBlocksProviderEvenWithoutFileMembership() {
+    insertJob("ocr_ancestor", "file_ancestor", 2);
+    jdbcTemplate.update(
+        "insert into drive_folders values ('parent', 'wrk_123', null, 'trash_parent')");
+    jdbcTemplate.update("insert into drive_folders values ('child', 'wrk_123', 'parent', null)");
+    jdbcTemplate.update("update drive_files set folder_id = 'child'");
+    assertThat(
+            processor
+                .process(requestedEvent("evt_ancestor", "ocr_ancestor", "file_ancestor"))
+                .outcome())
+        .isEqualTo(OcrProcessingOutcome.NO_OP);
+    assertThat(provider.calls.get()).isZero();
   }
 
   private void insertJob(String jobId, String fileId, int maxAttempts) {

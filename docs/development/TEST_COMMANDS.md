@@ -393,3 +393,32 @@ kubectl kustomize infra/k8s/overlays/prod | kubeconform -strict -summary
 make k8s-validate
 trivy config infra/k8s
 ```
+
+### Drive Trash source fences (Task 4 database/event slice)
+
+From `apps/api`:
+
+```powershell
+.\mvnw.cmd -o '-Dtest=FileUploadedOcrJobServiceTest,OcrCompletedWorkflowTriggerServiceTest,WorkflowRunnerTest,DriveLifecycleFencePostgresTest,SearchServiceTest,OcrJobControllerTest' test
+.\mvnw.cmd -o verify
+```
+
+From `apps/worker`:
+
+```powershell
+.\mvnw.cmd -o '-Dtest=OcrJobProcessorTest,JdbcDriveOcrMetadataRepositoryTest,SearchIndexingProcessorTest' test
+.\mvnw.cmd -o verify
+```
+
+The PostgreSQL fence tests require Docker and test both transaction orders:
+source commit holds the workspace lock through its derived write, or committed
+Trash prevents the source read/write. OCR regressions cover ancestor tombstones,
+in-flight processing, suppressed completion/failure events and preservation of
+retry capacity after a discarded attempt. Metadata lookup and workflow tests
+assert that inactive sources are rejected before loading retained content.
+
+This is partial Task 4 coverage. Remote Meilisearch ordering/cleanup, lifecycle
+consumers and automatic replay after restoration are pending; the successful
+suites do not establish physical erasure or complete Trash acceptance. Existing
+Search tests verify API filtering and ordinary indexing only. Spec impact:
+**no spec change**, implementing the approved Trash invisibility/fencing contract.

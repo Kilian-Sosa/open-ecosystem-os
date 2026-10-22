@@ -89,6 +89,21 @@ public class OcrJobRepository {
         == 1;
   }
 
+  public boolean deferInactiveSource(String jobId, Instant claimStartedAt, Instant now) {
+    return jdbcTemplate.update(
+            """
+            update ocr_jobs set status = 'queued', max_attempts = max_attempts + 1,
+              failure_code = 'DRIVE_SOURCE_INACTIVE', failure_message = 'Drive source is unavailable',
+              next_attempt_at = ?, updated_at = ?
+            where job_id = ? and status = 'processing' and processing_started_at = ?
+            """,
+            timestamp(now),
+            timestamp(now),
+            jobId,
+            timestamp(claimStartedAt))
+        == 1;
+  }
+
   public boolean queueRetry(
       String jobId,
       Instant claimStartedAt,

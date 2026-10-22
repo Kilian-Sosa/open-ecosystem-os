@@ -7,6 +7,7 @@ import com.openecosystem.os.common.events.EventConsumptionRepository;
 import com.openecosystem.os.common.events.EventEnvelope;
 import com.openecosystem.os.common.events.JdbcEventOutboxRepository;
 import com.openecosystem.os.common.ids.Ids;
+import com.openecosystem.os.drive.DriveSourceLifecycle;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
@@ -24,6 +25,7 @@ public class FileUploadedOcrJobService {
   private static final Set<String> OCR_CONTENT_TYPES =
       Set.of("application/pdf", "image/png", "image/jpeg");
 
+  private final DriveSourceLifecycle lifecycle;
   private final MediaOcrProperties properties;
   private final OcrJobRepository ocrJobRepository;
   private final JdbcAuditRecordRepository auditRecordRepository;
@@ -32,12 +34,14 @@ public class FileUploadedOcrJobService {
   private final TransactionTemplate transactionTemplate;
 
   public FileUploadedOcrJobService(
+      DriveSourceLifecycle lifecycle,
       MediaOcrProperties properties,
       OcrJobRepository ocrJobRepository,
       JdbcAuditRecordRepository auditRecordRepository,
       JdbcEventOutboxRepository eventOutboxRepository,
       EventConsumptionRepository eventConsumptionRepository,
       TransactionTemplate transactionTemplate) {
+    this.lifecycle = lifecycle;
     this.properties = properties;
     this.ocrJobRepository = ocrJobRepository;
     this.auditRecordRepository = auditRecordRepository;
@@ -54,7 +58,8 @@ public class FileUploadedOcrJobService {
           }
 
           Instant now = Instant.now();
-          if (!isOcrEligible(event.contentType())) {
+          if (!isOcrEligible(event.contentType())
+              || !lifecycle.lockActiveFile(event.workspaceId(), event.fileId())) {
             eventConsumptionRepository.save(
                 CONSUMER_NAME, event.idempotencyKey(), event.eventId(), now);
             return;
