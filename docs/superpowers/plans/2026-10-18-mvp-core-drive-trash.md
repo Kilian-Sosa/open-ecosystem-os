@@ -10,7 +10,7 @@
 
 **Spec:** [Drive Trash and retention design](../specs/2026-10-18-mvp-core-drive-trash-design.md), [Drive folder design](../specs/2026-10-18-mvp-core-drive-design.md), [Search design](../specs/2026-10-18-mvp-core-search-design.md). **Prerequisite plan:** [Drive organization](2026-10-18-mvp-core-drive-organization.md), whose V10 folder model and read services must already be implemented and verified.
 
-**Status:** Execution approved 2026-10-22; inline execution on isolated `feat/drive-trash-retention` from `develop`. Tasks 1–6 completed and verified. Task 7 pending.
+**Status:** Execution approved 2026-10-22; inline execution on isolated `feat/drive-trash-retention` from `develop`. Tasks 1–7 completed and verified. Tasks 5–7 continued on `feat/drive-trash-completion` from Task 4 commit `b5b077a`.
 
 **Spec impact:** No spec change. The review revisions below make the approved workflow invisibility, durable purge, search cleanup, explicit restore destination and recursive Trash confirmation requirements executable and testable.
 
@@ -152,11 +152,11 @@ Extend the search client with removal and cleanup-outcome handling rather than r
 
 **Interfaces:** No new public methods; validate the task contracts end to end.
 
-- [ ] **Step 1: Write RED scenario** `nestedFolderTrashRestoreExpiryAndManualPurgeJourney`: upload folder tree, run OCR, trash it, verify denial from Drive/Search/API, restore before deadline with stable bytes/IDs, trash again, purge immediately, verify non-restorable + safe cleanup. Add same-file separate trash and parent purge case, explicit restore-to-root after parent loss, delayed API event delivery, recovery of a failed manual purge across restart before expiry, and late remote upsert/removal interleavings.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveTrashJourneyTest test`.
-- [ ] **Step 3: Address discovered integration issues** and document how to inspect cleanup retry/error state, claim leases, next attempts and remote reconciliation completion without seeing filenames or extracted content. Document that both API and worker lifecycle fences must be deployed together; an older binary that ignores tombstones is not a safe ordinary rollback after Trash is used.
-- [ ] **Step 4: Verify GREEN:** `cd apps/api && ./mvnw test && ./mvnw verify`; `cd apps/worker && ./mvnw test && ./mvnw verify`; `cd apps/web && pnpm test && pnpm lint && pnpm typecheck && pnpm build`. Run a private Compose end-to-end smoke; report any not-run external gates honestly.
-- [ ] **Step 5: Commit:** `git add apps/api/src/test docs && git commit -m "test(drive): verify Trash restoration and expiry guarantees"`.
+- [x] **Step 1: Write RED scenario** `nestedFolderTrashRestoreExpiryAndManualPurgeJourney`: upload folder tree, run OCR, trash it, verify denial from Drive/Search/API, restore before deadline with stable bytes/IDs, trash again, purge immediately, verify non-restorable + safe cleanup. Add same-file separate trash and parent purge case, explicit restore-to-root after parent loss, delayed API event delivery, recovery of a failed manual purge across restart before expiry, and late remote upsert/removal interleavings.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveTrashJourneyTest test`.
+- [x] **Step 3: Address discovered integration issues** and document how to inspect cleanup retry/error state, claim leases, next attempts and remote reconciliation completion without seeing filenames or extracted content. Document that both API and worker lifecycle fences must be deployed together; an older binary that ignores tombstones is not a safe ordinary rollback after Trash is used.
+- [x] **Step 4: Verify GREEN:** `cd apps/api && ./mvnw test && ./mvnw verify`; `cd apps/worker && ./mvnw test && ./mvnw verify`; `cd apps/web && pnpm test && pnpm lint && pnpm typecheck && pnpm build`. Run a private Compose end-to-end smoke; report any not-run external gates honestly.
+- [x] **Step 5: Commit:** `git add apps/api/src/test docs && git commit -m "test(drive): verify Trash restoration and expiry guarantees"`.
 
 ## Self-review and handoff
 
@@ -245,6 +245,43 @@ remote-search reconciliation slice, before any Task 5 physical purge work.
 
 Task 5: implemented strict S3 deletion, immediate purge requests, hourly bounded cleanup, durable retries, lease-fenced checkpoints and FK-safe derived cleanup. Remote lifecycle absence is required before metadata removal; tombstones remain for delayed events. Independent Trash descendants detach from removed parents and retain their deadlines. API offline verify: 283 tests, zero failures/errors/skips; Spotless and package passed. No spec change; approved retention contract. Tasks 6–7 remain.
 
-
 Task 6: implemented accessible Trash route, UTC dates, original/explicit destination restore, pending purge state, native permanent-delete and recursive-folder confirmations, normal Drive Trash actions and Undo. Reused existing responsive shell/dialogs and design tokens. Web: 146 tests, lint, typecheck and standard production build passed. No spec change; Task 7 acceptance/operations remains.
 
+Task 7 completion — 2026-10-22:
+
+- Added three HTTP acceptance scenarios for nested restore/retained OCR and invoice lineage,
+  exact expiry with a paused scheduler, FK-safe cleanup, and outstanding remote operations.
+  The composed scenarios initially passed against Tasks 1–6; no artificial RED was introduced.
+  The private real-service smoke then found a missing-index removal failure. Its worker regression
+  failed RED before the fix and passed GREEN afterward. A failed removal is accepted only after
+  the tracked task is terminal and remote absence is independently verified; existing copies
+  and uncertain/in-flight operations still block cleanup. This satisfies the existing approved
+  absence contract; **no spec change**.
+- Forwarded the three existing cleanup settings through Compose. Completed the required
+  approximate remaining-retention label from UTC deadline and last query refresh; the API
+  remains authoritative and no client deletion timer was introduced. Its UI regression
+  failed RED before implementation, then passed.
+- Final verification: API offline `spotless:apply verify` **286 tests**; worker offline
+  `spotless:apply verify` **92 tests**; web **146 tests**, lint, typecheck and standard production
+  build. Zero test failures/errors/skips. Maven verify includes the test lifecycle, so separate
+  identical full `test` runs were not repeated.
+- Private Compose smoke passed actual PostgreSQL/MinIO/Tesseract/Meilisearch execution,
+  nested Trash denial, stable bytes/IDs/OCR and extraction lineage, independent child recovery
+  after parent purge, explicit root restore, and eventual permanent cleanup. Database inspection
+  confirmed zero remaining OCR/invoice rows or unreconciled remote revisions for the synthetic
+  uploads. Only the disposable acceptance project's resources were used.
+- Browser checks passed at desktop and 375px mobile breakpoints: recursive warning, Cancel/Escape
+  and focus return, Undo, UTC/retention display, explicit-root restore, irreversible warning and
+  cancellation, no horizontal overflow, and no captured console errors. Native dialogs and
+  existing design tokens/shell were reused; no new visual system or public authentication.
+- Self-review traced approved requirements to repository/controller/purge/journey tests and
+  PostgreSQL/worker lifecycle tests, and traced changed behavior back to the approved Trash spec.
+  No new source event or public contract beyond the planned purge endpoint was introduced.
+  Filename/raw-OCR source creation and invoice confirmation remain separate Search/review plans.
+  No additional review agent, push, PR, merge or production deployment was performed.
+
+Rulings: continue inline under existing approval; adapt Bash bookkeeping to PowerShell; use an
+isolated continuation branch because the original worktree belongs to another chat; accept
+already-green composed acceptance scenarios while requiring RED→GREEN for newly found defects;
+use Maven verify's included test phase instead of duplicate full test runs. These choices change
+execution/bookkeeping only; no approved product requirement was relaxed. No deferred code findings.

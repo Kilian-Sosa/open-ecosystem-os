@@ -68,7 +68,7 @@ export function DriveTrashScreen() {
           <ul className="space-y-4" aria-label="Trashed items">
             {query.data.map((item) => (
               <li key={item.groupId}>
-                <TrashItem item={item} />
+                <TrashItem item={item} observedAt={query.dataUpdatedAt} />
               </li>
             ))}
           </ul>
@@ -78,7 +78,13 @@ export function DriveTrashScreen() {
   );
 }
 
-function TrashItem({ item }: { item: DriveTrashResponse }) {
+function TrashItem({
+  item,
+  observedAt,
+}: {
+  item: DriveTrashResponse;
+  observedAt: number;
+}) {
   const [action, setAction] = useState<"restore" | "purge" | null>(null);
   const refresh = useRefreshDrive();
   const submitting = useRef(false);
@@ -98,6 +104,13 @@ function TrashItem({ item }: { item: DriveTrashResponse }) {
     },
   });
   const busy = restore.isPending || purge.isPending;
+  const hoursRemaining = Math.max(
+    0,
+    Math.min(
+      720,
+      Math.ceil((Date.parse(item.purgeAfter) - observedAt) / 3_600_000),
+    ),
+  );
   return (
     <SectionCard
       title={item.name}
@@ -120,6 +133,12 @@ function TrashItem({ item }: { item: DriveTrashResponse }) {
             </dd>
           </div>
         </dl>
+        {item.canRestore ? (
+          <p className="text-sm text-text-secondary">
+            Approximately {hoursRemaining} hours remaining, as of the last
+            refresh. The server checks the exact deadline when restoring.
+          </p>
+        ) : null}
         {item.state === "PURGING" ? (
           <p role="status">
             Permanent deletion requested. Cleanup is still processing; this item
@@ -227,7 +246,7 @@ function TrashDate({ value }: { value: string }) {
     <time dateTime={value}>
       {Number.isNaN(date.getTime())
         ? "Unavailable"
-        : date.toISOString().replace("T", " ").replace(".000Z", " UTC")}
+        : date.toISOString().replace("T", " ").replace("Z", " UTC")}
     </time>
   );
 }

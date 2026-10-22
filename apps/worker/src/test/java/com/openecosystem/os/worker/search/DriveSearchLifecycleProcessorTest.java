@@ -296,6 +296,28 @@ class DriveSearchLifecycleProcessorTest {
   }
 
   @Test
+  void failedRemovalTaskWithVerifiedAbsenceCompletesCleanup() {
+    trash();
+    run();
+    remote.failed.add(1L);
+    run();
+    assertThat(remote.removals).isEqualTo(1);
+    assertThat(remote.present).isEmpty();
+    assertThat(complete()).isTrue();
+  }
+
+  @Test
+  void failedRemovalTaskWithExistingRemoteCopyCannotCompleteCleanup() {
+    trash();
+    remote.present.add("srch_test");
+    run();
+    remote.failed.add(1L);
+    run();
+    assertThat(complete()).isFalse();
+    assertThat(remote.present).containsExactly("srch_test");
+  }
+
+  @Test
   void failedAcceptedTaskPersistsRetryDiagnostic() {
     run();
     remote.failed.add(1L);

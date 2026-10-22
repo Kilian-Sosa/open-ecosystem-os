@@ -226,8 +226,7 @@ rejection. No error message or diagnostic includes source content.
 `DriveSearchLifecycle.cleanupComplete(workspaceId, fileId, revision)` is true
 only for that exact current `ABSENT` revision after reconciliation, with no
 outstanding write/removal. The later permanent-purge service must use this proof
-before declaring remote cleanup complete; this change adds no physical-purge
-endpoint and makes no S3-erasure claim. Retain the lifecycle/operation identifiers
+before declaring remote cleanup complete. Retain the lifecycle/operation identifiers
 needed for reconciliation independently of deletable source/projection rows.
 
 Restoration resumes eligible pipeline work transactionally. Original completed
@@ -237,3 +236,64 @@ replacement outbox request, and completed OCR resumes skipped triggering. Failed
 OCR is not implicitly retried. Existing invoice projections remain excluded
 until the separate confirmation feature supplies persisted user confirmation;
 restoration never confirms a draft.
+
+### Drive Trash retention and purge operations
+
+Deploy the matching API and worker lifecycle fences together, using the upgrade
+and rollback restrictions above. No additional deployment is needed. The API
+owns scheduled physical cleanup; the worker owns remote-index reconciliation.
+
+`POST /api/drive/trash/{groupId}/purge` makes an owned deletion group
+non-restorable before starting its first cleanup attempt. A `PURGING` response
+means physical cleanup is pending; only `PURGED` reports completed cleanup.
+Duplicate requests are safe. The normal UI requires confirmation before this
+irreversible action. Moving a folder to Trash has its own recursive confirmation.
+
+Retention is exactly 720 hours from the original UTC deletion instant. Restore
+is rejected at the deadline even if the scheduler is stopped. The default hourly
+poll can remove expired bytes later than that deadline; scheduler delay never
+extends restore eligibility. External operator backups have independent policies
+and are outside this live-storage retention guarantee (MVP Complete).
+
+API settings, also forwarded by Compose:
+
+| Environment variable           | Default   | Purpose                        |
+| ------------------------------ | --------- | ------------------------------ |
+| `DRIVE_TRASH_PURGE_ENABLED`    | `true`    | Enable the cleanup scheduler   |
+| `DRIVE_TRASH_PURGE_POLL_MS`    | `3600000` | Delay between bounded polls    |
+| `DRIVE_TRASH_PURGE_BATCH_SIZE` | `25`      | Groups per poll, capped at 100 |
+
+Cleanup uses five-minute token-fenced claims. It processes expired `TRASHED`
+groups and due or abandoned `PURGING` groups, including manual purges whose
+original retention deadline is still in the future. Failures retain identifiers
+and checkpoints and back off from 60 seconds to at most an hour. A retry becomes
+eligible at `next_retry_at`; actual execution waits for the next poll. Do not
+reset a group to `TRASHED`, clear an uncertain remote operation, or remove its
+tombstone to resolve a failure.
+
+Inspect only metadata:
+
+```sql
+select workspace_id, group_id, root_item_type, root_item_id, state,
+       trashed_at, purge_after, cleanup_attempt, lease_until, next_retry_at,
+       objects_deleted, search_deleted, derived_deleted, last_error_code
+from drive_trash_groups
+where state in ('TRASHED', 'PURGING')
+order by next_retry_at, purge_after;
+```
+
+`OBJECT_DELETE_FAILED` requires checking object-store connectivity and credentials.
+`SEARCH_CLEANUP_PENDING` requires checking the lifecycle/remote-operation queries
+above and the matching worker. A terminal failed removal can complete only after
+the worker independently verifies remote absence, including an index that never
+existed. An outstanding or ambiguous upsert still blocks cleanup. If a task
+fails while the document remains present, reconciliation retries.
+`DERIVED_DELETE_FAILED` requires checking database availability and constraints.
+Exception text and source values are never persisted as cleanup diagnostics.
+
+Object deletion is strict and idempotent. After remote absence is proven,
+derived records and file/folder metadata are removed transactionally in foreign
+key order. Independent previously trashed children are detached safely without
+changing their deadlines; restoring one after parent removal requires an explicit
+destination, with JSON null selecting Drive root. Metadata-only lifecycle
+tombstones, remote operation IDs and audit history remain to fence delayed events.

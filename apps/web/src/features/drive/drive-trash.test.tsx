@@ -119,6 +119,7 @@ function writes(suffix: string) {
 it("trashShowsDeletionAndPurgeDates", async () => {
   mount();
   expect(await screen.findByText(entry.name)).toBeVisible();
+  expect(screen.getByText(/hours remaining/i)).toBeVisible();
   expect(
     document.querySelector(`time[datetime="${entry.trashedAt}"]`),
   ).toBeVisible();

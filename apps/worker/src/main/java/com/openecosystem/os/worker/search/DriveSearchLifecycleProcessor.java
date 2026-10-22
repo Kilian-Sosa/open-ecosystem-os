@@ -59,8 +59,9 @@ public class DriveSearchLifecycleProcessor {
           finish(action, verified);
           if (!verified) error(workspaceId, fileId, "REMOTE_ABSENCE_UNVERIFIED");
         } else if (state == SearchIndexClient.TaskState.FAILED) {
-          finish(action, false);
-          error(workspaceId, fileId, "REMOTE_TASK_FAILED");
+          boolean absent = !action.present() && remote.isAbsent(action.documentId());
+          finish(action, absent);
+          if (!absent) error(workspaceId, fileId, "REMOTE_TASK_FAILED");
         }
       }
     } catch (SearchSubmissionException exception) {

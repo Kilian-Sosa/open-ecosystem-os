@@ -436,3 +436,70 @@ worker offline `spotless:apply verify` passed **88 tests**, all without failures
 errors or skips. A repository-root Maven invocation also passed the 20 focused
 worker lifecycle/PostgreSQL/indexing tests. Formatting and packaging passed.
 The full private Compose journey and frontend gates remain Task 7 work.
+
+### Drive Trash acceptance and physical cleanup (Tasks 5–7)
+
+From `apps/api`:
+
+```powershell
+.\mvnw.cmd -o '-Dtest=DriveTrashJourneyTest,DriveTrashPurgeServiceTest,DriveTrashControllerTest' test
+.\mvnw.cmd -o verify
+```
+
+`DriveTrashJourneyTest` uses HTTP, real authorization/encryption and persisted
+synthetic OCR/invoice lineage, with controlled S3 and remote-reconciliation proof.
+It checks nested restore bytes/IDs, exact expiry with a paused scheduler,
+FK-safe derived deletion, and refusal to complete while a remote operation is
+uncertain. It seeds OCR data; the Compose smoke below runs real Tesseract.
+The purge service/controller tests cover failed manual-purge recovery before
+expiry, restart/checkpoint recovery, independent child groups and explicit root
+restoration. Existing PostgreSQL fence and worker tests cover concurrent
+restore/purge claims, delayed events, late upserts, stale removals and restart.
+
+From `apps/worker`, run `.\mvnw.cmd -o verify`. From `apps/web`, run:
+
+```powershell
+pnpm test
+pnpm lint
+pnpm typecheck
+pnpm build
+```
+
+The Trash UI tests check UTC dates, original/root/chosen destinations, Undo,
+recursive confirmation/cancel, duplicate submission prevention, irreversible
+confirmation, processing and empty/error/permission states. Native Drive dialogs
+retain their shared desktop/mobile layout and keyboard containment.
+
+For a disposable **private synthetic-data** stack, first confirm the project
+name is unused and ports 18087, 19087, 19088 and 15687 are free. Use a fresh
+PowerShell process for these overrides; never load a real `.env`:
+
+```powershell
+$env:API_PORT = '18087'
+$env:MINIO_API_PORT = '19087'
+$env:MINIO_CONSOLE_PORT = '19088'
+$env:RABBITMQ_MANAGEMENT_PORT = '15687'
+$env:LOCAL_BIND_ADDRESS = '127.0.0.1'
+$env:DRIVE_TRASH_PURGE_POLL_MS = '1000'
+docker compose --env-file .env.example -p drive-trash-acceptance -f infra/docker/docker-compose.yml up -d --build --wait --wait-timeout 180 api worker
+.\scripts\smoke-drive-trash.ps1
+```
+
+The one-second poll is a test-only override; persisted retry backoff still
+applies. The smoke uploads only the committed synthetic scanned invoice, waits
+for Tesseract and extraction, checks Trash denial from Drive/OCR/Search, restores
+the same IDs/bytes/lineage, purges a parent while preserving an independently
+trashed child, restores explicitly to root, and waits for permanent cleanup.
+No new filename/raw-OCR search source or invoice-confirmation feature is claimed.
+
+After the smoke, remove only this disposable project's containers and volumes;
+leave Docker Desktop running:
+
+```powershell
+docker compose --env-file .env.example -p drive-trash-acceptance -f infra/docker/docker-compose.yml down --volumes
+```
+
+See [retention operations](../architecture/DEPLOYMENT.md#drive-trash-retention-and-purge-operations)
+for metadata-only retry/lease inspection and backup/rollback limitations.
+
+Verified 2026-10-22: API **286** and worker **92** tests passed in full offline verify; web **146** tests, lint, typecheck and production build passed. The private Compose smoke and desktop/mobile browser checks passed. Spec impact: **no spec change**. No production rollout or external security scan is implied.
