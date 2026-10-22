@@ -86,6 +86,12 @@ public class S3FileObjectStorage implements FileObjectStorage {
     }
   }
 
+  @Override
+  public void deleteEncryptedObject(String storageKey) {
+    s3Client.deleteObject(
+        DeleteObjectRequest.builder().bucket(properties.bucket()).key(storageKey).build());
+  }
+
   private void ensureBucket() {
     if (bucketChecked.get()) {
       return;

@@ -242,3 +242,6 @@ Spec impact: **no spec change**; the approved restore contract is unchanged.
 No UI/components, responsive behavior, worker code or event contract changed.
 Next execution starts at Task 4's database/event fence, then its separate durable
 remote-search reconciliation slice, before any Task 5 physical purge work.
+
+Task 5: implemented strict S3 deletion, immediate purge requests, hourly bounded cleanup, durable retries, lease-fenced checkpoints and FK-safe derived cleanup. Remote lifecycle absence is required before metadata removal; tombstones remain for delayed events. Independent Trash descendants detach from removed parents and retain their deadlines. API offline verify: 283 tests, zero failures/errors/skips; Spotless and package passed. No spec change; approved retention contract. Tasks 6–7 remain.
+

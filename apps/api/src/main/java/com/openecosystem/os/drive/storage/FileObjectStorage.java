@@ -8,4 +8,6 @@ public interface FileObjectStorage {
       String storageKey, byte[] encryptedContent, String originalContentType, String contentIv);
 
   void deleteObjectIfExists(String storageKey);
+
+  void deleteEncryptedObject(String storageKey);
 }

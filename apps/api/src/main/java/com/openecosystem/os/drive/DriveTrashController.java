@@ -16,9 +16,16 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/drive")
 public class DriveTrashController {
   private final DriveTrashService service;
+  private final DriveTrashPurgeService purge;
 
-  public DriveTrashController(DriveTrashService service) {
+  public DriveTrashController(DriveTrashService service, DriveTrashPurgeService purge) {
     this.service = service;
+    this.purge = purge;
+  }
+
+  @PostMapping("/trash/{groupId}/purge")
+  public DriveTrashPurgeService.PurgeResult purge(@PathVariable String groupId) {
+    return purge.purgeNow(groupId);
   }
 
   @GetMapping("/trash")

@@ -508,6 +508,57 @@ class DriveTrashControllerTest {
                     .doesNotContain("synthetic-", "encryptedName", "storageKey", "ocrText"));
   }
 
+  @Autowired DriveTrashPurgeService purge;
+
+  @Test
+  void permanentDeleteRejectsOtherActorsAndReportsRealCleanupState() throws Exception {
+    seedViewer();
+    String file = upload(null);
+    String group = group(post("/files/" + file + "/trash", null, null));
+    assertThat(post("/trash/" + group + "/purge", null, "usr_trash_viewer").statusCode())
+        .isEqualTo(404);
+    var pending = post("/trash/" + group + "/purge", null, null);
+    assertThat(pending.statusCode()).isEqualTo(200);
+    assertThat(json.readTree(pending.body()).get("state").asString()).isEqualTo("PURGING");
+    assertThat(post("/trash/" + group + "/restore", null, null).statusCode()).isEqualTo(409);
+    jdbc.update(
+        "update drive_search_lifecycle set reconciled_revision=revision where file_id=?", file);
+    org.mockito.Mockito.when(clock.instant())
+        .thenReturn(java.time.Instant.parse("2026-10-22T13:00:00Z"));
+    assertThat(purge.runCleanup(clock.instant(), 25)).isPositive();
+    var completed = post("/trash/" + group + "/purge", null, null);
+    assertThat(json.readTree(completed.body()).get("state").asString()).isEqualTo("PURGED");
+    assertThat(get("/trash").body()).doesNotContain(group);
+    assertThat(get("/files/" + file + "/download").statusCode()).isEqualTo(404);
+  }
+
+  @Test
+  void purgingFolderPreservesIndependentTrashAndRequiresExplicitRootRestore() throws Exception {
+    String parent = folder(null),
+        child = folder(parent),
+        independent = upload(child),
+        member = upload(child);
+    String independentGroup = group(post("/files/" + independent + "/trash", null, null));
+    String parentGroup = group(post("/folders/" + parent + "/trash", null, null));
+    jdbc.update(
+        "update drive_search_lifecycle set reconciled_revision=revision where file_id=?", member);
+    var result = post("/trash/" + parentGroup + "/purge", null, null);
+    assertThat(result.statusCode()).isEqualTo(200);
+    assertThat(json.readTree(result.body()).get("state").asString()).isEqualTo("PURGED");
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from drive_files where file_id=?", Integer.class, independent))
+        .isEqualTo(1);
+    assertThat(post("/trash/" + independentGroup + "/restore", null, null).statusCode())
+        .isEqualTo(409);
+    assertThat(
+            post("/trash/" + independentGroup + "/restore", "{\"destinationFolderId\":null}", null)
+                .statusCode())
+        .isEqualTo(200);
+    assertThat(get("/files/" + independent + "/download").statusCode()).isEqualTo(200);
+    assertThat(get("/files/" + member + "/download").statusCode()).isEqualTo(404);
+  }
+
   String uploadPdf() throws Exception {
     var body =
         HttpRequest.BodyPublishers.concat(
