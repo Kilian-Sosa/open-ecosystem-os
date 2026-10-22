@@ -37,4 +37,3 @@ alter table drive_folders add column original_parent_folder_id varchar(64);
 alter table drive_folders add constraint drive_folders_trash_workspace_fk
   foreign key (deletion_group_id, workspace_id) references drive_trash_groups (group_id, workspace_id);
 create index drive_folders_trash_idx on drive_folders (workspace_id, deletion_group_id, folder_id);
-

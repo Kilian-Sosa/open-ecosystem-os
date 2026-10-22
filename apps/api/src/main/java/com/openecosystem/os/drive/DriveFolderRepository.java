@@ -64,7 +64,9 @@ public class DriveFolderRepository {
     String query =
         "select "
             + METADATA_COLUMNS
-            + " from drive_folders where workspace_id = ? and parent_folder_id "
+            + " from drive_folders f where workspace_id = ? and "
+            + DriveLifecycleSql.activeFolder("f")
+            + " and parent_folder_id "
             + (parentId == null ? "is null" : "= ?")
             + " order by created_at, folder_id limit ?";
     return parentId == null
@@ -123,6 +125,18 @@ public class DriveFolderRepository {
             workspaceId,
             folderId)
         > 0;
+  }
+
+  public boolean isActiveFolder(String workspaceId, String folderId) {
+    return Boolean.TRUE.equals(
+        jdbcTemplate.queryForObject(
+            "select exists (select 1 from drive_folders f where f.workspace_id = ? and f.folder_id"
+                + " = ? and "
+                + DriveLifecycleSql.activeFolder("f")
+                + ")",
+            Boolean.class,
+            workspaceId,
+            folderId));
   }
 
   private static DriveFolderMetadata mapRow(ResultSet resultSet, int rowNumber)

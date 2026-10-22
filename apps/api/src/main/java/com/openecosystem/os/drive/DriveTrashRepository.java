@@ -223,6 +223,30 @@ public class DriveTrashRepository {
         == 1;
   }
 
+  public boolean isActiveFile(String workspaceId, String fileId, Instant now) {
+    return Boolean.TRUE.equals(
+        jdbc.queryForObject(
+            "select exists (select 1 from drive_files f where f.workspace_id = ? and f.file_id = ?"
+                + " and "
+                + DriveLifecycleSql.activeFile("f")
+                + ")",
+            Boolean.class,
+            workspaceId,
+            fileId));
+  }
+
+  public boolean isActiveFolder(String workspaceId, String folderId, Instant now) {
+    return Boolean.TRUE.equals(
+        jdbc.queryForObject(
+            "select exists (select 1 from drive_folders f where f.workspace_id = ? and f.folder_id"
+                + " = ? and "
+                + DriveLifecycleSql.activeFolder("f")
+                + ")",
+            Boolean.class,
+            workspaceId,
+            folderId));
+  }
+
   private static DriveTrashGroup mapGroup(ResultSet row, int number) throws SQLException {
     return new DriveTrashGroup(
         row.getString("group_id"),

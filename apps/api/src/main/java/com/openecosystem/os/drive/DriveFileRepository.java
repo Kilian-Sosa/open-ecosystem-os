@@ -73,14 +73,18 @@ public class DriveFileRepository {
     return jdbcTemplate.query(
         "select "
             + METADATA_COLUMNS
-            + " from drive_files where workspace_id = ? order by created_at desc",
+            + " from drive_files f where workspace_id = ? and "
+            + DriveLifecycleSql.activeFile("f")
+            + " order by created_at desc",
         ROW_MAPPER,
         workspaceId);
   }
 
   public List<String> listIdsByWorkspace(String workspaceId) {
     return jdbcTemplate.queryForList(
-        "select file_id from drive_files where workspace_id = ? order by created_at desc",
+        "select file_id from drive_files f where workspace_id = ? and "
+            + DriveLifecycleSql.activeFile("f")
+            + " order by created_at desc",
         String.class,
         workspaceId);
   }
@@ -93,7 +97,9 @@ public class DriveFileRepository {
     String query =
         "select "
             + METADATA_COLUMNS
-            + " from drive_files where workspace_id = ? and folder_id "
+            + " from drive_files f where workspace_id = ? and "
+            + DriveLifecycleSql.activeFile("f")
+            + " and folder_id "
             + (folderId == null ? "is null" : "= ?")
             + " order by created_at desc limit ?";
     return folderId == null

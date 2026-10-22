@@ -212,3 +212,19 @@ authorized resources. Search omits a denied derived hit from its normal response
 Meilisearch normalized extraction candidates are each filtered by the source `metadata.fileId`
 before merge, labels, counts, or public result construction; a Drive-derived hit with missing or
 invalid lineage fails closed.
+
+### Drive Move to Trash (Phase 2 Tasks 1–2)
+
+The Trash mutation endpoints require an authenticated, active workspace member
+who owns the selected file/folder and every active descendant in a selected
+folder subtree. Existing workspace visibility or explicit `file:view` grants do
+not grant mutation rights. Denials return a generic 404 without decrypting names
+or creating a partial deletion group. Repeated requests on the same group root
+are idempotent and do not reset its original expiry.
+
+Any trashed file or folder ancestor suppresses normal file/folder listings,
+preview/download, ZIP access and shared single/batch source-file authorization.
+Media/OCR and both Search backends inherit source-file denial. Retained metadata
+queries are internal and must be authorized separately before Trash display or
+restoration. Worker/workflow mutation fencing and physical cleanup remain later
+Phase 2 tasks; these endpoints alone do not establish complete retention.

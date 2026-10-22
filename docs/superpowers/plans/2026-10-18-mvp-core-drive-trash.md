@@ -10,7 +10,7 @@
 
 **Spec:** [Drive Trash and retention design](../specs/2026-10-18-mvp-core-drive-trash-design.md), [Drive folder design](../specs/2026-10-18-mvp-core-drive-design.md), [Search design](../specs/2026-10-18-mvp-core-search-design.md). **Prerequisite plan:** [Drive organization](2026-10-18-mvp-core-drive-organization.md), whose V10 folder model and read services must already be implemented and verified.
 
-**Status:** Execution approved 2026-10-22; inline execution on isolated `feat/drive-trash-retention` from `develop`. Task 1 completed and verified; Tasks 2–7 pending.
+**Status:** Execution approved 2026-10-22; inline execution on isolated `feat/drive-trash-retention` from `develop`. Tasks 1–2 completed and verified; Tasks 3–7 pending.
 
 **Spec impact:** No spec change. The review revisions below make the approved workflow invisibility, durable purge, search cleanup, explicit restore destination and recursive Trash confirmation requirements executable and testable.
 
@@ -76,11 +76,11 @@
 - `DriveTrashService.trashFile(String fileId): DriveTrashGroup`; `trashFolder(String folderId): DriveTrashGroup`. HTTP `POST /api/drive/files/{fileId}/trash` and `POST /api/drive/folders/{folderId}/trash`; return `groupId, trashedAt, purgeAfter`, never names in audit/event payloads.
 - Shared `DriveTrashRepository.isActiveFile(String workspaceId, String fileId, Instant now): boolean` and `isActiveFolder(String workspaceId, String folderId, Instant now): boolean` account for **any trashed ancestor**, not just the item's own flag. All file/view authorization SQL and directory-list reads must apply this active predicate.
 
-- [ ] **Step 1: Write RED tests** `trashFileHidesDownloadAndMetadataButRetainsCiphertext`, `trashFolderHidesWholeSubtreeAndZip`, `oldSearchHitFilteredAfterTrash`, `viewerCannotTrashOwnedByAnother`, `concurrentTrashIsIdempotent`.
-- [ ] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveTrashControllerTest,FileViewAuthorizationRepositoryTest test`.
-- [ ] **Step 3: Implement:** one database transaction creates a group, snapshots active descendants and marks them inaccessible. Check owner/mutation permission for the selected item and every affected descendant; reject the whole folder operation if any fails. Extend current file-view single and batch SQL to exclude trashed/expired ancestors **before** response serialization; do not delete encrypted bytes or OCR/invoice rows.
-- [ ] **Step 4: Verify GREEN:** same tests plus `DriveFileControllerTest` and `SearchServiceTest`; assert denial occurs even if Meilisearch retains old hit.
-- [ ] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): move files and folders into recoverable Trash"`.
+- [x] **Step 1: Write RED tests** `trashFileHidesDownloadAndMetadataButRetainsCiphertext`, `trashFolderHidesWholeSubtreeAndZip`, `oldSearchHitFilteredAfterTrash`, `viewerCannotTrashOwnedByAnother`, `concurrentTrashIsIdempotent`.
+- [x] **Step 2: Verify RED:** `cd apps/api && ./mvnw -Dtest=DriveTrashControllerTest,FileViewAuthorizationRepositoryTest test`.
+- [x] **Step 3: Implement:** one database transaction creates a group, snapshots active descendants and marks them inaccessible. Check owner/mutation permission for the selected item and every affected descendant; reject the whole folder operation if any fails. Extend current file-view single and batch SQL to exclude trashed/expired ancestors **before** response serialization; do not delete encrypted bytes or OCR/invoice rows.
+- [x] **Step 4: Verify GREEN:** same tests plus `DriveFileControllerTest` and `SearchServiceTest`; assert denial occurs even if Meilisearch retains old hit.
+- [x] **Step 5: Commit:** `git add apps/api/src/main apps/api/src/test && git commit -m "feat(drive): move files and folders into recoverable Trash"`.
 
 ### Task 3: List Trash and restore a file or original folder tree
 
@@ -173,3 +173,31 @@ Ruling: adapt the skill's Bash bookkeeping scripts to PowerShell with the same
 plan-scoped ignored ledger because this repository requires Windows commands.
 The new schema's duration constraint uses `interval '720' hour`, since PostgreSQL
 calendar-day arithmetic depends on the session timezone across DST.
+
+Task 2 implements `POST /api/drive/files/{fileId}/trash` and
+`POST /api/drive/folders/{folderId}/trash`, returning group ID and UTC dates.
+The existing active workspace member must own every affected item; a denied
+subtree rolls back completely. Concurrent repeats return the same group without
+resetting retention. Independent prior groups are excluded from the snapshot.
+Audit attributes contain only group ID and status. Ciphertext and derived rows
+are retained. No unconsumed lifecycle event is introduced.
+
+A shared recursive active-folder SQL predicate gates normal folder/file listing,
+single/batch source-file authorization and ZIP root access. Trashed ancestors
+fail closed even when a descendant's own marker is absent; Drive mutation/upload
+into hidden folders is rejected. Search inherits this gate for both remote hits
+and PostgreSQL fallback; HTTP tests use a controlled local search server and
+persisted synthetic projections. H2 and PostgreSQL test the ancestor predicate.
+
+Task 2 RED: six HTTP regressions failed on missing Trash operations; existing
+folder tests caught a root-listing regression during implementation. GREEN:
+API offline `verify` passed 246 tests, zero failures/errors/skips, including
+PostgreSQL migrations and concurrent claims, Spotless and packaging. Existing
+archive unit fixtures now explicitly model their valid folders as active.
+
+Spec impact: **no spec change**. API-only slice; no UI/components, frontend route,
+worker behavior or event contract changed. Tasks 3–7 still own restore, worker
+and workflow fences, durable remote search cleanup, purge, UI and acceptance.
+Do not deploy this partial phase as completed Trash/retention functionality.
+The referenced `instructions/backend-endpoint-naming.md` is absent in this
+checkout; approved plan routes and existing controller conventions were used.

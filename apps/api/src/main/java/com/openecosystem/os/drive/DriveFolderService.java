@@ -187,6 +187,7 @@ public class DriveFolderService {
     return folders
         .findByIdForWorkspace(folderId, p.workspaceId())
         .filter(f -> f.ownerId().equals(p.actorId()))
+        .filter(f -> folders.isActiveFolder(p.workspaceId(), folderId))
         .orElseThrow(DriveFolderService::notFound);
   }
 

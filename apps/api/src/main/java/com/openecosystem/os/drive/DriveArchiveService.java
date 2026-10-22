@@ -109,6 +109,7 @@ public class DriveArchiveService {
         folders
             .findByIdForWorkspace(folderId, actor.workspaceId())
             .orElseThrow(DriveArchiveService::denied);
+    if (!folders.isActiveFolder(actor.workspaceId(), folderId)) throw denied();
     requireOwner(root, actor);
     String rootName = safeSegment(encryption.decryptText(root.encryptedName(), root.nameIv()));
     var pending = new ArrayDeque<Directory>();

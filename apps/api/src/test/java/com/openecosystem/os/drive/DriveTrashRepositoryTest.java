@@ -192,6 +192,28 @@ class DriveTrashRepositoryTest {
     assertThat(repository.attachFolder(WORKSPACE, "late-folder", "closed")).isFalse();
   }
 
+  @Test
+  void activePredicatesExcludeAnyTrashedAncestor() {
+    folder("active-root", null);
+    folder("active-child", "active-root");
+    file("active-file", "active-child");
+    assertThat(repository.isActiveFile(WORKSPACE, "active-file", NOW)).isTrue();
+    assertThat(repository.isActiveFolder(WORKSPACE, "active-child", NOW)).isTrue();
+    repository.createGroup(group("ancestor", "folder", "active-root", NOW));
+    repository.attachFolder(WORKSPACE, "active-root", "ancestor");
+    assertThat(repository.isActiveFile(WORKSPACE, "active-file", NOW)).isFalse();
+    assertThat(repository.isActiveFolder(WORKSPACE, "active-child", NOW)).isFalse();
+    var authorization = new FileViewAuthorizationRepository(jdbc);
+    assertThat(authorization.findFacts("usr_dev_placeholder", WORKSPACE, "active-file")).isEmpty();
+    assertThat(
+            authorization.findAllowedFileIds(
+                "usr_dev_placeholder", WORKSPACE, java.util.List.of("active-file")))
+        .isEmpty();
+    assertThat(new DriveFolderRepository(jdbc).listChildren(WORKSPACE, "active-root")).isEmpty();
+    assertThat(new DriveFileRepository(jdbc).listByFolder(WORKSPACE, "active-child")).isEmpty();
+    assertThat(repository.isActiveFile("foreign", "legacy", NOW)).isFalse();
+  }
+
   private DriveTrashGroup group(String id, String type, String root, Instant when) {
     return DriveTrashGroup.trashed(id, WORKSPACE, type, root, null, "usr_dev_placeholder", when);
   }
