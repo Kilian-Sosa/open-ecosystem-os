@@ -1,6 +1,7 @@
 package com.openecosystem.os.drive.storage;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.springframework.stereotype.Service;
@@ -84,6 +85,17 @@ public class S3FileObjectStorage implements FileObjectStorage {
     } catch (S3Exception ignored) {
       // Best-effort cleanup after a database failure; do not mask the original upload error.
     }
+  }
+
+  @Override
+  public void deleteEncryptedObject(String storageKey) {
+    s3Client.deleteObject(
+        DeleteObjectRequest.builder()
+            .bucket(properties.bucket())
+            .key(storageKey)
+            .overrideConfiguration(
+                configuration -> configuration.apiCallTimeout(Duration.ofMinutes(1)))
+            .build());
   }
 
   private void ensureBucket() {

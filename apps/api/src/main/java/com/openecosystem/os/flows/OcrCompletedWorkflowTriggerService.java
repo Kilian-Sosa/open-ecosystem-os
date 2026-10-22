@@ -1,8 +1,10 @@
 package com.openecosystem.os.flows;
 
 import com.openecosystem.os.common.events.EventConsumptionRepository;
+import com.openecosystem.os.drive.DriveSourceLifecycle;
 import java.time.Instant;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OcrCompletedWorkflowTriggerService {
@@ -10,28 +12,32 @@ public class OcrCompletedWorkflowTriggerService {
   private static final String CONSUMER_NAME = "flows.ocr-completed.workflow-trigger";
   private static final String OCR_COMPLETED = "OcrCompleted";
 
+  private final DriveSourceLifecycle lifecycle;
   private final WorkflowDefinitionValidator definitionValidator;
   private final JdbcWorkflowRepository workflowRepository;
   private final WorkflowRunner workflowRunner;
   private final EventConsumptionRepository eventConsumptionRepository;
 
   public OcrCompletedWorkflowTriggerService(
+      DriveSourceLifecycle lifecycle,
       WorkflowDefinitionValidator definitionValidator,
       JdbcWorkflowRepository workflowRepository,
       WorkflowRunner workflowRunner,
       EventConsumptionRepository eventConsumptionRepository) {
+    this.lifecycle = lifecycle;
     this.definitionValidator = definitionValidator;
     this.workflowRepository = workflowRepository;
     this.workflowRunner = workflowRunner;
     this.eventConsumptionRepository = eventConsumptionRepository;
   }
 
+  @Transactional
   public void trigger(OcrCompletedEvent event) {
     if (eventConsumptionRepository.exists(CONSUMER_NAME, event.idempotencyKey())) {
       return;
     }
 
-    if (event.version() == 1) {
+    if (event.version() == 1 && lifecycle.lockActiveFile(event.workspaceId(), event.fileId())) {
       workflowRepository.listActiveByWorkspace(event.workspaceId()).stream()
           .filter(workflowWithVersion -> matchesOcrCompletedTrigger(workflowWithVersion.version()))
           .forEach(workflowWithVersion -> runWorkflow(workflowWithVersion, event));

@@ -19,7 +19,7 @@ public class DriveFileRepository {
       """
       file_id, workspace_id, owner_id, visibility, folder_id, encrypted_name, content_type, size_bytes,
       checksum_sha256, storage_key, encryption_algorithm, encryption_key_id, content_iv, name_iv,
-      created_at, updated_at
+      created_at, updated_at, deletion_group_id, original_folder_id
       """;
   private static final RowMapper<DriveFileMetadata> ROW_MAPPER = DriveFileRepository::mapRow;
 
@@ -73,14 +73,18 @@ public class DriveFileRepository {
     return jdbcTemplate.query(
         "select "
             + METADATA_COLUMNS
-            + " from drive_files where workspace_id = ? order by created_at desc",
+            + " from drive_files f where workspace_id = ? and "
+            + DriveLifecycleSql.activeFile("f")
+            + " order by created_at desc",
         ROW_MAPPER,
         workspaceId);
   }
 
   public List<String> listIdsByWorkspace(String workspaceId) {
     return jdbcTemplate.queryForList(
-        "select file_id from drive_files where workspace_id = ? order by created_at desc",
+        "select file_id from drive_files f where workspace_id = ? and "
+            + DriveLifecycleSql.activeFile("f")
+            + " order by created_at desc",
         String.class,
         workspaceId);
   }
@@ -93,7 +97,9 @@ public class DriveFileRepository {
     String query =
         "select "
             + METADATA_COLUMNS
-            + " from drive_files where workspace_id = ? and folder_id "
+            + " from drive_files f where workspace_id = ? and "
+            + DriveLifecycleSql.activeFile("f")
+            + " and folder_id "
             + (folderId == null ? "is null" : "= ?")
             + " order by created_at desc limit ?";
     return folderId == null
@@ -195,6 +201,8 @@ public class DriveFileRepository {
         resultSet.getString("content_iv"),
         resultSet.getString("name_iv"),
         resultSet.getTimestamp("created_at").toInstant(),
-        resultSet.getTimestamp("updated_at").toInstant());
+        resultSet.getTimestamp("updated_at").toInstant(),
+        resultSet.getString("deletion_group_id"),
+        resultSet.getString("original_folder_id"));
   }
 }

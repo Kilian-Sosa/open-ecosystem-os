@@ -1,5 +1,6 @@
 package com.openecosystem.os.worker.ocr;
 
+import com.openecosystem.os.worker.drive.DriveLifecycleFence;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -9,14 +10,17 @@ import org.springframework.stereotype.Repository;
 public class JdbcDriveOcrMetadataRepository implements DriveOcrMetadataRepository {
 
   private final JdbcTemplate jdbcTemplate;
+  private final DriveLifecycleFence lifecycle;
 
-  public JdbcDriveOcrMetadataRepository(JdbcTemplate jdbcTemplate) {
+  public JdbcDriveOcrMetadataRepository(JdbcTemplate jdbcTemplate, DriveLifecycleFence lifecycle) {
     this.jdbcTemplate = jdbcTemplate;
+    this.lifecycle = lifecycle;
   }
 
   @Override
   public Optional<DriveOcrFileMetadata> findByFileIdAndWorkspaceId(
       String fileId, String workspaceId) {
+    if (!lifecycle.isActiveFile(workspaceId, fileId)) return Optional.empty();
     List<DriveOcrFileMetadata> results =
         jdbcTemplate.query(
             """

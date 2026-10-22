@@ -212,3 +212,34 @@ authorized resources. Search omits a denied derived hit from its normal response
 Meilisearch normalized extraction candidates are each filtered by the source `metadata.fileId`
 before merge, labels, counts, or public result construction; a Drive-derived hit with missing or
 invalid lineage fails closed.
+
+### Drive Move to Trash (Phase 2 Tasks 1–2)
+
+The Trash mutation endpoints require an authenticated, active workspace member
+who owns the selected file/folder and every active descendant in a selected
+folder subtree. Existing workspace visibility or explicit `file:view` grants do
+not grant mutation rights. Denials return a generic 404 without decrypting names
+or creating a partial deletion group. Repeated requests on the same group root
+are idempotent and do not reset its original expiry.
+
+Any trashed file or folder ancestor suppresses normal file/folder listings,
+preview/download, ZIP access and shared single/batch source-file authorization.
+Media/OCR and both Search backends inherit source-file denial. Retained metadata
+queries are internal and must be authorized separately before Trash display or
+restoration. Worker/workflow mutation fencing and physical cleanup remain later
+Phase 2 tasks; these endpoints alone do not establish complete retention.
+
+### Trash listing and restoration (Phase 2 Task 3)
+
+`GET /api/drive/trash` lists only the active member's owned group roots, including
+UTC deletion/expiry, lifecycle and `canRestore` state. Names are decrypted only
+after ownership checks. `POST /api/drive/trash/{groupId}/restore` also rechecks
+ownership of every retained member and the destination, serialized with cleanup
+claims through the workspace row lock and group state transition. Missing or
+inaccessible group IDs return the same generic 404.
+
+Restore is rejected at or after the exact 720-hour deadline, and after a purge
+claim. Destination omission uses the original active parent; explicit JSON null
+selects Drive root. An unavailable original parent requires a chosen destination.
+Name conflicts return 409 without overwriting another item. Only the selected
+group's membership is cleared; independent child groups remain hidden.

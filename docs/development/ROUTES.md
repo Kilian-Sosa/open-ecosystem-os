@@ -18,6 +18,7 @@ Currently implemented routes include:
 /                              Public landing page
 /app/dashboard                  Workspace dashboard
 /app/drive                      Drive / file manager
+/app/drive/trash                Recoverable deletion and permanent cleanup
 /downloads/drive/folders/{folderId}  Native streamed folder ZIP (Next.js Node)
 /app/flows                      Open Ecosystem Flows
 /app/media                      Media / OCR

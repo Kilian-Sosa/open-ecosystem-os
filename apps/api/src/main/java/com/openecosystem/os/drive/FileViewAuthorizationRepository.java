@@ -85,7 +85,9 @@ public class FileViewAuthorizationRepository {
             from drive_files f
             where f.file_id = ?
               and f.workspace_id = ?
-            """,
+            """
+                + " and "
+                + DriveLifecycleSql.activeFile("f"),
             FACTS_ROW_MAPPER,
             actorId,
             actorId,
@@ -160,7 +162,9 @@ public class FileViewAuthorizationRepository {
                             and grant_record.revoked_at is null
                         )
                       )
-                    """,
+                    """
+                    + " and "
+                    + DriveLifecycleSql.activeFile("f"),
                 String.class,
                 batchArguments(arguments, actorId))));
   }

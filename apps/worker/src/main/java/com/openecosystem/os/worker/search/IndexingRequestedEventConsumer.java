@@ -11,16 +11,22 @@ import org.springframework.stereotype.Component;
 @Component
 public class IndexingRequestedEventConsumer {
 
+  private final com.fasterxml.jackson.databind.ObjectMapper mapper;
+  private final DriveFileLifecycleConsumer lifecycle;
   private final IndexingRequestedEventParser eventParser;
   private final SearchIndexingProcessor processor;
   private final RabbitTemplate rabbitTemplate;
   private final EventMessagingProperties properties;
 
   public IndexingRequestedEventConsumer(
+      com.fasterxml.jackson.databind.ObjectMapper mapper,
+      DriveFileLifecycleConsumer lifecycle,
       IndexingRequestedEventParser eventParser,
       SearchIndexingProcessor processor,
       RabbitTemplate rabbitTemplate,
       EventMessagingProperties properties) {
+    this.mapper = mapper;
+    this.lifecycle = lifecycle;
     this.eventParser = eventParser;
     this.processor = processor;
     this.rabbitTemplate = rabbitTemplate;
@@ -32,6 +38,14 @@ public class IndexingRequestedEventConsumer {
           "${openecosystem.events.queues.search-indexing-requested:openecosystem.search.indexing-requested}")
   public void consume(String envelopeJson) {
     try {
+      if (mapper
+          .readTree(envelopeJson)
+          .path("eventType")
+          .asText()
+          .equals("DriveFileLifecycleChanged")) {
+        if (!lifecycle.consume(envelopeJson)) publishToDeadLetterQueue(envelopeJson);
+        return;
+      }
       IndexingRequestedEvent event = eventParser.parse(envelopeJson);
       try (CorrelationMdcScope ignored = CorrelationMdcScope.open(event.correlationId())) {
         SearchIndexingResult result = processor.process(event);
@@ -39,6 +53,8 @@ public class IndexingRequestedEventConsumer {
           throw new AmqpRejectAndDontRequeueException("Search indexing will be retried");
         if (result.deadLetter()) publishToDeadLetterQueue(envelopeJson);
       }
+    } catch (java.io.IOException exception) {
+      throw new AmqpRejectAndDontRequeueException("Search event could not be parsed");
     } catch (AmqpRejectAndDontRequeueException exception) {
       throw exception;
     } catch (RuntimeException exception) {

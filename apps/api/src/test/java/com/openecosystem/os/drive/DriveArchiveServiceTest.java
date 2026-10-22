@@ -333,6 +333,7 @@ class DriveArchiveServiceTest {
             Instant.now(),
             Instant.now());
     when(folders.findByIdForWorkspace(id, actor.workspaceId())).thenReturn(Optional.of(f));
+    when(folders.isActiveFolder(actor.workspaceId(), id)).thenReturn(true);
     return f;
   }
 

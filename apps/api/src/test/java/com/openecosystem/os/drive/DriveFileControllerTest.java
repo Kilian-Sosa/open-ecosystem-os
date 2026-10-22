@@ -861,6 +861,11 @@ class DriveFileControllerTest {
       objects.remove(storageKey);
     }
 
+    @Override
+    public void deleteEncryptedObject(String storageKey) {
+      objects.remove(storageKey);
+    }
+
     byte[] objectBytes(String storageKey) {
       return objects.get(storageKey);
     }

@@ -105,6 +105,17 @@ public class JdbcSearchDocumentRepository {
     return results.stream().findFirst();
   }
 
+  public boolean isConfirmedInvoice(String workspaceId, String fileId, String extractionId) {
+    return Boolean.TRUE.equals(
+        jdbcTemplate.queryForObject(
+            "select exists(select 1 from invoice_extractions where workspace_id=? and file_id=? and"
+                + " extraction_id=? and status='confirmed')",
+            Boolean.class,
+            workspaceId,
+            fileId,
+            extractionId));
+  }
+
   public List<SearchDocument> searchLocal(String workspaceId, String query) {
     String normalized = "%" + (query == null ? "" : query.trim().toLowerCase()) + "%";
     return jdbcTemplate.query(

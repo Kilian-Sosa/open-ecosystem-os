@@ -61,6 +61,10 @@ class SearchServiceTest {
           failed_at timestamp
         )
         """);
+    jdbcTemplate.execute("drop table if exists invoice_extractions");
+    jdbcTemplate.execute(
+        "create table invoice_extractions(extraction_id varchar(64),workspace_id"
+            + " varchar(128),file_id varchar(64),status varchar(32))");
     repository = new JdbcSearchDocumentRepository(jdbcTemplate, objectMapper);
     meilisearchSearchClient = new FakeMeilisearchSearchClient(objectMapper);
     authorizationService = new RecordingResourceAuthorizationService();
@@ -245,6 +249,29 @@ class SearchServiceTest {
         status);
   }
 
+  @Test
+  void retainedInvoiceDraftIsExcludedFromLocalAndRemoteResultsAfterRestore() {
+    repository.save(searchDocument("srch_draft", "file_test_invoice", "Synthetic draft invoice"));
+    jdbcTemplate.update(
+        "update search_documents set source_type='invoice_extraction' where"
+            + " search_document_id='srch_draft'");
+    var draft = remoteResult("srch_draft", "file_test_invoice", "Synthetic draft invoice");
+    meilisearchSearchClient.results =
+        List.of(
+            new SearchCandidate(
+                draft.id(),
+                "invoice_extraction",
+                draft.sourceId(),
+                draft.title(),
+                draft.summary(),
+                draft.resourceHref(),
+                draft.correlationId(),
+                draft.status(),
+                draft.metadata(),
+                draft.createdAt()));
+    assertThat(searchService.search("invoice").results()).isEmpty();
+  }
+
   private SearchDocument searchDocument(String id, Object fileId, String title) {
     return searchDocument(id, fileId, title, SearchDocumentStatus.INDEXED);
   }
@@ -259,7 +286,7 @@ class SearchServiceTest {
     return new SearchDocument(
         id,
         "wrk_test",
-        "invoice_extraction",
+        "synthetic_drive_projection",
         "invx_" + id,
         title,
         "Test-only invoice extraction fixture.",
@@ -283,7 +310,7 @@ class SearchServiceTest {
     if (fileId != null) metadata.put("fileId", fileId);
     return new SearchCandidate(
         id,
-        "invoice_extraction",
+        "synthetic_drive_projection",
         "invx_" + id,
         title,
         "Test-only invoice extraction fixture.",

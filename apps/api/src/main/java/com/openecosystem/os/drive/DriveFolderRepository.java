@@ -16,7 +16,7 @@ public class DriveFolderRepository {
   private static final String METADATA_COLUMNS =
       """
       folder_id, workspace_id, owner_id, parent_folder_id, encrypted_name, name_iv,
-      created_at, updated_at
+      created_at, updated_at, deletion_group_id, original_parent_folder_id
       """;
   private static final RowMapper<DriveFolderMetadata> ROW_MAPPER = DriveFolderRepository::mapRow;
   private final JdbcTemplate jdbcTemplate;
@@ -64,7 +64,9 @@ public class DriveFolderRepository {
     String query =
         "select "
             + METADATA_COLUMNS
-            + " from drive_folders where workspace_id = ? and parent_folder_id "
+            + " from drive_folders f where workspace_id = ? and "
+            + DriveLifecycleSql.activeFolder("f")
+            + " and parent_folder_id "
             + (parentId == null ? "is null" : "= ?")
             + " order by created_at, folder_id limit ?";
     return parentId == null
@@ -125,6 +127,18 @@ public class DriveFolderRepository {
         > 0;
   }
 
+  public boolean isActiveFolder(String workspaceId, String folderId) {
+    return Boolean.TRUE.equals(
+        jdbcTemplate.queryForObject(
+            "select exists (select 1 from drive_folders f where f.workspace_id = ? and f.folder_id"
+                + " = ? and "
+                + DriveLifecycleSql.activeFolder("f")
+                + ")",
+            Boolean.class,
+            workspaceId,
+            folderId));
+  }
+
   private static DriveFolderMetadata mapRow(ResultSet resultSet, int rowNumber)
       throws SQLException {
     return new DriveFolderMetadata(
@@ -135,6 +149,8 @@ public class DriveFolderRepository {
         resultSet.getString("encrypted_name"),
         resultSet.getString("name_iv"),
         resultSet.getTimestamp("created_at").toInstant(),
-        resultSet.getTimestamp("updated_at").toInstant());
+        resultSet.getTimestamp("updated_at").toInstant(),
+        resultSet.getString("deletion_group_id"),
+        resultSet.getString("original_parent_folder_id"));
   }
 }

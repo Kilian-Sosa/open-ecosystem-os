@@ -7,6 +7,8 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
+import Link from "next/link";
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
@@ -30,12 +32,16 @@ import {
   fetchDriveFolderPath,
   type DriveFile,
   type DriveFolder,
+  type DriveTrashMutation,
+  restoreDriveTrashItem,
 } from "@/lib/drive-api";
 import { driveMockFiles, type DriveState } from "@/lib/drive-mock-data";
 import { cn } from "@/lib/cn";
 import { useDriveFolderContents, useUploadDriveFile } from "./use-drive-files";
 import { DriveFolderExplorer } from "./drive-folder-explorer";
 import { DriveFileActions } from "./drive-file-actions";
+import { driveButton } from "./drive-action-dialog";
+import { useRefreshDrive } from "./use-drive-trash";
 
 type DriveScreenProps = {
   initialFileId?: string;
@@ -46,6 +52,24 @@ export function DriveScreen({
   initialFileId,
   stateOverride,
 }: DriveScreenProps) {
+  const [trashedGroup, setTrashedGroup] = useState<DriveTrashMutation | null>(
+    null,
+  );
+  const refreshDrive = useRefreshDrive();
+  const undo = useMutation({
+    mutationFn: (groupId: string) => restoreDriveTrashItem(groupId),
+    onSuccess: async () => {
+      setTrashedGroup(null);
+      await refreshDrive();
+    },
+  });
+  function handleTrashed(group: DriveTrashMutation) {
+    setTrashedGroup(group);
+    setRetainedFile(null);
+    setSelectedFileId(null);
+    setMobileSheetOpen(false);
+    undo.reset();
+  }
   const [folderPath, setFolderPath] = useState<DriveFolder[]>([]);
   const [retainedFile, setRetainedFile] = useState<DriveFile | null>(null);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(
@@ -187,6 +211,7 @@ export function DriveScreen({
         key={selectedFile.fileId}
         file={selectedFile}
         onChanged={handleChanged}
+        onTrashed={handleTrashed}
       />
     ) : null;
   const inspector =
@@ -232,13 +257,41 @@ export function DriveScreen({
               onUpload={handleUpload}
             />
           }
+          secondaryAction={
+            <Link className={driveButton} href="/app/drive/trash">
+              Trash
+            </Link>
+          }
         />
+
+        {trashedGroup ? (
+          <div
+            role="status"
+            className="rounded-card border border-border bg-surface p-4 text-sm"
+          >
+            Moved to Trash. Recoverable for 30 days.{" "}
+            <button
+              className={driveButton}
+              disabled={undo.isPending}
+              onClick={() => undo.mutate(trashedGroup.groupId)}
+            >
+              Undo
+            </button>
+            {undo.isError ? (
+              <p role="alert">
+                Undo failed. Open Trash to choose a restore destination or check
+                the retention deadline.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         {stateOverride === undefined ? (
           <DriveFolderExplorer
             path={folderPath}
             folders={state === "normal" ? folders : []}
             available={!filesQuery.isPending && !readError}
+            onTrashed={handleTrashed}
             onNavigate={(path) => {
               navigationVersion.current++;
               setInitialLocation({ resolved: true, error: null });

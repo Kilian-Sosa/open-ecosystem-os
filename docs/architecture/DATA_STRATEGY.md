@@ -219,3 +219,19 @@ Index:
 ### Retention and privacy
 
 Open Ledger must support export and deletion of finance data. Finance data should not be mixed with unrelated audit/search data in a way that prevents deletion requests from being completed.
+
+### Drive Trash persistence foundation (V11)
+
+`drive_trash_groups` records workspace-scoped deletion groups, their original
+root/location, actor, UTC deletion/expiry instants and typed lifecycle state.
+Expiry is exactly 720 hours. Nullable file/folder group references snapshot only
+active-at-deletion members; separate prior groups keep their own deadlines.
+Original placement IDs are deliberately retained without parent foreign keys so
+future parent purge cannot erase independent groups. No cascade deletes groups.
+
+Cleanup claims persist a five-minute lease and unique token, attempt count,
+retry instant, metadata-only error code and object/derived/search checkpoints.
+Expired claims can be recovered independently of the original retention deadline;
+a stale token cannot checkpoint or complete cleanup. Claims use the existing
+workspace mutation lock. This foundation enables no user-facing deletion or
+physical cleanup until the subsequent Trash, worker/search and purge tasks exist.

@@ -11,7 +11,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-@SpringBootTest(classes = OpenEcosystemApiApplication.class)
+@SpringBootTest(
+    classes = OpenEcosystemApiApplication.class,
+    properties =
+        "spring.datasource.url=jdbc:h2:mem:uploaded_lifecycle;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
 class FileUploadedOcrJobServiceTest {
 
   @Autowired private FileUploadedOcrJobService service;
@@ -30,6 +33,7 @@ class FileUploadedOcrJobServiceTest {
     jdbcTemplate.update("delete from event_outbox");
     jdbcTemplate.update("delete from audit_records");
     jdbcTemplate.update("delete from drive_files");
+    jdbcTemplate.update("delete from drive_trash_groups");
   }
 
   @Test
@@ -93,6 +97,42 @@ class FileUploadedOcrJobServiceTest {
     assertThat(consumptions).isEqualTo(1);
   }
 
+  @Test
+  void delayedUploadAfterTrashIsConsumedWithoutCreatingJob() {
+    FileUploadedEvent event = fileUploaded("evt_trashed", "file_trashed", "application/pdf");
+    var trash = new com.openecosystem.os.drive.DriveTrashRepository(jdbcTemplate);
+    var group =
+        com.openecosystem.os.drive.DriveTrashGroup.trashed(
+            "trash_delayed",
+            "wrk_dev_placeholder",
+            "file",
+            "file_trashed",
+            null,
+            "usr_dev_placeholder",
+            Instant.now());
+    trash.createGroup(group);
+    trash.attachFile("wrk_dev_placeholder", "file_trashed", group.groupId());
+    service.queueOcrJobIfEligible(event);
+    service.queueOcrJobIfEligible(event);
+    assertThat(jdbcTemplate.queryForObject("select count(*) from ocr_jobs", Integer.class))
+        .isZero();
+    assertThat(
+            jdbcTemplate.queryForObject("select count(*) from event_consumptions", Integer.class))
+        .isEqualTo(1);
+  }
+
+  @Test
+  void delayedUploadAfterSourceRemovalDoesNotCreateJob() {
+    FileUploadedEvent event = fileUploaded("evt_missing", "file_missing", "application/pdf");
+    jdbcTemplate.update("delete from drive_files where file_id = 'file_missing'");
+    service.queueOcrJobIfEligible(event);
+    assertThat(jdbcTemplate.queryForObject("select count(*) from ocr_jobs", Integer.class))
+        .isZero();
+    assertThat(
+            jdbcTemplate.queryForObject("select count(*) from event_consumptions", Integer.class))
+        .isEqualTo(1);
+  }
+
   private FileUploadedEvent fileUploaded(String eventId, String fileId, String contentType) {
     jdbcTemplate.update(
         """
@@ -100,25 +140,25 @@ class FileUploadedOcrJobServiceTest {
           file_id, workspace_id, owner_id, encrypted_name, content_type, size_bytes,
           checksum_sha256, storage_key, encryption_algorithm, encryption_key_id,
           content_iv, name_iv, created_at, updated_at
-        ) values (?, 'wrk_123', 'usr_123', 'encrypted-name', ?, 1024,
+        ) values (?, 'wrk_dev_placeholder', 'usr_dev_placeholder', 'encrypted-name', ?, 1024,
           'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', ?,
           'AES-256-GCM', 'test-key', 'content-iv', 'name-iv', current_timestamp, current_timestamp)
         """,
         fileId,
         contentType,
-        "workspaces/wrk_123/drive/" + fileId + "/original");
+        "workspaces/wrk_dev_placeholder/drive/" + fileId + "/original");
     return new FileUploadedEvent(
         eventId,
         1,
         Instant.parse("2026-05-22T10:00:00Z"),
-        "wrk_123",
-        "usr_123",
+        "wrk_dev_placeholder",
+        "usr_dev_placeholder",
         "corr_123",
         "drive:" + fileId + ":uploaded:v1",
         fileId,
         contentType,
         1024,
-        "workspaces/wrk_123/drive/" + fileId + "/original",
+        "workspaces/wrk_dev_placeholder/drive/" + fileId + "/original",
         Instant.parse("2026-05-22T10:00:00Z"));
   }
 }

@@ -86,6 +86,32 @@ class OcrJobRepositoryTest {
     assertThat(repository.findSummariesByIdsForWorkspace(List.of(), "wrk_test")).isEmpty();
   }
 
+  @Test
+  void interruptedRestoreRequeueRejectsForeignStaleAndRepeatedClaims() {
+    driveFileRepository.save(file("file_restore", "wrk_test"));
+    repository.saveQueued(job("ocr_restore", "file_restore", "wrk_test"));
+    assertThat(repository.requeueInterruptedForRestore("ocr_restore", "wrk_test", NOW, NOW))
+        .isFalse();
+    jdbcTemplate.update(
+        "update ocr_jobs set status='processing', attempt_count=max_attempts, failed_at=null"
+            + " where job_id='ocr_restore'");
+    assertThat(repository.requeueInterruptedForRestore("ocr_restore", "wrk_other", NOW, NOW))
+        .isFalse();
+    assertThat(
+            repository.requeueInterruptedForRestore(
+                "ocr_restore", "wrk_test", NOW.minusSeconds(1), NOW))
+        .isFalse();
+    assertThat(repository.requeueInterruptedForRestore("ocr_restore", "wrk_test", NOW, NOW))
+        .isTrue();
+    assertThat(repository.requeueInterruptedForRestore("ocr_restore", "wrk_test", NOW, NOW))
+        .isFalse();
+    var recovered = repository.findDetailByIdForWorkspace("ocr_restore", "wrk_test").orElseThrow();
+    assertThat(recovered.status()).isEqualTo(OcrJobStatus.QUEUED);
+    assertThat(recovered.processingStartedAt()).isNull();
+    assertThat(recovered.attemptCount()).isEqualTo(3);
+    assertThat(recovered.maxAttempts()).isEqualTo(4);
+  }
+
   private OcrJob job(String jobId, String fileId, String workspaceId) {
     return new OcrJob(
         jobId,
